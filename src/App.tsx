@@ -39,6 +39,25 @@ function App() {
 		setEditingTask(task);
 		setIsEditingTask(true);
 	};
+	const handleUpdateTimeEstimate = async (taskId: number, timeEstimate: number) => {
+		try {
+			await updateTask(taskId, { timeEstimate });
+		} catch (error) {
+			console.error('Failed to update time estimate:', error);
+		}
+	};
+
+	const handleDeleteTask = async () => {
+		if (!editingTask) return;
+		try {
+			await deleteTask(editingTask.id);
+			setEditingTask(null);
+			setIsEditingTask(false);
+		} catch (error) {
+			console.error('Failed to delete task:', error);
+		}
+	};
+
 	const handleUpdateTask = async () => {
 		if (!editingTask || !editingTask.title.trim()) return;
 
@@ -58,14 +77,15 @@ function App() {
 		console.log('Drag started:', event.active.id);
 		setActiveId(event.active.id as string);
 	};
-
 	const handleDragEnd = async (event: DragEndEvent) => {
 		const { active, over } = event;
 		console.log('Drag ended:', { activeId: active.id, overId: over?.id });
 
+		// Clear active id immediately to remove drag overlay
+		setActiveId(null);
+
 		if (!over) {
 			console.log('No drop target detected');
-			setActiveId(null);
 			return;
 		}
 
@@ -79,8 +99,6 @@ function App() {
 		} else {
 			console.log('Invalid status or missing newStatus:', newStatus);
 		}
-
-		setActiveId(null);
 	};
 
 	const getActiveTask = () => {
@@ -163,14 +181,12 @@ function App() {
 		);
 	}
 
-	// Main Kanban View
 	return (
 		<div className='h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col'>
 			<div className='flex-shrink-0 p-6 border-b bg-white/80 backdrop-blur-sm'>
 				<div className='max-w-7xl mx-auto flex justify-between items-center'>
 					<h1 className='text-3xl font-bold text-gray-800'>DayFlow</h1>
 					<div className='flex gap-3'>
-						{/* Task Edit Dialog */}
 						<Dialog
 							open={isEditingTask}
 							onOpenChange={setIsEditingTask}
@@ -203,13 +219,22 @@ function App() {
 											className='w-full'
 											min='0'
 											max='999'
-										/>
-										<Button
-											onClick={handleUpdateTask}
-											className='w-full'
-										>
-											Update Task
-										</Button>
+										/>{' '}
+										<div className='flex gap-2'>
+											<Button
+												onClick={handleUpdateTask}
+												className='flex-1'
+											>
+												Update Task
+											</Button>
+											<Button
+												variant='destructive'
+												onClick={handleDeleteTask}
+												className='px-4'
+											>
+												Delete
+											</Button>
+										</div>
 									</div>
 								)}
 							</DialogContent>
@@ -248,15 +273,16 @@ function App() {
 					onDragEnd={handleDragEnd}
 				>
 					{' '}
-					<div className='h-full flex overflow-x-auto gap-4 p-4'>
+					<div className='h-full flex justify-center overflow-x-auto w-full gap-8 p-4'>
+						{' '}
 						<KanbanColumn
 							title='Backlog'
 							status='backlog'
 							tasks={getTasksByStatus('backlog')}
 							onMoveTask={moveTask}
 							onEditTask={handleEditTask}
-							onDeleteTask={deleteTask}
 							onAddTask={addTask}
+							onUpdateTimeEstimate={handleUpdateTimeEstimate}
 							showAddButton={true}
 							showProgress={false}
 						/>{' '}
@@ -266,44 +292,43 @@ function App() {
 							tasks={getTasksByStatus('this-week')}
 							onMoveTask={moveTask}
 							onEditTask={handleEditTask}
-							onDeleteTask={deleteTask}
 							onAddTask={addTask}
+							onUpdateTimeEstimate={handleUpdateTimeEstimate}
 							showAddButton={true}
 							showProgress={true}
 							completedCount={Math.floor(getTasksByStatus('this-week').length * 0.3)}
-						/>
+						/>{' '}
 						<KanbanColumn
 							title='Today'
 							status='today'
 							tasks={getTasksByStatus('today')}
 							onMoveTask={moveTask}
 							onEditTask={handleEditTask}
-							onDeleteTask={deleteTask}
 							onAddTask={addTask}
+							onUpdateTimeEstimate={handleUpdateTimeEstimate}
 							showAddButton={true}
 							showProgress={true}
 							completedCount={Math.floor(getTasksByStatus('today').length * 0.6)}
-						/>
+						/>{' '}
 						<KanbanColumn
 							title='Done'
 							status='done'
 							tasks={getTasksByStatus('done')}
 							onMoveTask={moveTask}
 							onEditTask={handleEditTask}
-							onDeleteTask={deleteTask}
 							onAddTask={addTask}
+							onUpdateTimeEstimate={handleUpdateTimeEstimate}
 							showAddButton={false}
 							showProgress={false}
 						/>
 					</div>{' '}
-					<DragOverlay style={{ zIndex: 9999 }}>
+					<DragOverlay dropAnimation={null}>
 						{activeId ? (
-							<div className='rotate-3 scale-105 shadow-2xl'>
+							<div className='rotate-2 scale-105 shadow-2xl opacity-95'>
 								<TaskCard
 									task={getActiveTask()!}
 									onMove={() => {}}
 									onEdit={() => {}}
-									onDelete={() => {}}
 								/>
 							</div>
 						) : null}

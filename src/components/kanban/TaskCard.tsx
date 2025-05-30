@@ -1,22 +1,28 @@
 import { Task } from '@/types';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
-import { GripVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit, Check } from 'lucide-react';
+import { useState } from 'react';
 
 interface TaskCardProps {
 	task: Task;
 	onMove: (taskId: number, status: Task['status']) => void;
 	onEdit?: (task: Task) => void;
-	onDelete?: (taskId: number) => void;
+	onUpdateTimeEstimate?: (taskId: number, timeEstimate: number) => void;
 	isDone?: boolean;
 }
 
-export const TaskCard = ({ task, onMove, onEdit, onDelete, isDone = false }: TaskCardProps) => {
-	const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id.toString() });
+export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = false }: TaskCardProps) => {
+	const [isEditingTime, setIsEditingTime] = useState(false);
+	const [tempTimeEstimate, setTempTimeEstimate] = useState(task.timeEstimate.toString());
+	const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+		id: task.id.toString(),
+	});
+
 	const style = {
 		transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+		transition: isDragging ? 'none' : 'transform 150ms ease-out',
 	};
 
 	const canMoveLeft = task.status !== 'backlog';
@@ -48,119 +54,134 @@ export const TaskCard = ({ task, onMove, onEdit, onDelete, isDone = false }: Tas
 		}
 	};
 
+	const handleEditClick = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		onEdit?.(task);
+	};
+
+	const handleToggleComplete = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (task.status === 'done') {
+			// Move back to previous status (could be 'today' by default)
+			onMove(task.id, 'today');
+		} else {
+			// Move to done
+			onMove(task.id, 'done');
+		}
+	};
+
+	const handleTimeEstimateClick = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		setIsEditingTime(true);
+	};
+
+	const handleTimeEstimateSubmit = () => {
+		const newEstimate = parseInt(tempTimeEstimate) || 0;
+		onUpdateTimeEstimate?.(task.id, newEstimate);
+		setIsEditingTime(false);
+	};
+
+	const handleTimeEstimateKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === 'Enter') {
+			handleTimeEstimateSubmit();
+		} else if (e.key === 'Escape') {
+			setTempTimeEstimate(task.timeEstimate.toString());
+			setIsEditingTime(false);
+		}
+	};
 	return (
 		<div
 			ref={setNodeRef}
 			style={style}
 			{...attributes}
-			className={cn('touch-none transition-all duration-200 group', isDragging && 'opacity-0')}
+			{...listeners}
+			className={cn('touch-none transition-opacity duration-150 group', isDragging && 'opacity-30')}
 		>
-			<div className={cn('bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200', isDone && 'opacity-75 bg-gray-50')}>
-				<div className='pb-2 p-3 sm:p-4'>
-					{' '}
-					<div className='flex justify-between items-start gap-2'>
+			<div className={cn('bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing', isDone && 'opacity-75 bg-gray-50')}>
+				{/* Compact View */}
+				<div className='relative p-3'>
+					{/* Main Content */}
+					<div className='flex items-start justify-between gap-2'>
 						<div className='flex items-start gap-2 flex-1 min-w-0'>
+							{/* Toggle Checkbox */}
 							<button
-								{...listeners}
-								className='cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100 transition-opacity pt-0.5 shrink-0'
-								title='Drag to move task'
+								onClick={handleToggleComplete}
+								className={cn('mt-0.5 shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all cursor-pointer', task.status === 'done' ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-gray-400 bg-white')}
+								title={task.status === 'done' ? 'Mark as incomplete' : 'Mark as complete'}
 							>
-								<GripVertical className='h-3 w-3' />
+								{task.status === 'done' && <Check className='h-2.5 w-2.5' />}
 							</button>
-							<h3
-								className={cn('text-xs sm:text-sm font-medium line-clamp-2 cursor-pointer hover:text-blue-600 flex-1 min-w-0', isDone && 'line-through text-gray-500')}
-								onClick={e => {
-									e.stopPropagation();
-									onEdit?.(task);
-								}}
+							<div className='flex-1 min-w-0'>
+								<h3 className={cn('text-sm font-medium line-clamp-2 leading-tight', isDone && 'line-through text-gray-500', !isDone && 'text-gray-800')}>{task.title}</h3>
+
+								{/* Time Estimate - Always shown, bottom left under title */}
+								<div className='mt-1'>
+									{isEditingTime ? (
+										<input
+											type='number'
+											value={tempTimeEstimate}
+											onChange={e => setTempTimeEstimate(e.target.value)}
+											onBlur={handleTimeEstimateSubmit}
+											onKeyDown={handleTimeEstimateKeyDown}
+											className='text-xs text-gray-500 bg-transparent border-none outline-none w-12 p-0'
+											autoFocus
+											min='0'
+										/>
+									) : (
+										<button
+											onClick={handleTimeEstimateClick}
+											className={cn('text-xs text-gray-500 hover:text-gray-700 transition-colors', isDone && 'text-gray-400')}
+											title='Click to edit time estimate'
+										>
+											{task.timeEstimate > 0 ? `${task.timeEstimate}m est` : '-- est'}
+										</button>
+									)}
+								</div>
+							</div>
+						</div>{' '}
+						{/* Edit button - Always visible in corner */}
+						<div className='flex gap-1'>
+							{/* Move buttons - Only visible on hover */}
+							<div className='flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity'>
+								{canMoveLeft && (
+									<Button
+										size='sm'
+										variant='ghost'
+										className='h-6 w-6 p-0 text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-sm border border-gray-200'
+										onClick={e => {
+											e.stopPropagation();
+											onMove(task.id, getPreviousStatus(task.status));
+										}}
+										title='Move left'
+									>
+										<ChevronLeft className='h-3 w-3' />
+									</Button>
+								)}
+								{canMoveRight && (
+									<Button
+										size='sm'
+										variant='ghost'
+										className='h-6 w-6 p-0 text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-sm border border-gray-200'
+										onClick={e => {
+											e.stopPropagation();
+											onMove(task.id, getNextStatus(task.status));
+										}}
+										title='Move right'
+									>
+										<ChevronRight className='h-3 w-3' />
+									</Button>
+								)}
+							</div>
+							{/* Edit button - Always visible */}
+							<Button
+								size='sm'
+								variant='ghost'
+								className='h-6 w-6 p-0 text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 shadow-sm border border-gray-200'
+								onClick={handleEditClick}
+								title='Edit task'
 							>
-								{task.title}
-							</h3>
-						</div>
-					</div>
-				</div>
-				<div className='pt-0 p-3 sm:p-4 space-y-2 sm:space-y-3'>
-					{task.description && (
-						<p
-							className={cn('text-xs line-clamp-2 sm:line-clamp-3 cursor-pointer hover:text-blue-600 text-gray-600', isDone && 'line-through text-gray-400')}
-							onClick={e => {
-								e.stopPropagation();
-								onEdit?.(task);
-							}}
-						>
-							{task.description}
-						</p>
-					)}
-					{task.tags && task.tags.length > 0 && (
-						<div className='flex flex-wrap gap-1'>
-							{task.tags.slice(0, 2).map((tag, index) => (
-								<Badge
-									key={index}
-									variant='outline'
-									className='text-xs px-1 py-0'
-								>
-									{tag}
-								</Badge>
-							))}
-							{task.tags.length > 2 && (
-								<Badge
-									variant='outline'
-									className='text-xs px-1 py-0'
-								>
-									+{task.tags.length - 2}
-								</Badge>
-							)}
-						</div>
-					)}{' '}
-					<div className='flex justify-between items-center text-xs text-gray-500'>
-						{' '}
-						<div className='flex items-center gap-1 sm:gap-2 flex-wrap'>
-							{task.timeEstimate > 0 && <span className='bg-blue-100 text-blue-700 px-1 sm:px-2 py-1 rounded text-xs whitespace-nowrap'>{task.timeEstimate}m</span>}
-							{task.scheduledDate && <span className='text-gray-400 hidden sm:inline text-xs'>📅 {new Date(task.scheduledDate).toLocaleDateString()}</span>}
-						</div>
-						<div className='flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity'>
-							{canMoveLeft && (
-								<Button
-									size='sm'
-									variant='outline'
-									className='h-5 w-5 sm:h-6 sm:w-6 p-0 text-xs'
-									onClick={e => {
-										e.stopPropagation();
-										onMove(task.id, getPreviousStatus(task.status));
-									}}
-									title='Move left'
-								>
-									←
-								</Button>
-							)}
-							{canMoveRight && (
-								<Button
-									size='sm'
-									variant='outline'
-									className='h-5 w-5 sm:h-6 sm:w-6 p-0 text-xs'
-									onClick={e => {
-										e.stopPropagation();
-										onMove(task.id, getNextStatus(task.status));
-									}}
-									title='Move right'
-								>
-									→
-								</Button>
-							)}
-							{onDelete && (
-								<Button
-									size='sm'
-									variant='outline'
-									className='h-5 w-5 sm:h-6 sm:w-6 p-0 text-xs text-red-500 hover:text-red-700'
-									onClick={e => {
-										e.stopPropagation();
-										onDelete(task.id);
-									}}
-									title='Delete task'
-								>
-									×
-								</Button>
-							)}
+								<Edit className='h-3 w-3' />
+							</Button>
 						</div>
 					</div>
 				</div>

@@ -13,14 +13,14 @@ interface KanbanColumnProps {
 	tasks: Task[];
 	onMoveTask: (taskId: number, newStatus: Task['status']) => void;
 	onEditTask?: (task: Task) => void;
-	onDeleteTask?: (taskId: number) => void;
 	onAddTask?: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
+	onUpdateTimeEstimate?: (taskId: number, timeEstimate: number) => void;
 	showAddButton?: boolean;
 	showProgress?: boolean;
 	completedCount?: number; // For progress calculation
 }
 
-export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onDeleteTask, onAddTask, showAddButton = true, showProgress = false, completedCount = 0 }: KanbanColumnProps) {
+export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, showAddButton = true, showProgress = false, completedCount = 0 }: KanbanColumnProps) {
 	const { isOver, setNodeRef } = useDroppable({
 		id: status,
 	});
@@ -51,8 +51,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onD
 		}
 	};
 	return (
-		<div className='flex-none w-80 bg-white border border-gray-200 flex flex-col h-full'>
-			{/* Column Header */}
+		<div className='flex-none rounded-lg w-80 bg-white border border-gray-200 flex flex-col h-full'>
 			<div className='p-4 border-b border-gray-200 flex-shrink-0'>
 				<div className='flex justify-between items-center mb-2'>
 					<h3 className='font-semibold text-lg text-gray-800'>{title}</h3>
@@ -130,17 +129,17 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onD
 				ref={setNodeRef}
 				className={cn('flex-1 overflow-y-auto p-3 space-y-3 min-h-full transition-colors', isOver && 'bg-blue-50')}
 			>
+				{' '}
 				{tasks.map(task => (
 					<TaskCard
 						key={task.id}
 						task={task}
 						onMove={onMoveTask}
 						onEdit={onEditTask}
-						onDelete={onDeleteTask}
+						onUpdateTimeEstimate={onUpdateTimeEstimate}
 						isDone={status === 'done'}
 					/>
 				))}
-
 				{tasks.length === 0 && (
 					<div className='text-center text-gray-400 py-8 border-2 border-dashed border-gray-200 rounded-lg'>
 						<p className='text-sm'>No tasks</p>
