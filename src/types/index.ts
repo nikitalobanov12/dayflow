@@ -1,38 +1,37 @@
 export interface Task {
-  id: number;
-  title: string;
-  description: string;
-  priority: 'low' | 'medium' | 'high';
-  timeEstimate: number; // in minutes
-  status: 'backlog' | 'this-week' | 'today' | 'done';
-  scheduledDate?: string;
-  createdAt: string;
-  tags?: string[];
+	id: number;
+	title: string;
+	description: string;
+	timeEstimate: number; // in minutes
+	status: 'backlog' | 'this-week' | 'today' | 'done';
+	scheduledDate?: string;
+	createdAt: string;
+	tags?: string[];
 }
 
 export interface Journal {
-  id: number;
-  date: string;
-  content: string;
-  mood?: 'great' | 'good' | 'okay' | 'bad' | 'terrible';
-  createdAt: string;
+	id: number;
+	date: string;
+	content: string;
+	mood?: 'great' | 'good' | 'okay' | 'bad' | 'terrible';
+	createdAt: string;
 }
 
 export interface Sprint {
-  id: number;
-  taskIds: number[];
-  startTime: string;
-  endTime?: string;
-  totalEstimatedTime: number;
-  actualTime?: number;
-  isActive: boolean;
+	id: number;
+	taskIds: number[];
+	startTime: string;
+	endTime?: string;
+	totalEstimatedTime: number;
+	actualTime?: number;
+	isActive: boolean;
 }
 
 export interface Timer {
-  isRunning: boolean;
-  currentTaskId?: number;
-  startTime?: string;
-  elapsedTime: number; // in seconds
-  mode: 'pomodoro' | 'countdown' | 'stopwatch';
-  pomodoroLength: number; // in minutes
+	isRunning: boolean;
+	currentTaskId?: number;
+	startTime?: string;
+	elapsedTime: number; // in seconds
+	mode: 'pomodoro' | 'countdown' | 'stopwatch';
+	pomodoroLength: number; // in minutes
 }

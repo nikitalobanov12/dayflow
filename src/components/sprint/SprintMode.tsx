@@ -172,11 +172,9 @@ export function SprintMode({ tasks, onTaskComplete, onExit }: SprintModeProps) {
 				{/* Current Focus */}
 				{currentTask && !isBreak && (
 					<Card>
+						{' '}
 						<CardHeader>
-							<CardTitle className='flex items-center gap-2'>
-								🎯 Current Task
-								<Badge className='bg-blue-500 text-white'>{currentTask.priority}</Badge>
-							</CardTitle>
+							<CardTitle className='flex items-center gap-2'>🎯 Current Task</CardTitle>
 							<CardDescription>{currentTask.title}</CardDescription>
 						</CardHeader>
 						<CardContent>

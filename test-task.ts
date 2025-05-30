@@ -3,14 +3,13 @@ import { Task } from './src/types';
 
 // Example task for testing
 const testTask: Task = {
-  id: 1,
-  title: "Test Task",
-  description: "This is a test task",
-  priority: "medium",
-  timeEstimate: 30,
-  status: "backlog",
-  tags: ["test"],
-  createdAt: new Date().toISOString()
+	id: 1,
+	title: 'Test Task',
+	description: 'This is a test task',
+	timeEstimate: 30,
+	status: 'backlog',
+	tags: ['test'],
+	createdAt: new Date().toISOString(),
 };
 
-console.log("Test task created:", testTask);
+console.log('Test task created:', testTask);

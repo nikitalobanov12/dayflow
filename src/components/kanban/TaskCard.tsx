@@ -15,22 +15,8 @@ interface TaskCardProps {
 
 export const TaskCard = ({ task, onMove, onEdit, onDelete, isDone = false }: TaskCardProps) => {
 	const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id.toString() });
-
 	const style = {
 		transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-	};
-
-	const getPriorityColor = (priority: Task['priority']) => {
-		switch (priority) {
-			case 'high':
-				return 'bg-red-500 hover:bg-red-600';
-			case 'medium':
-				return 'bg-yellow-500 hover:bg-yellow-600';
-			case 'low':
-				return 'bg-green-500 hover:bg-green-600';
-			default:
-				return 'bg-gray-500 hover:bg-gray-600';
-		}
 	};
 
 	const canMoveLeft = task.status !== 'backlog';
@@ -71,6 +57,7 @@ export const TaskCard = ({ task, onMove, onEdit, onDelete, isDone = false }: Tas
 		>
 			<div className={cn('bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200', isDone && 'opacity-75 bg-gray-50')}>
 				<div className='pb-2 p-3 sm:p-4'>
+					{' '}
 					<div className='flex justify-between items-start gap-2'>
 						<div className='flex items-start gap-2 flex-1 min-w-0'>
 							<button
@@ -90,7 +77,6 @@ export const TaskCard = ({ task, onMove, onEdit, onDelete, isDone = false }: Tas
 								{task.title}
 							</h3>
 						</div>
-						<Badge className={`${getPriorityColor(task.priority)} text-white text-xs shrink-0`}>{task.priority}</Badge>
 					</div>
 				</div>
 				<div className='pt-0 p-3 sm:p-4 space-y-2 sm:space-y-3'>
@@ -125,14 +111,13 @@ export const TaskCard = ({ task, onMove, onEdit, onDelete, isDone = false }: Tas
 								</Badge>
 							)}
 						</div>
-					)}
-
+					)}{' '}
 					<div className='flex justify-between items-center text-xs text-gray-500'>
+						{' '}
 						<div className='flex items-center gap-1 sm:gap-2 flex-wrap'>
-							<span className='bg-blue-100 text-blue-700 px-1 sm:px-2 py-1 rounded text-xs whitespace-nowrap'>{task.timeEstimate}min</span>
+							{task.timeEstimate > 0 && <span className='bg-blue-100 text-blue-700 px-1 sm:px-2 py-1 rounded text-xs whitespace-nowrap'>{task.timeEstimate}m</span>}
 							{task.scheduledDate && <span className='text-gray-400 hidden sm:inline text-xs'>📅 {new Date(task.scheduledDate).toLocaleDateString()}</span>}
 						</div>
-
 						<div className='flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity'>
 							{canMoveLeft && (
 								<Button

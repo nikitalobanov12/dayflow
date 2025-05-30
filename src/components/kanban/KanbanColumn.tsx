@@ -26,29 +26,26 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onD
 	});
 	const [isAdding, setIsAdding] = useState(false);
 	const [newTaskTitle, setNewTaskTitle] = useState('');
-	const [newTaskTime, setNewTaskTime] = useState('00:30');
+	const [newTaskTime, setNewTaskTime] = useState('');
 
 	// Calculate progress percentage
 	const progressPercentage = showProgress && tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
-
 	const handleAddTask = async () => {
 		if (!newTaskTitle.trim() || !onAddTask) return;
 
-		const [hours, minutes] = newTaskTime.split(':').map(Number);
-		const timeInMinutes = hours * 60 + minutes;
+		// Parse time estimate in minutes - if empty, default to 0
+		const timeInMinutes = parseInt(newTaskTime) || 0;
 
 		try {
 			await onAddTask({
 				title: newTaskTitle,
 				description: '',
-				priority: 'medium',
 				timeEstimate: timeInMinutes,
 				status: status,
-				scheduledDate: new Date().toISOString().split('T')[0],
 			});
 			setNewTaskTitle('');
-			setNewTaskTime('00:30');
-			setIsAdding(false);
+			setNewTaskTime('');
+			// Don't close the form - keep isAdding true for easier multiple task creation
 		} catch (error) {
 			console.error('Failed to add task:', error);
 		}
@@ -70,7 +67,6 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onD
 						</Button>
 					)}
 				</div>
-
 				{showProgress ? (
 					<div className='space-y-1'>
 						<div className='flex justify-between text-xs text-gray-600'>
@@ -86,8 +82,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onD
 					</div>
 				) : (
 					<span className='text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full inline-block'>{tasks.length}</span>
-				)}
-
+				)}{' '}
 				{/* Add Task Form */}
 				{isAdding && showAddButton && (
 					<div className='mt-3 space-y-2'>
@@ -97,13 +92,16 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onD
 							onChange={e => setNewTaskTitle(e.target.value)}
 							onKeyDown={e => e.key === 'Enter' && handleAddTask()}
 							className='text-sm'
-						/>
+						/>{' '}
 						<div className='flex gap-2'>
 							<Input
-								type='time'
+								type='number'
+								placeholder='Minutes (optional)'
 								value={newTaskTime}
 								onChange={e => setNewTaskTime(e.target.value)}
 								className='text-sm flex-1'
+								min='0'
+								max='999'
 							/>
 							<Button
 								size='sm'
@@ -111,6 +109,17 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onD
 								disabled={!newTaskTitle.trim()}
 							>
 								Add
+							</Button>
+							<Button
+								size='sm'
+								variant='outline'
+								onClick={() => {
+									setIsAdding(false);
+									setNewTaskTitle('');
+									setNewTaskTime('');
+								}}
+							>
+								Done
 							</Button>
 						</div>
 					</div>

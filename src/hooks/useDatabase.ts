@@ -75,7 +75,6 @@ export const useDatabase = () => {
 				id: row.id,
 				title: row.title,
 				description: row.description,
-				priority: row.priority,
 				timeEstimate: row.time_estimate,
 				status: row.status,
 				scheduledDate: row.scheduled_date,
@@ -91,7 +90,7 @@ export const useDatabase = () => {
 		if (!db) return null;
 
 		try {
-			const result = await db.execute('INSERT INTO tasks (title, description, priority, time_estimate, status, scheduled_date, tags) VALUES ($1, $2, $3, $4, $5, $6, $7)', [task.title, task.description, task.priority, task.timeEstimate, task.status, task.scheduledDate || null, task.tags ? JSON.stringify(task.tags) : null]);
+			const result = await db.execute('INSERT INTO tasks (title, description, time_estimate, status, scheduled_date, tags) VALUES ($1, $2, $3, $4, $5, $6)', [task.title, task.description, task.timeEstimate, task.status, task.scheduledDate || null, task.tags ? JSON.stringify(task.tags) : null]);
 			await loadTasks(); // Refresh tasks after adding
 			return result.lastInsertId;
 		} catch (error) {
@@ -109,7 +108,6 @@ export const useDatabase = () => {
 				id: row.id,
 				title: row.title,
 				description: row.description,
-				priority: row.priority,
 				timeEstimate: row.time_estimate,
 				status: row.status,
 				scheduledDate: row.scheduled_date,
@@ -128,7 +126,6 @@ export const useDatabase = () => {
 		try {
 			const updateFields = [];
 			const values = [];
-
 			if (updates.title) {
 				updateFields.push('title = ?');
 				values.push(updates.title);
@@ -136,10 +133,6 @@ export const useDatabase = () => {
 			if (updates.description !== undefined) {
 				updateFields.push('description = ?');
 				values.push(updates.description);
-			}
-			if (updates.priority) {
-				updateFields.push('priority = ?');
-				values.push(updates.priority);
 			}
 			if (updates.timeEstimate) {
 				updateFields.push('time_estimate = ?');

@@ -46,7 +46,6 @@ function App() {
 			await updateTask(editingTask.id, {
 				title: editingTask.title,
 				description: editingTask.description,
-				priority: editingTask.priority,
 				timeEstimate: editingTask.timeEstimate,
 			});
 			setEditingTask(null);
@@ -192,25 +191,19 @@ function App() {
 											placeholder='Task description'
 											value={editingTask.description}
 											onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
+										/>{' '}
+										<Input
+											type='number'
+											placeholder='Minutes (optional)'
+											value={editingTask.timeEstimate || ''}
+											onChange={e => {
+												const minutes = parseInt(e.target.value) || 0;
+												setEditingTask({ ...editingTask, timeEstimate: minutes });
+											}}
+											className='w-full'
+											min='0'
+											max='999'
 										/>
-										<div className='flex gap-3'>
-											<select
-												className='flex-1 p-2 border rounded'
-												value={editingTask.priority}
-												onChange={e => setEditingTask({ ...editingTask, priority: e.target.value as any })}
-											>
-												<option value='low'>Low Priority</option>
-												<option value='medium'>Medium Priority</option>
-												<option value='high'>High Priority</option>
-											</select>
-											<Input
-												type='number'
-												placeholder='Minutes'
-												value={editingTask.timeEstimate}
-												onChange={e => setEditingTask({ ...editingTask, timeEstimate: parseInt(e.target.value) || 30 })}
-												className='w-24'
-											/>
-										</div>
 										<Button
 											onClick={handleUpdateTask}
 											className='w-full'
