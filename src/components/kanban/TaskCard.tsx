@@ -95,27 +95,28 @@ export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = 
 			style={style}
 			{...attributes}
 			{...listeners}
-			className={cn('touch-none transition-opacity duration-150 group', isDragging && 'opacity-30')}
+			className={cn('touch-none transition-all duration-200 group', isDragging && 'opacity-50 scale-105')}
 		>
-			<div className={cn('bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-grab active:cursor-grabbing', isDone && 'opacity-75 bg-gray-50')}>
+			<div className={cn('bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-grab active:cursor-grabbing backdrop-blur-sm', 'hover:border-border/80 hover:-translate-y-0.5', isDone && 'opacity-70 saturate-50')}>
 				{/* Compact View */}
 				<div className='relative p-3'>
+					{' '}
 					{/* Main Content */}
 					<div className='flex items-start justify-between gap-2'>
-						<div className='flex items-start gap-2 flex-1 min-w-0'>
+						<div className='flex items-start gap-3 flex-1 min-w-0'>
 							{/* Toggle Checkbox */}
 							<button
 								onClick={handleToggleComplete}
-								className={cn('mt-0.5 shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all cursor-pointer', task.status === 'done' ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-gray-400 bg-white')}
+								className={cn('mt-0.5 shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-200 cursor-pointer', task.status === 'done' ? 'bg-primary border-primary text-primary-foreground shadow-sm' : 'border-border hover:border-primary/50 bg-background hover:bg-accent/30')}
 								title={task.status === 'done' ? 'Mark as incomplete' : 'Mark as complete'}
 							>
 								{task.status === 'done' && <Check className='h-2.5 w-2.5' />}
 							</button>
 							<div className='flex-1 min-w-0'>
-								<h3 className={cn('text-sm font-medium line-clamp-2 leading-tight', isDone && 'line-through text-gray-500', !isDone && 'text-gray-800')}>{task.title}</h3>
+								<h3 className={cn('text-sm font-medium line-clamp-2 leading-tight transition-all duration-200', isDone && 'line-through text-muted-foreground', !isDone && 'text-card-foreground')}>{task.title}</h3>
 
 								{/* Time Estimate - Always shown, bottom left under title */}
-								<div className='mt-1'>
+								<div className='mt-1.5'>
 									{isEditingTime ? (
 										<input
 											type='number'
@@ -123,14 +124,14 @@ export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = 
 											onChange={e => setTempTimeEstimate(e.target.value)}
 											onBlur={handleTimeEstimateSubmit}
 											onKeyDown={handleTimeEstimateKeyDown}
-											className='text-xs text-gray-500 bg-transparent border-none outline-none w-12 p-0'
+											className='text-xs text-muted-foreground bg-transparent border-none outline-none w-12 p-0 focus:text-foreground'
 											autoFocus
 											min='0'
 										/>
 									) : (
 										<button
 											onClick={handleTimeEstimateClick}
-											className={cn('text-xs text-gray-500 hover:text-gray-700 transition-colors', isDone && 'text-gray-400')}
+											className={cn('text-xs text-muted-foreground hover:text-foreground transition-colors duration-200 font-medium', isDone && 'text-muted-foreground/60')}
 											title='Click to edit time estimate'
 										>
 											{task.timeEstimate > 0 ? `${task.timeEstimate}m est` : '-- est'}
@@ -142,33 +143,33 @@ export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = 
 						{/* Edit button - Always visible in corner */}
 						<div className='flex gap-1'>
 							{/* Move buttons - Only visible on hover */}
-							<div className='flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity'>
+							<div className='flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-2'>
 								{canMoveLeft && (
 									<Button
 										size='sm'
 										variant='ghost'
-										className='h-6 w-6 p-0 text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-sm border border-gray-200'
+										className='h-7 w-7 p-0 text-muted-foreground hover:text-foreground bg-background/80 hover:bg-accent border border-border/40 shadow-sm hover:shadow-md rounded-lg transition-all duration-200 hover:scale-105'
 										onClick={e => {
 											e.stopPropagation();
 											onMove(task.id, getPreviousStatus(task.status));
 										}}
 										title='Move left'
 									>
-										<ChevronLeft className='h-3 w-3' />
+										<ChevronLeft className='h-3.5 w-3.5' />
 									</Button>
 								)}
 								{canMoveRight && (
 									<Button
 										size='sm'
 										variant='ghost'
-										className='h-6 w-6 p-0 text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-sm border border-gray-200'
+										className='h-7 w-7 p-0 text-muted-foreground hover:text-foreground bg-background/80 hover:bg-accent border border-border/40 shadow-sm hover:shadow-md rounded-lg transition-all duration-200 hover:scale-105'
 										onClick={e => {
 											e.stopPropagation();
 											onMove(task.id, getNextStatus(task.status));
 										}}
 										title='Move right'
 									>
-										<ChevronRight className='h-3 w-3' />
+										<ChevronRight className='h-3.5 w-3.5' />
 									</Button>
 								)}
 							</div>
@@ -176,11 +177,11 @@ export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = 
 							<Button
 								size='sm'
 								variant='ghost'
-								className='h-6 w-6 p-0 text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 shadow-sm border border-gray-200'
+								className='h-7 w-7 p-0 text-muted-foreground hover:text-foreground bg-background/60 hover:bg-accent border border-border/30 shadow-sm hover:shadow-md rounded-lg transition-all duration-200 hover:scale-105'
 								onClick={handleEditClick}
 								title='Edit task'
 							>
-								<Edit className='h-3 w-3' />
+								<Edit className='h-3.5 w-3.5' />
 							</Button>
 						</div>
 					</div>

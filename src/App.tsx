@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { SprintMode } from '@/components/sprint/SprintMode';
 import { Journal } from '@/components/journal/Journal';
@@ -105,13 +106,25 @@ function App() {
 		if (!activeId) return null;
 		return tasks.find(task => task.id.toString() === activeId);
 	};
-
 	if (isLoading) {
 		return (
-			<div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center'>
-				<div className='text-center'>
-					<div className='animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto'></div>
-					<p className='mt-4 text-gray-600'>Loading DayFlow...</p>
+			<div className='min-h-screen bg-background flex items-center justify-center relative overflow-hidden'>
+				{/* Animated background gradient */}
+				<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 animate-pulse'></div>
+				<div className='text-center relative z-10'>
+					<div className='animate-spin rounded-full h-16 w-16 border-4 border-muted border-t-primary mx-auto'></div>
+					<p className='mt-6 text-muted-foreground text-lg font-medium'>Loading DayFlow...</p>
+					<div className='mt-2 flex items-center justify-center gap-1'>
+						<div className='w-2 h-2 bg-primary rounded-full animate-bounce'></div>
+						<div
+							className='w-2 h-2 bg-primary rounded-full animate-bounce'
+							style={{ animationDelay: '0.1s' }}
+						></div>
+						<div
+							className='w-2 h-2 bg-primary rounded-full animate-bounce'
+							style={{ animationDelay: '0.2s' }}
+						></div>
+					</div>
 				</div>
 			</div>
 		);
@@ -128,17 +141,19 @@ function App() {
 			/>
 		);
 	}
-
 	// Journal View
 	if (currentView === 'journal') {
 		return (
-			<div className='min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-6'>
-				<div className='max-w-4xl mx-auto'>
+			<div className='min-h-screen bg-background p-6 relative overflow-hidden'>
+				{/* Subtle background pattern */}
+				<div className='absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-primary/5'></div>
+				<div className='max-w-4xl mx-auto relative z-10'>
 					<div className='flex justify-between items-center mb-8'>
-						<h1 className='text-3xl font-bold text-gray-800'>Daily Journal</h1>
+						<h1 className='text-3xl font-bold text-foreground'>Daily Journal</h1>
 						<Button
 							variant='outline'
 							onClick={() => setCurrentView('kanban')}
+							className='shadow-sm hover:shadow-md transition-all duration-200'
 						>
 							Back to Dashboard
 						</Button>
@@ -156,19 +171,21 @@ function App() {
 			duration: 25 * 60,
 			label: 'Pomodoro Session',
 		};
-
 		return (
-			<div className='min-h-screen bg-gradient-to-br from-green-50 to-teal-100 p-6'>
-				<div className='max-w-2xl mx-auto'>
+			<div className='min-h-screen bg-background p-6 relative overflow-hidden'>
+				{/* Subtle background gradient */}
+				<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/10'></div>
+				<div className='max-w-2xl mx-auto relative z-10'>
 					<div className='flex justify-between items-center mb-8'>
-						<h1 className='text-3xl font-bold text-gray-800'>Focus Timer</h1>
+						<h1 className='text-3xl font-bold text-foreground'>Focus Timer</h1>
 						<Button
 							variant='outline'
 							onClick={() => setCurrentView('kanban')}
+							className='shadow-sm hover:shadow-md transition-all duration-200'
 						>
 							Back to Dashboard
 						</Button>
-					</div>{' '}
+					</div>
 					<div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
 						<Timer
 							mode={pomodoroMode}
@@ -180,92 +197,97 @@ function App() {
 			</div>
 		);
 	}
-
 	return (
-		<div className='h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col'>
-			<div className='flex-shrink-0 p-6 border-b bg-white/80 backdrop-blur-sm'>
+		<div className='h-screen bg-background flex flex-col transition-colors duration-300'>
+			<div className='flex-shrink-0 p-4 border-b border-border bg-card/50 backdrop-blur-sm'>
 				<div className='max-w-7xl mx-auto flex justify-between items-center'>
-					<h1 className='text-3xl font-bold text-gray-800'>DayFlow</h1>
-					<div className='flex gap-3'>
-						<Dialog
-							open={isEditingTask}
-							onOpenChange={setIsEditingTask}
-						>
-							<DialogContent className='max-w-md'>
-								<DialogHeader>
-									<DialogTitle>Edit Task</DialogTitle>
-									<DialogDescription>Update your task details.</DialogDescription>
-								</DialogHeader>{' '}
-								{editingTask && (
-									<div className='space-y-4'>
-										<Input
-											placeholder='Task title'
-											value={editingTask.title}
-											onChange={e => setEditingTask({ ...editingTask, title: e.target.value })}
-										/>
-										<Textarea
-											placeholder='Task description'
-											value={editingTask.description}
-											onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
-										/>{' '}
-										<Input
-											type='number'
-											placeholder='Minutes (optional)'
-											value={editingTask.timeEstimate || ''}
-											onChange={e => {
-												const minutes = parseInt(e.target.value) || 0;
-												setEditingTask({ ...editingTask, timeEstimate: minutes });
-											}}
-											className='w-full'
-											min='0'
-											max='999'
-										/>{' '}
-										<div className='flex gap-2'>
-											<Button
-												onClick={handleUpdateTask}
-												className='flex-1'
-											>
-												Update Task
-											</Button>
-											<Button
-												variant='destructive'
-												onClick={handleDeleteTask}
-												className='px-4'
-											>
-												Delete
-											</Button>
-										</div>
-									</div>
-								)}
-							</DialogContent>
-						</Dialog>
+					<h1 className='text-3xl font-bold text-foreground'>DayFlow</h1>
+					<div className='flex items-center gap-3'>
+						<div className='flex gap-2'>
+							<Button
+								variant='outline'
+								onClick={() => setCurrentView('sprint')}
+								disabled={getTasksByStatus('today').length === 0}
+								className='transition-all duration-200 hover:scale-105'
+							>
+								Start Sprint
+							</Button>
 
-						<Button
-							variant='outline'
-							onClick={() => setCurrentView('sprint')}
-							disabled={getTasksByStatus('today').length === 0}
-						>
-							Start Sprint
-						</Button>
+							<Button
+								variant='outline'
+								onClick={() => setCurrentView('journal')}
+								className='transition-all duration-200 hover:scale-105'
+							>
+								Journal
+							</Button>
 
-						<Button
-							variant='outline'
-							onClick={() => setCurrentView('journal')}
-						>
-							Journal
-						</Button>
-
-						<Button
-							variant='outline'
-							onClick={() => setCurrentView('timer')}
-						>
-							Timer
-						</Button>
+							<Button
+								variant='outline'
+								onClick={() => setCurrentView('timer')}
+								className='transition-all duration-200 hover:scale-105'
+							>
+								Timer
+							</Button>
+						</div>
+						<div className='h-6 w-px bg-border'></div>
+						<ThemeToggle />
 					</div>
 				</div>
-			</div>{' '}
+			</div>
+			<Dialog
+				open={isEditingTask}
+				onOpenChange={setIsEditingTask}
+			>
+				<DialogContent className='max-w-md'>
+					<DialogHeader>
+						<DialogTitle>Edit Task</DialogTitle>
+						<DialogDescription>Update your task details.</DialogDescription>
+					</DialogHeader>{' '}
+					{editingTask && (
+						<div className='space-y-4'>
+							<Input
+								placeholder='Task title'
+								value={editingTask.title}
+								onChange={e => setEditingTask({ ...editingTask, title: e.target.value })}
+							/>
+							<Textarea
+								placeholder='Task description'
+								value={editingTask.description}
+								onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
+							/>{' '}
+							<Input
+								type='number'
+								placeholder='Minutes (optional)'
+								value={editingTask.timeEstimate || ''}
+								onChange={e => {
+									const minutes = parseInt(e.target.value) || 0;
+									setEditingTask({ ...editingTask, timeEstimate: minutes });
+								}}
+								className='w-full'
+								min='0'
+								max='999'
+							/>{' '}
+							<div className='flex gap-2'>
+								<Button
+									onClick={handleUpdateTask}
+									className='flex-1'
+								>
+									Update Task
+								</Button>
+								<Button
+									variant='destructive'
+									onClick={handleDeleteTask}
+									className='px-4'
+								>
+									Delete
+								</Button>{' '}
+							</div>
+						</div>
+					)}
+				</DialogContent>
+			</Dialog>
+
 			<div className='flex-1 relative'>
-				{' '}
 				<DndContext
 					sensors={sensors}
 					collisionDetection={closestCenter}
