@@ -93,8 +93,7 @@ function App() {
 	const handleDragStart = (event: DragStartEvent) => {
 		console.log('Drag started:', event.active.id);
 		setActiveId(event.active.id as string);
-	};
-	const handleDragEnd = async (event: DragEndEvent) => {
+	};	const handleDragEnd = async (event: DragEndEvent) => {
 		const { active, over } = event;
 		console.log('Drag ended:', { activeId: active.id, overId: over?.id });
 
@@ -114,7 +113,7 @@ function App() {
 			return;
 		}
 
-		// Check if we're dropping on a column (status change)
+		// Check if we're dropping directly on a column (status change)
 		if (['backlog', 'this-week', 'today', 'done'].includes(over.id as string)) {
 			const newStatus = over.id as Task['status'];
 			console.log('Moving task to new column:', { taskId, newStatus });
@@ -124,40 +123,52 @@ function App() {
 				await moveTask(taskId, newStatus);
 			}
 			return;
-		} // Check if we're dropping on another task (reordering within same column)
+		}
+
+		// Check if we're dropping on another task
 		const overId = parseInt(over.id as string);
 		const overTask = tasks.find(task => task.id === overId);
 
-		if (overTask && draggedTask.status === overTask.status) {
-			console.log('Reordering within same column:', { taskId, overTaskId: overId });
+		if (overTask) {
+			// Same column - reorder within column
+			if (draggedTask.status === overTask.status) {
+				console.log('Reordering within same column:', { taskId, overTaskId: overId });
 
-			// Get all tasks in the same column, sorted by position
-			const columnTasks = tasks.filter(task => task.status === draggedTask.status).sort((a, b) => a.position - b.position);
+				// Get all tasks in the same column, sorted by position
+				const columnTasks = tasks
+					.filter(task => task.status === draggedTask.status)
+					.sort((a, b) => a.position - b.position);
 
-			// Find the indices
-			const oldIndex = columnTasks.findIndex(task => task.id === taskId);
-			const newIndex = columnTasks.findIndex(task => task.id === overId);
-			if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-				console.log('Moving from index', oldIndex, 'to index', newIndex);
+				// Find the indices
+				const oldIndex = columnTasks.findIndex(task => task.id === taskId);
+				const newIndex = columnTasks.findIndex(task => task.id === overId);
 
-				// Remove the dragged task from its old position
-				const reorderedTasks = [...columnTasks];
-				const [movedTask] = reorderedTasks.splice(oldIndex, 1);
+				if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+					console.log('Moving from index', oldIndex, 'to index', newIndex);
 
-				// Insert it at the new position
-				reorderedTasks.splice(newIndex, 0, movedTask);
+					// Remove the dragged task from its old position
+					const reorderedTasks = [...columnTasks];
+					const [movedTask] = reorderedTasks.splice(oldIndex, 1);
 
-				// Extract task IDs in their new order
-				const newOrderIds = reorderedTasks.map(task => task.id);
+					// Insert it at the new position
+					reorderedTasks.splice(newIndex, 0, movedTask);
 
-				console.log('New task order:', newOrderIds);
+					// Extract task IDs in their new order
+					const newOrderIds = reorderedTasks.map(task => task.id);
 
-				// Update all positions in one batch operation
-				try {
-					await reorderTasksInColumn(newOrderIds, draggedTask.status);
-				} catch (error) {
-					console.error('Failed to reorder tasks:', error);
+					console.log('New task order:', newOrderIds);
+
+					// Update all positions in one batch operation
+					try {
+						await reorderTasksInColumn(newOrderIds, draggedTask.status);
+					} catch (error) {
+						console.error('Failed to reorder tasks:', error);
+					}
 				}
+			} else {
+				// Different column - move to that column
+				console.log('Moving task to different column via task drop:', { taskId, newStatus: overTask.status });
+				await moveTask(taskId, overTask.status);
 			}
 		}
 	};
