@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { CustomTitlebar } from '@/components/ui/custom-titlebar';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { SprintMode } from '@/components/sprint/SprintMode';
 import { Journal } from '@/components/journal/Journal';
@@ -21,7 +22,6 @@ function App() {
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
 
-	// Configure sensors for drag and drop
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
 			activationConstraint: {
@@ -33,20 +33,15 @@ function App() {
 		return tasks.filter((task: Task) => task.status === status);
 	};
 
-	// Calculate cumulative time estimates
 	const getTotalTimeForColumn = (status: Task['status']): number => {
 		switch (status) {
 			case 'today':
-				// Only today tasks
 				return getTasksByStatus('today').reduce((sum, task) => sum + task.timeEstimate, 0);
 			case 'this-week':
-				// Today + This Week tasks
 				return [...getTasksByStatus('today'), ...getTasksByStatus('this-week')].reduce((sum, task) => sum + task.timeEstimate, 0);
 			case 'backlog':
-				// Today + This Week + Backlog tasks
 				return [...getTasksByStatus('today'), ...getTasksByStatus('this-week'), ...getTasksByStatus('backlog')].reduce((sum, task) => sum + task.timeEstimate, 0);
 			case 'done':
-				// Only done tasks
 				return getTasksByStatus('done').reduce((sum, task) => sum + task.timeEstimate, 0);
 			default:
 				return 0;
@@ -129,63 +124,67 @@ function App() {
 	};
 	if (isLoading) {
 		return (
-			<div className='min-h-screen bg-background flex items-center justify-center relative overflow-hidden'>
-				{/* Animated background gradient */}
-				<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 animate-pulse'></div>
-				<div className='text-center relative z-10'>
-					<div className='animate-spin rounded-full h-16 w-16 border-4 border-muted border-t-primary mx-auto'></div>
-					<p className='mt-6 text-muted-foreground text-lg font-medium'>Loading DayFlow...</p>
-					<div className='mt-2 flex items-center justify-center gap-1'>
-						<div className='w-2 h-2 bg-primary rounded-full animate-bounce'></div>
-						<div
-							className='w-2 h-2 bg-primary rounded-full animate-bounce'
-							style={{ animationDelay: '0.1s' }}
-						></div>
-						<div
-							className='w-2 h-2 bg-primary rounded-full animate-bounce'
-							style={{ animationDelay: '0.2s' }}
-						></div>
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar/>
+				<div className='flex-1 flex items-center justify-center relative overflow-hidden pt-8'>
+					<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 animate-pulse'></div>
+					<div className='text-center relative z-10'>
+						<div className='animate-spin rounded-full h-16 w-16 border-4 border-muted border-t-primary mx-auto'></div>
+						<p className='mt-6 text-muted-foreground text-lg font-medium'>Loading DayFlow...</p>
+						<div className='mt-2 flex items-center justify-center gap-1'>
+							<div className='w-2 h-2 bg-primary rounded-full animate-bounce'></div>
+							<div
+								className='w-2 h-2 bg-primary rounded-full animate-bounce'
+								style={{ animationDelay: '0.1s' }}
+							></div>
+							<div
+								className='w-2 h-2 bg-primary rounded-full animate-bounce'
+								style={{ animationDelay: '0.2s' }}
+							></div>
+						</div>
 					</div>
 				</div>
 			</div>
 		);
 	}
-
-	// Sprint Mode View
 	if (currentView === 'sprint') {
 		const todayTasks = getTasksByStatus('today');
 		return (
-			<SprintMode
-				tasks={todayTasks}
-				onTaskComplete={handleTaskComplete}
-				onExit={() => setCurrentView('kanban')}
-			/>
-		);
-	}
-	// Journal View
-	if (currentView === 'journal') {
-		return (
-			<div className='min-h-screen bg-background p-6 relative overflow-hidden'>
-				{/* Subtle background pattern */}
-				<div className='absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-primary/5'></div>
-				<div className='max-w-4xl mx-auto relative z-10'>
-					<div className='flex justify-between items-center mb-8'>
-						<h1 className='text-3xl font-bold text-foreground'>Daily Journal</h1>
-						<Button
-							variant='outline'
-							onClick={() => setCurrentView('kanban')}
-							className='shadow-sm hover:shadow-md transition-all duration-200'
-						>
-							Back to Dashboard
-						</Button>
-					</div>
-					<Journal />
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar title='DayFlow - Sprint Mode' />
+				<div className='flex-1 pt-8'>
+					<SprintMode
+						tasks={todayTasks}
+						onTaskComplete={handleTaskComplete}
+						onExit={() => setCurrentView('kanban')}
+					/>
 				</div>
 			</div>
 		);
 	}
-
-	// Timer View
+	if (currentView === 'journal') {
+		return (
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar title='DayFlow - Daily Journal' />
+				<div className='flex-1 p-6 relative overflow-hidden pt-8'>
+					<div className='absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-primary/5'></div>
+					<div className='max-w-4xl mx-auto relative z-10'>
+						<div className='flex justify-between items-center mb-8'>
+							<h1 className='text-3xl font-bold text-foreground'>Daily Journal</h1>
+							<Button
+								variant='outline'
+								onClick={() => setCurrentView('kanban')}
+								className='shadow-sm hover:shadow-md transition-all duration-200'
+							>
+								Back to Dashboard
+							</Button>
+						</div>
+						<Journal />
+					</div>
+				</div>
+			</div>
+		);
+	}
 	if (currentView === 'timer') {
 		const pomodoroMode: TimerMode = {
 			type: 'pomodoro',
@@ -193,26 +192,28 @@ function App() {
 			label: 'Pomodoro Session',
 		};
 		return (
-			<div className='min-h-screen bg-background p-6 relative overflow-hidden'>
-				{/* Subtle background gradient */}
-				<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/10'></div>
-				<div className='max-w-2xl mx-auto relative z-10'>
-					<div className='flex justify-between items-center mb-8'>
-						<h1 className='text-3xl font-bold text-foreground'>Focus Timer</h1>
-						<Button
-							variant='outline'
-							onClick={() => setCurrentView('kanban')}
-							className='shadow-sm hover:shadow-md transition-all duration-200'
-						>
-							Back to Dashboard
-						</Button>
-					</div>
-					<div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-						<Timer
-							mode={pomodoroMode}
-							onComplete={() => console.log('Pomodoro complete!')}
-						/>
-						<Timer mode={{ type: 'stopwatch', label: 'Track Time' }} />
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar title='DayFlow - Focus Timer' />
+				<div className='flex-1 p-6 relative overflow-hidden pt-8'>
+					<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/10'></div>
+					<div className='max-w-2xl mx-auto relative z-10'>
+						<div className='flex justify-between items-center mb-8'>
+							<h1 className='text-3xl font-bold text-foreground'>Focus Timer</h1>
+							<Button
+								variant='outline'
+								onClick={() => setCurrentView('kanban')}
+								className='shadow-sm hover:shadow-md transition-all duration-200'
+							>
+								Back to Dashboard
+							</Button>
+						</div>
+						<div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+							<Timer
+								mode={pomodoroMode}
+								onComplete={() => console.log('Pomodoro complete!')}
+							/>
+							<Timer mode={{ type: 'stopwatch', label: 'Track Time' }} />
+						</div>
 					</div>
 				</div>
 			</div>
@@ -220,9 +221,20 @@ function App() {
 	}
 	return (
 		<div className='h-screen bg-background flex flex-col transition-colors duration-300'>
-			<div className='flex-shrink-0 p-4 border-b border-border bg-card/50 backdrop-blur-sm'>
-				<div className='max-w-7xl mx-auto flex justify-between items-center'>
-					<h1 className='text-3xl font-bold text-foreground'>DayFlow</h1>
+			<CustomTitlebar title='DayFlow' />
+
+			<div className=' w-full p-4  bg-background backdrop-blur-sm pt-8'>
+				{/* max-w-1376px because that's the max width that the kanban columns can have*/}
+				<div className='mx-auto max-w-[1376px] flex justify-between items-center'>
+					<div className='flex gap-2 '>
+						<img
+							src='/logo.svg'
+							className='relative inline w-8 h-8'
+							alt='DayFlow Logo'
+						/>
+
+						<h1 className='text-3xl font-bold text-foreground'>DayFlow</h1>
+					</div>
 					<div className='flex items-center gap-3'>
 						<div className='flex gap-2'>
 							<Button
@@ -275,7 +287,7 @@ function App() {
 								placeholder='Task description'
 								value={editingTask.description}
 								onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
-							/>{' '}
+							/>
 							<Input
 								type='number'
 								placeholder='Minutes (optional)'
@@ -287,7 +299,7 @@ function App() {
 								className='w-full'
 								min='0'
 								max='999'
-							/>{' '}
+							/>
 							<div className='flex gap-2'>
 								<Button
 									onClick={handleUpdateTask}
@@ -315,9 +327,7 @@ function App() {
 					onDragStart={handleDragStart}
 					onDragEnd={handleDragEnd}
 				>
-					{' '}
 					<div className='h-full flex justify-center overflow-x-auto w-full gap-8 p-4'>
-						{' '}
 						<KanbanColumn
 							title='Backlog'
 							status='backlog'
@@ -329,7 +339,7 @@ function App() {
 							showAddButton={true}
 							showProgress={false}
 							totalTimeEstimate={getTotalTimeForColumn('backlog')}
-						/>{' '}
+						/>
 						<KanbanColumn
 							title='This Week'
 							status='this-week'
@@ -355,7 +365,7 @@ function App() {
 							showProgress={true}
 							completedCount={Math.floor(getTasksByStatus('today').length * 0.6)}
 							totalTimeEstimate={getTotalTimeForColumn('today')}
-						/>{' '}
+						/>
 						<KanbanColumn
 							title='Done'
 							status='done'
@@ -367,7 +377,7 @@ function App() {
 							showAddButton={false}
 							showProgress={false}
 						/>
-					</div>{' '}
+					</div>
 					<DragOverlay dropAnimation={null}>
 						{activeId ? (
 							<div className='rotate-2 scale-105 shadow-2xl opacity-95'>

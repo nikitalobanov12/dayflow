@@ -138,7 +138,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 			</div>
 			<div
 				ref={setNodeRef}
-				className={cn('flex-1 overflow-y-auto p-3 space-y-3 min-h-full transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent', isOver && 'bg-accent/20 ring-2 ring-primary/20 ring-inset')}
+				className={cn('flex-1 overflow-y-auto p-3 space-y-3 transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent', isOver && 'bg-accent/20 ring-2 ring-primary/20 ring-inset')}
 			>
 				{tasks.map(task => (
 					<TaskCard
