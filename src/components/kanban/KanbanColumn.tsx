@@ -1,6 +1,7 @@
 import { Task } from '@/types';
 import { TaskCard } from './TaskCard';
 import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -35,7 +36,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 	const formatTime = (minutes: number): string => {
 		const hours = Math.floor(minutes / 60);
 		const mins = minutes % 60;
-		if (hours > 100) return '100+ Hr'
+		if (hours > 100) return '100+ Hr';
 		return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 	};
 
@@ -44,13 +45,13 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 
 		// Parse time estimate in minutes - if empty, default to 0
 		const timeInMinutes = parseInt(newTaskTime) || 0;
-
 		try {
 			await onAddTask({
 				title: newTaskTitle,
 				description: '',
 				timeEstimate: timeInMinutes,
 				status: status,
+				position: tasks.length, // Add to end of current column
 			});
 			setNewTaskTitle('');
 			setNewTaskTime('');
@@ -135,21 +136,26 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 						</div>
 					</div>
 				)}
-			</div>
+			</div>{' '}
 			<div
 				ref={setNodeRef}
 				className={cn('flex-1 overflow-y-auto p-3 space-y-3 transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent', isOver && 'bg-accent/20 ring-2 ring-primary/20 ring-inset')}
 			>
-				{tasks.map(task => (
-					<TaskCard
-						key={task.id}
-						task={task}
-						onMove={onMoveTask}
-						onEdit={onEditTask}
-						onUpdateTimeEstimate={onUpdateTimeEstimate}
-						isDone={status === 'done'}
-					/>
-				))}
+				<SortableContext
+					items={tasks.map(task => task.id.toString())}
+					strategy={verticalListSortingStrategy}
+				>
+					{tasks.map(task => (
+						<TaskCard
+							key={task.id}
+							task={task}
+							onMove={onMoveTask}
+							onEdit={onEditTask}
+							onUpdateTimeEstimate={onUpdateTimeEstimate}
+							isDone={status === 'done'}
+						/>
+					))}
+				</SortableContext>
 				{tasks.length === 0 && (
 					<div className='text-center text-muted-foreground py-8 border-2 border-dashed border-border/30 rounded-xl bg-muted/20 hover:bg-muted/30 transition-colors duration-300'>
 						<p className='text-sm font-medium'>No tasks</p>

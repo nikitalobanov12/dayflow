@@ -4,6 +4,7 @@ export interface Task {
 	description: string;
 	timeEstimate: number; // in minutes
 	status: 'backlog' | 'this-week' | 'today' | 'done';
+	position: number; // for ordering within status
 	scheduledDate?: string;
 	createdAt: string;
 	tags?: string[];

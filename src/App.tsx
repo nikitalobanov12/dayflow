@@ -16,7 +16,7 @@ import { TaskCard } from '@/components/kanban/TaskCard';
 import './App.css';
 
 function App() {
-	const { tasks, addTask, deleteTask, moveTask, updateTask, isLoading } = useDatabase();
+	const { tasks, addTask, deleteTask, moveTask, updateTask, reorderTasksInColumn, isLoading } = useDatabase();
 	const [currentView, setCurrentView] = useState<'kanban' | 'sprint' | 'journal' | 'timer'>('kanban');
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -30,7 +30,7 @@ function App() {
 		})
 	);
 	const getTasksByStatus = (status: Task['status']) => {
-		return tasks.filter((task: Task) => task.status === status);
+		return tasks.filter((task: Task) => task.status === status).sort((a, b) => a.position - b.position);
 	};
 
 	const getTotalTimeForColumn = (status: Task['status']): number => {
@@ -107,14 +107,58 @@ function App() {
 		}
 
 		const taskId = parseInt(active.id as string);
-		const newStatus = over.id as Task['status'];
-		console.log('Moving task:', { taskId, newStatus });
+		const draggedTask = tasks.find(task => task.id === taskId);
 
-		if (newStatus && ['backlog', 'this-week', 'today', 'done'].includes(newStatus)) {
-			console.log('Calling moveTask with:', taskId, newStatus);
-			await moveTask(taskId, newStatus);
-		} else {
-			console.log('Invalid status or missing newStatus:', newStatus);
+		if (!draggedTask) {
+			console.log('Could not find dragged task');
+			return;
+		}
+
+		// Check if we're dropping on a column (status change)
+		if (['backlog', 'this-week', 'today', 'done'].includes(over.id as string)) {
+			const newStatus = over.id as Task['status'];
+			console.log('Moving task to new column:', { taskId, newStatus });
+
+			// If moving to a different column, just move to the end
+			if (draggedTask.status !== newStatus) {
+				await moveTask(taskId, newStatus);
+			}
+			return;
+		} // Check if we're dropping on another task (reordering within same column)
+		const overId = parseInt(over.id as string);
+		const overTask = tasks.find(task => task.id === overId);
+
+		if (overTask && draggedTask.status === overTask.status) {
+			console.log('Reordering within same column:', { taskId, overTaskId: overId });
+
+			// Get all tasks in the same column, sorted by position
+			const columnTasks = tasks.filter(task => task.status === draggedTask.status).sort((a, b) => a.position - b.position);
+
+			// Find the indices
+			const oldIndex = columnTasks.findIndex(task => task.id === taskId);
+			const newIndex = columnTasks.findIndex(task => task.id === overId);
+			if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+				console.log('Moving from index', oldIndex, 'to index', newIndex);
+
+				// Remove the dragged task from its old position
+				const reorderedTasks = [...columnTasks];
+				const [movedTask] = reorderedTasks.splice(oldIndex, 1);
+
+				// Insert it at the new position
+				reorderedTasks.splice(newIndex, 0, movedTask);
+
+				// Extract task IDs in their new order
+				const newOrderIds = reorderedTasks.map(task => task.id);
+
+				console.log('New task order:', newOrderIds);
+
+				// Update all positions in one batch operation
+				try {
+					await reorderTasksInColumn(newOrderIds, draggedTask.status);
+				} catch (error) {
+					console.error('Failed to reorder tasks:', error);
+				}
+			}
 		}
 	};
 
@@ -125,7 +169,7 @@ function App() {
 	if (isLoading) {
 		return (
 			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar/>
+				<CustomTitlebar />
 				<div className='flex-1 flex items-center justify-center relative overflow-hidden pt-8'>
 					<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 animate-pulse'></div>
 					<div className='text-center relative z-10'>
@@ -229,7 +273,7 @@ function App() {
 					<div className='flex gap-2 '>
 						<img
 							src='/logo.svg'
-							className='relative inline w-8 h-8'
+							className='relative inline w-10 h-10'
 							alt='DayFlow Logo'
 						/>
 

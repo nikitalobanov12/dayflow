@@ -14,9 +14,7 @@ export const useDatabase = () => {
 	const initializeDatabase = async () => {
 		try {
 			setIsLoading(true);
-			const database = await Database.load('sqlite:dayflow.db');
-
-			// Create tables
+			const database = await Database.load('sqlite:dayflow.db'); // Create tables
 			await database.execute(`
         CREATE TABLE IF NOT EXISTS tasks (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,11 +23,23 @@ export const useDatabase = () => {
           priority TEXT NOT NULL DEFAULT 'medium',
           time_estimate INTEGER NOT NULL DEFAULT 30,
           status TEXT NOT NULL DEFAULT 'backlog',
+          position INTEGER NOT NULL DEFAULT 0,
           scheduled_date TEXT,
           tags TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `);
+
+			// Add position column if it doesn't exist (for existing databases)
+			await database
+				.execute(
+					`
+        ALTER TABLE tasks ADD COLUMN position INTEGER DEFAULT 0
+      `
+				)
+				.catch(() => {
+					// Column already exists, ignore error
+				});
 
 			await database.execute(`
         CREATE TABLE IF NOT EXISTS journals (
@@ -65,18 +75,18 @@ export const useDatabase = () => {
 			setIsLoading(false);
 		}
 	};
-
 	const loadTasks = async (database = db) => {
 		if (!database) return;
 
 		try {
-			const result = (await database.select('SELECT * FROM tasks ORDER BY created_at DESC')) as any[];
+			const result = (await database.select('SELECT * FROM tasks ORDER BY status, position ASC, created_at DESC')) as any[];
 			const taskList = result.map((row: any) => ({
 				id: row.id,
 				title: row.title,
 				description: row.description,
 				timeEstimate: row.time_estimate,
 				status: row.status,
+				position: row.position || 0,
 				scheduledDate: row.scheduled_date,
 				tags: row.tags ? JSON.parse(row.tags) : [],
 				createdAt: row.created_at,
@@ -90,7 +100,12 @@ export const useDatabase = () => {
 		if (!db) return null;
 
 		try {
-			const result = await db.execute('INSERT INTO tasks (title, description, time_estimate, status, scheduled_date, tags) VALUES ($1, $2, $3, $4, $5, $6)', [task.title, task.description, task.timeEstimate, task.status, task.scheduledDate || null, task.tags ? JSON.stringify(task.tags) : null]);
+			// Get the highest position for the given status and add 1
+			const maxPositionResult = await db.select('SELECT MAX(position) as max_pos FROM tasks WHERE status = $1', [task.status]);
+			const maxPosition = maxPositionResult[0]?.max_pos || 0;
+			const newPosition = maxPosition + 1;
+
+			const result = await db.execute('INSERT INTO tasks (title, description, time_estimate, status, position, scheduled_date, tags) VALUES ($1, $2, $3, $4, $5, $6, $7)', [task.title, task.description, task.timeEstimate, task.status, newPosition, task.scheduledDate || null, task.tags ? JSON.stringify(task.tags) : null]);
 			await loadTasks(); // Refresh tasks after adding
 			return result.lastInsertId;
 		} catch (error) {
@@ -98,18 +113,18 @@ export const useDatabase = () => {
 			return null;
 		}
 	};
-
 	const getTasks = async (): Promise<Task[]> => {
 		if (!db) return [];
 
 		try {
-			const result = (await db.select('SELECT * FROM tasks ORDER BY created_at DESC')) as any[];
+			const result = (await db.select('SELECT * FROM tasks ORDER BY status, position ASC, created_at DESC')) as any[];
 			return result.map((row: any) => ({
 				id: row.id,
 				title: row.title,
 				description: row.description,
 				timeEstimate: row.time_estimate,
 				status: row.status,
+				position: row.position || 0,
 				scheduledDate: row.scheduled_date,
 				tags: row.tags ? JSON.parse(row.tags) : [],
 				createdAt: row.created_at,
@@ -134,13 +149,17 @@ export const useDatabase = () => {
 				updateFields.push('description = ?');
 				values.push(updates.description);
 			}
-			if (updates.timeEstimate) {
+			if (updates.timeEstimate !== undefined) {
 				updateFields.push('time_estimate = ?');
 				values.push(updates.timeEstimate);
 			}
 			if (updates.status) {
 				updateFields.push('status = ?');
 				values.push(updates.status);
+			}
+			if (updates.position !== undefined) {
+				updateFields.push('position = ?');
+				values.push(updates.position);
 			}
 			if (updates.scheduledDate !== undefined) {
 				updateFields.push('scheduled_date = ?');
@@ -172,11 +191,60 @@ export const useDatabase = () => {
 			return false;
 		}
 	};
+	const moveTask = async (id: number, newStatus: Task['status'], newPosition?: number) => {
+		if (!db) return false;
 
-	const moveTask = async (id: number, newStatus: Task['status']) => {
-		return await updateTask(id, { status: newStatus });
+		try {
+			if (newPosition !== undefined) {
+				// Get all tasks in the target status
+				const tasksInStatus = await db.select('SELECT id, position FROM tasks WHERE status = $1 ORDER BY position ASC', [newStatus]);
+
+				// Update positions of other tasks to make room
+				for (let i = 0; i < tasksInStatus.length; i++) {
+					const task = tasksInStatus[i];
+					if (task.id !== id) {
+						const adjustedPosition = i >= newPosition ? i + 1 : i;
+						if (adjustedPosition !== task.position) {
+							await db.execute('UPDATE tasks SET position = $1 WHERE id = $2', [adjustedPosition, task.id]);
+						}
+					}
+				}
+
+				// Update the moved task
+				return await updateTask(id, { status: newStatus, position: newPosition });
+			} else {
+				// Just move to end of column
+				const maxPositionResult = await db.select('SELECT MAX(position) as max_pos FROM tasks WHERE status = $1', [newStatus]);
+				const maxPosition = maxPositionResult[0]?.max_pos || 0;
+				return await updateTask(id, { status: newStatus, position: maxPosition + 1 });
+			}
+		} catch (error) {
+			console.error('Failed to move task:', error);
+			return false;
+		}
+	};
+	const reorderTask = async (id: number, newPosition: number, status: Task['status']) => {
+		return await moveTask(id, status, newPosition);
 	};
 
+	const reorderTasksInColumn = async (taskIds: number[], status: Task['status']) => {
+		if (!db) return false;
+
+		try {
+			// Update all tasks in the column with their new positions
+			for (let i = 0; i < taskIds.length; i++) {
+				const taskId = taskIds[i];
+				const newPosition = i + 1; // Start positions from 1
+				await db.execute('UPDATE tasks SET position = $1 WHERE id = $2 AND status = $3', [newPosition, taskId, status]);
+			}
+
+			await loadTasks(); // Refresh tasks after reordering
+			return true;
+		} catch (error) {
+			console.error('Failed to reorder tasks in column:', error);
+			return false;
+		}
+	};
 	return {
 		db,
 		isInitialized,
@@ -187,5 +255,7 @@ export const useDatabase = () => {
 		updateTask,
 		deleteTask,
 		moveTask,
+		reorderTask,
+		reorderTasksInColumn,
 	};
 };

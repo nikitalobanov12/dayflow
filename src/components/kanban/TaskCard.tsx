@@ -1,6 +1,7 @@
 import { Task } from '@/types';
 import { Button } from '@/components/ui/button';
-import { useDraggable } from '@dnd-kit/core';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Edit, Check } from 'lucide-react';
 import { useState } from 'react';
@@ -16,13 +17,13 @@ interface TaskCardProps {
 export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = false }: TaskCardProps) => {
 	const [isEditingTime, setIsEditingTime] = useState(false);
 	const [tempTimeEstimate, setTempTimeEstimate] = useState(task.timeEstimate.toString());
-	const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
 		id: task.id.toString(),
 	});
 
 	const style = {
-		transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-		transition: isDragging ? 'none' : 'transform 150ms ease-out',
+		transform: CSS.Transform.toString(transform),
+		transition,
 	};
 
 	const canMoveLeft = task.status !== 'backlog';
