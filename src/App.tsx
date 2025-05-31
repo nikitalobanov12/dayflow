@@ -422,6 +422,7 @@ function App() {
 							showProgress={true}
 							completedCount={getTodayCompletedCount()}
 							totalTimeEstimate={getTotalTimeForColumn('today')}
+							onStartSprint={() => setCurrentView('sprint')}
 						/>
 						<KanbanColumn
 							title='Done'
