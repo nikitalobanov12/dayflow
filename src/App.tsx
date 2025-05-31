@@ -93,7 +93,8 @@ function App() {
 	const handleDragStart = (event: DragStartEvent) => {
 		console.log('Drag started:', event.active.id);
 		setActiveId(event.active.id as string);
-	};	const handleDragEnd = async (event: DragEndEvent) => {
+	};
+	const handleDragEnd = async (event: DragEndEvent) => {
 		const { active, over } = event;
 		console.log('Drag ended:', { activeId: active.id, overId: over?.id });
 
@@ -135,9 +136,7 @@ function App() {
 				console.log('Reordering within same column:', { taskId, overTaskId: overId });
 
 				// Get all tasks in the same column, sorted by position
-				const columnTasks = tasks
-					.filter(task => task.status === draggedTask.status)
-					.sort((a, b) => a.position - b.position);
+				const columnTasks = tasks.filter(task => task.status === draggedTask.status).sort((a, b) => a.position - b.position);
 
 				// Find the indices
 				const oldIndex = columnTasks.findIndex(task => task.id === taskId);
