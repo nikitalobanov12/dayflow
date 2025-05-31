@@ -28,13 +28,22 @@ export const useDatabase = () => {
           tags TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `);
-
-			// Add position column if it doesn't exist (for existing databases)
+      `); // Add position column if it doesn't exist (for existing databases)
 			await database
 				.execute(
 					`
         ALTER TABLE tasks ADD COLUMN position INTEGER DEFAULT 0
+      `
+				)
+				.catch(() => {
+					// Column already exists, ignore error
+				});
+
+			// Add completed_at column if it doesn't exist (for existing databases)
+			await database
+				.execute(
+					`
+        ALTER TABLE tasks ADD COLUMN completed_at DATETIME
       `
 				)
 				.catch(() => {
@@ -90,6 +99,7 @@ export const useDatabase = () => {
 				scheduledDate: row.scheduled_date,
 				tags: row.tags ? JSON.parse(row.tags) : [],
 				createdAt: row.created_at,
+				completedAt: row.completed_at,
 			}));
 			setTasks(taskList);
 		} catch (error) {
@@ -128,6 +138,7 @@ export const useDatabase = () => {
 				scheduledDate: row.scheduled_date,
 				tags: row.tags ? JSON.parse(row.tags) : [],
 				createdAt: row.created_at,
+				completedAt: row.completed_at,
 			}));
 		} catch (error) {
 			console.error('Failed to get tasks:', error);
@@ -169,6 +180,10 @@ export const useDatabase = () => {
 				updateFields.push('tags = ?');
 				values.push(JSON.stringify(updates.tags));
 			}
+			if (updates.completedAt !== undefined) {
+				updateFields.push('completed_at = ?');
+				values.push(updates.completedAt);
+			}
 
 			values.push(id);
 			await db.execute(`UPDATE tasks SET ${updateFields.join(', ')} WHERE id = ?`, values);
@@ -195,6 +210,16 @@ export const useDatabase = () => {
 		if (!db) return false;
 
 		try {
+			// Prepare update object
+			const updateData: Partial<Task> = { status: newStatus };
+
+			// Set completion date when moving to done, clear it when moving away from done
+			if (newStatus === 'done') {
+				updateData.completedAt = new Date().toISOString();
+			} else {
+				updateData.completedAt = undefined;
+			}
+
 			if (newPosition !== undefined) {
 				// Get all tasks in the target status
 				const tasksInStatus = await db.select('SELECT id, position FROM tasks WHERE status = $1 ORDER BY position ASC', [newStatus]);
@@ -210,13 +235,15 @@ export const useDatabase = () => {
 					}
 				}
 
-				// Update the moved task
-				return await updateTask(id, { status: newStatus, position: newPosition });
+				// Update the moved task with position
+				updateData.position = newPosition;
+				return await updateTask(id, updateData);
 			} else {
 				// Just move to end of column
 				const maxPositionResult = await db.select('SELECT MAX(position) as max_pos FROM tasks WHERE status = $1', [newStatus]);
 				const maxPosition = maxPositionResult[0]?.max_pos || 0;
-				return await updateTask(id, { status: newStatus, position: maxPosition + 1 });
+				updateData.position = maxPosition + 1;
+				return await updateTask(id, updateData);
 			}
 		} catch (error) {
 			console.error('Failed to move task:', error);

@@ -7,6 +7,7 @@ export interface Task {
 	position: number; // for ordering within status
 	scheduledDate?: string;
 	createdAt: string;
+	completedAt?: string; // ISO date string when task was completed
 	tags?: string[];
 }
 

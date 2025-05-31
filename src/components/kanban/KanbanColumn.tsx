@@ -28,9 +28,8 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 	});
 	const [isAdding, setIsAdding] = useState(false);
 	const [newTaskTitle, setNewTaskTitle] = useState('');
-	const [newTaskTime, setNewTaskTime] = useState('');
-	// Calculate progress percentage
-	const progressPercentage = showProgress && tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
+	const [newTaskTime, setNewTaskTime] = useState(''); // Calculate progress percentage
+	const progressPercentage = showProgress && status === 'today' ? (completedCount / (tasks.length + completedCount)) * 100 || 0 : showProgress && tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 
 	// Utility function to format minutes as HH:MM
 	const formatTime = (minutes: number): string => {
