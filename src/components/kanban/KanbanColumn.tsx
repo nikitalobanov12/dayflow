@@ -18,18 +18,27 @@ interface KanbanColumnProps {
 	showAddButton?: boolean;
 	showProgress?: boolean;
 	completedCount?: number; // For progress calculation
+	totalTimeEstimate?: number; // Total time in minutes for cumulative display
 }
 
-export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, showAddButton = true, showProgress = false, completedCount = 0 }: KanbanColumnProps) {
+export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0 }: KanbanColumnProps) {
 	const { isOver, setNodeRef } = useDroppable({
 		id: status,
 	});
 	const [isAdding, setIsAdding] = useState(false);
 	const [newTaskTitle, setNewTaskTitle] = useState('');
 	const [newTaskTime, setNewTaskTime] = useState('');
-
 	// Calculate progress percentage
 	const progressPercentage = showProgress && tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
+
+	// Utility function to format minutes as HH:MM
+	const formatTime = (minutes: number): string => {
+		const hours = Math.floor(minutes / 60);
+		const mins = minutes % 60;
+		if (hours > 100) return '100+ Hr'
+		return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+	};
+
 	const handleAddTask = async () => {
 		if (!newTaskTitle.trim() || !onAddTask) return;
 
@@ -55,6 +64,8 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 			<div className='p-4 border-b border-border/50 flex-shrink-0'>
 				<div className='flex justify-between items-center mb-2'>
 					<h3 className='font-semibold text-lg text-card-foreground'>{title}</h3>
+					{totalTimeEstimate > 0 && <span className='text-sm font-mono text-muted-foreground px-2 py-1 rounded-md ml-2 '>{formatTime(totalTimeEstimate)} Remaining</span>}
+
 					{showAddButton && (
 						<Button
 							size='sm'
@@ -65,24 +76,25 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 							<Plus className='h-4 w-4' />
 						</Button>
 					)}
-				</div>
-				{showProgress ? (
-					<div className='space-y-1'>
-						<div className='flex justify-between text-xs text-muted-foreground'>
-							<span>Progress</span>
-							<span>{Math.round(progressPercentage)}%</span>
+				</div>{' '}
+				<div className='flex items-center justify-between'>
+					{showProgress ? (
+						<div className='space-y-1 flex-1'>
+							<div className='flex justify-between text-xs text-muted-foreground'>
+								<span>Progress</span>
+								<span>{Math.round(progressPercentage)}%</span>
+							</div>
+							<div className='w-full bg-muted rounded-full h-2.5 overflow-hidden'>
+								<div
+									className='bg-primary h-full rounded-full transition-all duration-500 ease-out'
+									style={{ width: `${progressPercentage}%` }}
+								/>
+							</div>
 						</div>
-						<div className='w-full bg-muted rounded-full h-2.5 overflow-hidden'>
-							<div
-								className='bg-primary h-full rounded-full transition-all duration-500 ease-out'
-								style={{ width: `${progressPercentage}%` }}
-							/>
-						</div>
-					</div>
-				) : (
-					<span className='text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full inline-block font-medium border border-border/30'>{tasks.length}</span>
-				)}{' '}
-				{/* Add Task Form */}
+					) : (
+						<span className='text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full inline-block font-medium border border-border/30'>{tasks.length}</span>
+					)}
+				</div>{' '}
 				{isAdding && showAddButton && (
 					<div className='mt-3 space-y-2'>
 						<Input
@@ -123,13 +135,11 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 						</div>
 					</div>
 				)}
-			</div>{' '}
-			{/* Scrollable Task List */}
+			</div>
 			<div
 				ref={setNodeRef}
 				className={cn('flex-1 overflow-y-auto p-3 space-y-3 min-h-full transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent', isOver && 'bg-accent/20 ring-2 ring-primary/20 ring-inset')}
 			>
-				{' '}
 				{tasks.map(task => (
 					<TaskCard
 						key={task.id}

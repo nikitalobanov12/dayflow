@@ -98,13 +98,10 @@ export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = 
 			className={cn('touch-none transition-all duration-200 group', isDragging && 'opacity-50 scale-105')}
 		>
 			<div className={cn('bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-grab active:cursor-grabbing backdrop-blur-sm', 'hover:border-border/80 hover:-translate-y-0.5', isDone && 'opacity-70 saturate-50')}>
-				{/* Compact View */}
 				<div className='relative p-3'>
 					{' '}
-					{/* Main Content */}
 					<div className='flex items-start justify-between gap-2'>
 						<div className='flex items-start gap-3 flex-1 min-w-0'>
-							{/* Toggle Checkbox */}
 							<button
 								onClick={handleToggleComplete}
 								className={cn('mt-0.5 shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-200 cursor-pointer', task.status === 'done' ? 'bg-primary border-primary text-primary-foreground shadow-sm' : 'border-border hover:border-primary/50 bg-background hover:bg-accent/30')}
@@ -115,7 +112,6 @@ export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = 
 							<div className='flex-1 min-w-0'>
 								<h3 className={cn('text-sm font-medium line-clamp-2 leading-tight transition-all duration-200', isDone && 'line-through text-muted-foreground', !isDone && 'text-card-foreground')}>{task.title}</h3>
 
-								{/* Time Estimate - Always shown, bottom left under title */}
 								<div className='mt-1.5'>
 									{isEditingTime ? (
 										<input
@@ -134,15 +130,13 @@ export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = 
 											className={cn('text-xs text-muted-foreground hover:text-foreground transition-colors duration-200 font-medium', isDone && 'text-muted-foreground/60')}
 											title='Click to edit time estimate'
 										>
-											{task.timeEstimate > 0 ? `${task.timeEstimate}m est` : '-- est'}
+											{task.timeEstimate > 0 ? `${task.timeEstimate} min` : '--'}
 										</button>
 									)}
 								</div>
 							</div>
 						</div>{' '}
-						{/* Edit button - Always visible in corner */}
 						<div className='flex gap-1'>
-							{/* Move buttons - Only visible on hover */}
 							<div className='flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-2'>
 								{canMoveLeft && (
 									<Button
@@ -173,7 +167,6 @@ export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = 
 									</Button>
 								)}
 							</div>
-							{/* Edit button - Always visible */}
 							<Button
 								size='sm'
 								variant='ghost'

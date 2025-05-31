@@ -32,6 +32,27 @@ function App() {
 	const getTasksByStatus = (status: Task['status']) => {
 		return tasks.filter((task: Task) => task.status === status);
 	};
+
+	// Calculate cumulative time estimates
+	const getTotalTimeForColumn = (status: Task['status']): number => {
+		switch (status) {
+			case 'today':
+				// Only today tasks
+				return getTasksByStatus('today').reduce((sum, task) => sum + task.timeEstimate, 0);
+			case 'this-week':
+				// Today + This Week tasks
+				return [...getTasksByStatus('today'), ...getTasksByStatus('this-week')].reduce((sum, task) => sum + task.timeEstimate, 0);
+			case 'backlog':
+				// Today + This Week + Backlog tasks
+				return [...getTasksByStatus('today'), ...getTasksByStatus('this-week'), ...getTasksByStatus('backlog')].reduce((sum, task) => sum + task.timeEstimate, 0);
+			case 'done':
+				// Only done tasks
+				return getTasksByStatus('done').reduce((sum, task) => sum + task.timeEstimate, 0);
+			default:
+				return 0;
+		}
+	};
+
 	const handleTaskComplete = async (taskId: number) => {
 		await moveTask(taskId, 'done');
 	};
@@ -307,6 +328,7 @@ function App() {
 							onUpdateTimeEstimate={handleUpdateTimeEstimate}
 							showAddButton={true}
 							showProgress={false}
+							totalTimeEstimate={getTotalTimeForColumn('backlog')}
 						/>{' '}
 						<KanbanColumn
 							title='This Week'
@@ -319,6 +341,7 @@ function App() {
 							showAddButton={true}
 							showProgress={true}
 							completedCount={Math.floor(getTasksByStatus('this-week').length * 0.3)}
+							totalTimeEstimate={getTotalTimeForColumn('this-week')}
 						/>{' '}
 						<KanbanColumn
 							title='Today'
@@ -331,6 +354,7 @@ function App() {
 							showAddButton={true}
 							showProgress={true}
 							completedCount={Math.floor(getTasksByStatus('today').length * 0.6)}
+							totalTimeEstimate={getTotalTimeForColumn('today')}
 						/>{' '}
 						<KanbanColumn
 							title='Done'
