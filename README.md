@@ -2,6 +2,8 @@
 
 High-performance desktop task manager built with Tauri 2.0, React 18, and TypeScript. Features real-time drag-and-drop kanban boards, advanced sprint modes with dynamic window management, and SQLite-backed persistence.
 
+> **_NOTE:_**  This is currently only working as a desktop application with a local sqlite database, currently working on migrating to postgres to add more features and make it usable as a web app as well
+
 ## Architecture Overview
 
 ### Tech Stack
@@ -269,9 +271,8 @@ npm run tauri icon   # Generate app icons from source
 
 **Production Optimization**:
 
--   Bundle size: ~15MB (includes Rust runtime)
--   Memory usage: ~50-80MB typical
--   Cold start: <500ms on modern hardware
+-   Bundle size: ~12MB (includes Rust runtime)
+-   Memory usage: ~1-2MB typical
 -   Database operations: <10ms for typical queries
 
 ## API Reference
@@ -314,27 +315,3 @@ interface SprintConfiguration {
 	countdownMinutes?: number;
 }
 ```
-
-## Contributing
-
-### Code Style
-
--   **TypeScript**: Strict mode enabled, no `any` types
--   **Components**: Functional components with hooks
--   **Styling**: Tailwind utility classes, shadcn/ui components
--   **Performance**: React.memo for expensive renders, useCallback for handlers
-
-### Testing Strategy
-
--   Unit tests for business logic (hooks, utilities)
--   Integration tests for database operations
--   E2E tests for critical user flows
--   Performance benchmarks for drag operations
-
-### Build Pipeline
-
-1. **TypeScript compilation** with strict checks
-2. **Tailwind CSS processing** with purging
-3. **Tauri bundling** with platform-specific assets
-4. **Icon generation** for all target platforms
-5. **Installer creation** with code signing (production)
