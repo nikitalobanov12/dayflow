@@ -49,17 +49,6 @@ export const useDatabase = () => {
 				.catch(() => {
 					// Column already exists, ignore error
 				});
-
-			await database.execute(`
-        CREATE TABLE IF NOT EXISTS journals (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          date TEXT NOT NULL,
-          content TEXT NOT NULL,
-          mood TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
 			await database.execute(`
         CREATE TABLE IF NOT EXISTS sprints (
           id INTEGER PRIMARY KEY AUTOINCREMENT,

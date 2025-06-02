@@ -169,4 +169,40 @@
 	textarea {
 		cursor: text;
 	}
+
+	* {
+		scroll-behavior: smooth;
+		scrollbar-width: thin;
+		scrollbar-color: var(--foreground) var(--background);
+	}
+
+	*::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	*::-webkit-scrollbar-track {
+		background: var(--background);
+		border-radius: 4px;
+	}
+
+	*::-webkit-scrollbar-thumb {
+		background: var(--foreground);
+		border-radius: 4px;
+		transition: background-color 0.2s ease;
+	}
+
+	*:hover::-webkit-scrollbar-thumb {
+		background: var(--foreground);
+	}
+
+	*::-webkit-scrollbar-thumb:hover {
+		background: var(--foreground);
+	}
+
+	.kanban-scroll-container {
+		scroll-behavior: smooth;
+		scrollbar-width: thin;
+		scrollbar-color: var(--foreground) var(--background);
+	}
 }

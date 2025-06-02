@@ -11,14 +11,6 @@ export interface Task {
 	tags?: string[];
 }
 
-export interface Journal {
-	id: number;
-	date: string;
-	content: string;
-	mood?: 'great' | 'good' | 'okay' | 'bad' | 'terrible';
-	createdAt: string;
-}
-
 export interface Sprint {
 	id: number;
 	taskIds: number[];

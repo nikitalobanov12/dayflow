@@ -39,7 +39,6 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 		return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
 	};
 
-	// Group tasks by completion date for the done column
 	const groupTasksByCompletionDate = (tasks: Task[]) => {
 		const grouped: { [date: string]: Task[] } = {};
 
@@ -51,7 +50,6 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 				}
 				grouped[completionDate].push(task);
 			} else {
-				// Tasks without completion date go to "Unknown"
 				if (!grouped['Unknown']) {
 					grouped['Unknown'] = [];
 				}
@@ -59,7 +57,6 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 			}
 		});
 
-		// Sort dates with most recent first
 		const sortedEntries = Object.entries(grouped).sort(([dateA], [dateB]) => {
 			if (dateA === 'Unknown') return 1;
 			if (dateB === 'Unknown') return -1;
@@ -68,8 +65,6 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 
 		return sortedEntries;
 	};
-
-	// Format date for display
 	const formatDateLabel = (dateString: string): string => {
 		if (dateString === 'Unknown') return 'Unknown Date';
 
@@ -112,7 +107,10 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 		}
 	};
 	return (
-		<div className='flex-none rounded-xl w-80 bg-card border border-border shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full backdrop-blur-sm'>
+		<div
+			className=' flex-none rounded-xl w-80 bg-card border border-border shadow-sm hover:shadow-md transition-all duration-300 flex flex-col backdrop-blur-sm'
+			style={{ height: 'calc(100vh - 120px)' }}
+		>
 			<div className='p-4 border-b border-border/50 flex-shrink-0'>
 				<div className='flex justify-between items-center mb-2'>
 					<h3 className='font-semibold text-lg text-card-foreground'>{title}</h3>
@@ -190,7 +188,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 			</div>{' '}
 			<div
 				ref={setNodeRef}
-				className={cn('flex-1 overflow-y-auto p-3 space-y-3 transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent', isOver && 'bg-accent/20 ring-2 ring-primary/20 ring-inset')}
+				className={cn('flex-1 overflow-y-auto kanban-scroll-container p-3 space-y-3 transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent', isOver && 'bg-accent/20 ring-2 ring-primary/20 ring-inset')}
 			>
 				{status === 'done' ? (
 					// Grouped view for done tasks

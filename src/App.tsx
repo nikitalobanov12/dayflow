@@ -6,9 +6,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { CustomTitlebar } from '@/components/ui/custom-titlebar';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
-import { SprintMode } from '@/components/sprint/SprintMode';
-import { Journal } from '@/components/journal/Journal';
-import { Timer, TimerMode } from '@/components/timer/Timer';
+import { SprintMode } from './components/sprint/SprintMode';
+import { SprintConfig, SprintConfiguration } from '@/components/sprint/SprintConfig';
+
 import { useDatabase } from '@/hooks/useDatabase';
 import { Task } from '@/types';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
@@ -17,10 +17,13 @@ import './App.css';
 
 function App() {
 	const { tasks, addTask, deleteTask, moveTask, updateTask, reorderTasksInColumn, isLoading } = useDatabase();
-	const [currentView, setCurrentView] = useState<'kanban' | 'sprint' | 'journal' | 'timer'>('kanban');
+	const [currentView, setCurrentView] = useState<'kanban' | 'sprint'>('kanban');
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
+	const [showSprintConfig, setShowSprintConfig] = useState(false);
+	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null);
+	// const [sprintViewMode, setSprintViewMode] = useState<'fullscreen' | 'sidebar' | 'focus'>('sidebar');
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
@@ -180,6 +183,23 @@ function App() {
 		if (!activeId) return null;
 		return tasks.find(task => task.id.toString() === activeId);
 	};
+
+	const handleStartSprint = () => {
+		const todayTasks = getTasksByStatus('today');
+		if (todayTasks.length === 0) return;
+		setShowSprintConfig(true);
+	};
+
+	const handleSprintConfigSubmit = (config: SprintConfiguration) => {
+		setSprintConfig(config);
+		setShowSprintConfig(false);
+		setCurrentView('sprint');
+	};
+
+	const handleSprintConfigCancel = () => {
+		setShowSprintConfig(false);
+	};
+
 	if (isLoading) {
 		return (
 			<div className='h-screen bg-background flex flex-col'>
@@ -206,73 +226,28 @@ function App() {
 		);
 	}
 	if (currentView === 'sprint') {
-		const todayTasks = getTasksByStatus('today');
+		if (!sprintConfig) {
+			setCurrentView('kanban');
+			return null;
+		}
+
 		return (
 			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar title='DayFlow - Sprint Mode' />
-				<div className='flex-1 pt-8'>
+				{/* {sprintViewMode !== 'focus' && <CustomTitlebar title='DayFlow - Sprint Mode' />} */}
+				<div className={'flex-1'}>
+					{' '}
 					<SprintMode
-						tasks={todayTasks}
+						tasks={sprintConfig.selectedTasks}
+						timerType={sprintConfig.timerType}
+						pomodoroMinutes={sprintConfig.pomodoroMinutes}
+						countdownMinutes={sprintConfig.countdownMinutes}
 						onTaskComplete={handleTaskComplete}
-						onExit={() => setCurrentView('kanban')}
+						onExit={() => {
+							setCurrentView('kanban');
+							setSprintConfig(null);
+						}}
+						// onViewModeChange={setSprintViewMode}
 					/>
-				</div>
-			</div>
-		);
-	}
-	if (currentView === 'journal') {
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar title='DayFlow - Daily Journal' />
-				<div className='flex-1 p-6 relative overflow-hidden pt-8'>
-					<div className='absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-primary/5'></div>
-					<div className='max-w-4xl mx-auto relative z-10'>
-						<div className='flex justify-between items-center mb-8'>
-							<h1 className='text-3xl font-bold text-foreground'>Daily Journal</h1>
-							<Button
-								variant='outline'
-								onClick={() => setCurrentView('kanban')}
-								className='shadow-sm hover:shadow-md transition-all duration-200'
-							>
-								Back to Dashboard
-							</Button>
-						</div>
-						<Journal />
-					</div>
-				</div>
-			</div>
-		);
-	}
-	if (currentView === 'timer') {
-		const pomodoroMode: TimerMode = {
-			type: 'pomodoro',
-			duration: 25 * 60,
-			label: 'Pomodoro Session',
-		};
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar title='DayFlow - Focus Timer' />
-				<div className='flex-1 p-6 relative overflow-hidden pt-8'>
-					<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/10'></div>
-					<div className='max-w-2xl mx-auto relative z-10'>
-						<div className='flex justify-between items-center mb-8'>
-							<h1 className='text-3xl font-bold text-foreground'>Focus Timer</h1>
-							<Button
-								variant='outline'
-								onClick={() => setCurrentView('kanban')}
-								className='shadow-sm hover:shadow-md transition-all duration-200'
-							>
-								Back to Dashboard
-							</Button>
-						</div>
-						<div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-							<Timer
-								mode={pomodoroMode}
-								onComplete={() => console.log('Pomodoro complete!')}
-							/>
-							<Timer mode={{ type: 'stopwatch', label: 'Track Time' }} />
-						</div>
-					</div>
 				</div>
 			</div>
 		);
@@ -280,7 +255,6 @@ function App() {
 	return (
 		<div className='h-screen bg-background flex flex-col transition-colors duration-300'>
 			<CustomTitlebar title='DayFlow' />
-
 			<div className=' w-full p-4  bg-background backdrop-blur-sm pt-8'>
 				{/* max-w-1376px because that's the max width that the kanban columns can have*/}
 				<div className='mx-auto max-w-[1376px] flex justify-between items-center'>
@@ -295,29 +269,14 @@ function App() {
 					</div>
 					<div className='flex items-center gap-3'>
 						<div className='flex gap-2'>
+							{' '}
 							<Button
 								variant='outline'
-								onClick={() => setCurrentView('sprint')}
+								onClick={handleStartSprint}
 								disabled={getTasksByStatus('today').length === 0}
 								className='transition-all duration-200 hover:scale-105'
 							>
 								Start Sprint
-							</Button>
-
-							<Button
-								variant='outline'
-								onClick={() => setCurrentView('journal')}
-								className='transition-all duration-200 hover:scale-105'
-							>
-								Journal
-							</Button>
-
-							<Button
-								variant='outline'
-								onClick={() => setCurrentView('timer')}
-								className='transition-all duration-200 hover:scale-105'
-							>
-								Timer
 							</Button>
 						</div>
 						<div className='h-6 w-px bg-border'></div>
@@ -376,65 +335,66 @@ function App() {
 						</div>
 					)}
 				</DialogContent>
-			</Dialog>
-
-			<div className='flex-1 relative'>
+			</Dialog>{' '}
+			<div className='flex-1 flex flex-col min-h-0'>
 				<DndContext
 					sensors={sensors}
 					collisionDetection={closestCenter}
 					onDragStart={handleDragStart}
 					onDragEnd={handleDragEnd}
 				>
-					<div className='h-full flex justify-center overflow-x-auto w-full gap-8 p-4'>
-						<KanbanColumn
-							title='Backlog'
-							status='backlog'
-							tasks={getTasksByStatus('backlog')}
-							onMoveTask={moveTask}
-							onEditTask={handleEditTask}
-							onAddTask={addTask}
-							onUpdateTimeEstimate={handleUpdateTimeEstimate}
-							showAddButton={true}
-							showProgress={false}
-							totalTimeEstimate={getTotalTimeForColumn('backlog')}
-						/>{' '}
-						<KanbanColumn
-							title='This Week'
-							status='this-week'
-							tasks={getTasksByStatus('this-week')}
-							onMoveTask={moveTask}
-							onEditTask={handleEditTask}
-							onAddTask={addTask}
-							onUpdateTimeEstimate={handleUpdateTimeEstimate}
-							showAddButton={true}
-							showProgress={false}
-							totalTimeEstimate={getTotalTimeForColumn('this-week')}
-						/>{' '}
-						<KanbanColumn
-							title='Today'
-							status='today'
-							tasks={getTasksByStatus('today')}
-							onMoveTask={moveTask}
-							onEditTask={handleEditTask}
-							onAddTask={addTask}
-							onUpdateTimeEstimate={handleUpdateTimeEstimate}
-							showAddButton={true}
-							showProgress={true}
-							completedCount={getTodayCompletedCount()}
-							totalTimeEstimate={getTotalTimeForColumn('today')}
-							onStartSprint={() => setCurrentView('sprint')}
-						/>
-						<KanbanColumn
-							title='Done'
-							status='done'
-							tasks={getTasksByStatus('done')}
-							onMoveTask={moveTask}
-							onEditTask={handleEditTask}
-							onAddTask={addTask}
-							onUpdateTimeEstimate={handleUpdateTimeEstimate}
-							showAddButton={false}
-							showProgress={false}
-						/>
+					<div className='flex-1 overflow-x-auto overflow-y-hidden kanban-scroll-container transition-all duration-300'>
+						<div className='flex justify-center gap-8 p-4 min-w-fit h-full'>
+							<KanbanColumn
+								title='Backlog'
+								status='backlog'
+								tasks={getTasksByStatus('backlog')}
+								onMoveTask={moveTask}
+								onEditTask={handleEditTask}
+								onAddTask={addTask}
+								onUpdateTimeEstimate={handleUpdateTimeEstimate}
+								showAddButton={true}
+								showProgress={false}
+								totalTimeEstimate={getTotalTimeForColumn('backlog')}
+							/>
+							<KanbanColumn
+								title='This Week'
+								status='this-week'
+								tasks={getTasksByStatus('this-week')}
+								onMoveTask={moveTask}
+								onEditTask={handleEditTask}
+								onAddTask={addTask}
+								onUpdateTimeEstimate={handleUpdateTimeEstimate}
+								showAddButton={true}
+								showProgress={false}
+								totalTimeEstimate={getTotalTimeForColumn('this-week')}
+							/>
+							<KanbanColumn
+								title='Today'
+								status='today'
+								tasks={getTasksByStatus('today')}
+								onMoveTask={moveTask}
+								onEditTask={handleEditTask}
+								onAddTask={addTask}
+								onUpdateTimeEstimate={handleUpdateTimeEstimate}
+								showAddButton={true}
+								showProgress={true}
+								completedCount={getTodayCompletedCount()}
+								totalTimeEstimate={getTotalTimeForColumn('today')}
+								onStartSprint={handleStartSprint}
+							/>
+							<KanbanColumn
+								title='Done'
+								status='done'
+								tasks={getTasksByStatus('done')}
+								onMoveTask={moveTask}
+								onEditTask={handleEditTask}
+								onAddTask={addTask}
+								onUpdateTimeEstimate={handleUpdateTimeEstimate}
+								showAddButton={false}
+								showProgress={false}
+							/>
+						</div>
 					</div>
 					<DragOverlay dropAnimation={null}>
 						{activeId ? (
@@ -449,6 +409,13 @@ function App() {
 					</DragOverlay>
 				</DndContext>
 			</div>
+			{showSprintConfig && (
+				<SprintConfig
+					availableTasks={getTasksByStatus('today')}
+					onStartSprint={handleSprintConfigSubmit}
+					onCancel={handleSprintConfigCancel}
+				/>
+			)}
 		</div>
 	);
 }
