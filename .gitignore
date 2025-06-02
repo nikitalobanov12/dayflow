@@ -23,7 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
-.github/*
+.github/copilot-instructions.md
 
 # Windows-specific files and devices
 nul
