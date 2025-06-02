@@ -84,13 +84,48 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 		return sum + (task?.timeEstimate || 0);
 	}, 0);
 	const progress = totalTasks > 0 ? (completedTasks.length / totalTasks) * 100 : 0;
-
 	useEffect(() => {
-		let unlisten: (() => void) | undefined;
+		let intervalId: NodeJS.Timeout | undefined;
+
+		const setupAlwaysOnTopMaintenance = async () => {
+			try {
+				const window = getCurrentWindow();
+
+				// For sidebar and focus modes, aggressively maintain always-on-top status
+				if (viewMode === 'sidebar' || viewMode === 'focus') {
+					// Set initial always-on-top and visible on all workspaces for maximum visibility
+					await window.setAlwaysOnTop(true);
+					try {
+						await window.setVisibleOnAllWorkspaces(true);
+					} catch (error) {
+						// Ignore if not supported on this platform
+						console.debug('setVisibleOnAllWorkspaces not supported:', error);
+					}
+
+					// Aggressively check and re-apply always-on-top every 2 seconds
+					intervalId = setInterval(async () => {
+						try {
+							const isAlwaysOnTop = await window.isAlwaysOnTop();
+							if (!isAlwaysOnTop) {
+								await window.setAlwaysOnTop(true);
+								// Also try to bring window to front
+								await window.setFocus();
+							}
+						} catch (error) {
+							// Ignore errors - window might be closing
+						}
+					}, 2000); // Check every 2 seconds for more responsive behavior
+				}
+			} catch (error) {
+				console.error('Failed to setup always-on-top maintenance:', error);
+			}
+		};
+
+		setupAlwaysOnTopMaintenance();
 
 		return () => {
-			if (unlisten) {
-				unlisten();
+			if (intervalId) {
+				clearInterval(intervalId);
 			}
 		};
 	}, [viewMode]);
@@ -98,13 +133,17 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 		const resizeWindow = async () => {
 			try {
 				const window = getCurrentWindow();
-
 				switch (viewMode) {
 					case 'sidebar':
 						await window.setSize(new LogicalSize(220, 500));
 						await window.setResizable(false);
 						await window.setPosition(new LogicalPosition(0, 0));
 						await window.setAlwaysOnTop(true);
+						try {
+							await window.setVisibleOnAllWorkspaces(true);
+						} catch (error) {
+							// Ignore if not supported on this platform
+						}
 						await window.setMinimizable(true);
 						await window.setFullscreen(false);
 						break;
@@ -113,6 +152,11 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 						await window.setResizable(false);
 						await window.setPosition(new LogicalPosition(0, 0));
 						await window.setAlwaysOnTop(true);
+						try {
+							await window.setVisibleOnAllWorkspaces(true);
+						} catch (error) {
+							// Ignore if not supported on this platform
+						}
 						await window.setMinimizable(true);
 						await window.setDecorations(false);
 						await window.setFullscreen(false);
@@ -121,6 +165,11 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 						await window.setSize(new LogicalSize(1376, 800));
 						await window.setResizable(true);
 						await window.setAlwaysOnTop(false);
+						try {
+							await window.setVisibleOnAllWorkspaces(false);
+						} catch (error) {
+							// Ignore if not supported on this platform
+						}
 						await window.setMinimizable(true);
 						await window.setDecorations(true);
 						await window.setFullscreen(false);
@@ -153,8 +202,17 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 	const handleMinimize = async () => {
 		try {
 			const window = getCurrentWindow();
-			// Manual minimize - the focus listener will handle disabling always-on-top
+			// Temporarily disable always-on-top and workspace visibility before minimizing
+			if (viewMode === 'sidebar' || viewMode === 'focus') {
+				await window.setAlwaysOnTop(false);
+				try {
+					await window.setVisibleOnAllWorkspaces(false);
+				} catch (error) {
+					// Ignore if not supported on this platform
+				}
+			}
 			await window.minimize();
+			// Note: The interval-based maintenance will re-enable always-on-top when window is restored
 		} catch (error) {
 			console.error('Failed to minimize window:', error);
 		}
@@ -447,7 +505,6 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 				</div>
 
 				<div className='p-3 space-y-3'>
-					{/* Progress */}
 					<div className='space-y-2'>
 						<div className='flex justify-between items-center'>
 							<span className='text-xs text-muted-foreground'>Progress</span>
@@ -468,7 +525,7 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 					{currentTask && !isBreak && (
 						<div className='space-y-2'>
 							<p className='text-xs font-medium text-foreground truncate'>Current Task: </p>
-							<div className='text-sm font-medium text-foreground truncate'>{currentTask.title}</div>
+							<div className='text-sm font-medium text-foreground '>{currentTask.title}</div>
 							<div className='grid grid-cols-2 gap-1'>
 								{' '}
 								<Button
