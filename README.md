@@ -4,6 +4,9 @@ High-performance desktop task manager built with Tauri 2.0, React 18, and TypeSc
 
 > **_NOTE:_**  This is currently only working as a desktop application with a local sqlite database, currently working on migrating to postgres to add more features and make it usable as a web app as well
 
+## [Install Here](https://dayflow-landing-page.vercel.app/)
+
+
 ## Architecture Overview
 
 ### Tech Stack
