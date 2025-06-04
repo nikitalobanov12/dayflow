@@ -1,4 +1,4 @@
-import { Task } from '@/types';
+import { Task, Board } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -12,9 +12,11 @@ interface TaskCardProps {
 	onEdit?: (task: Task) => void;
 	onUpdateTimeEstimate?: (taskId: number, timeEstimate: number) => void;
 	isDone?: boolean;
+	isAllTasksBoard?: boolean;
+	boardInfo?: Board | null; // Board information for display
 }
 
-export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = false }: TaskCardProps) => {
+export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = false, isAllTasksBoard = false, boardInfo = null }: TaskCardProps) => {
 	const [isEditingTime, setIsEditingTime] = useState(false);
 	const [tempTimeEstimate, setTempTimeEstimate] = useState(task.timeEstimate.toString());
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -109,9 +111,20 @@ export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = 
 								title={task.status === 'done' ? 'Mark as incomplete' : 'Mark as complete'}
 							>
 								{task.status === 'done' && <Check className='h-2.5 w-2.5' />}
-							</button>
+							</button>{' '}
 							<div className='flex-1 min-w-0'>
 								<h3 className={cn('text-sm font-medium line-clamp-2 leading-tight transition-all duration-200', isDone && 'line-through text-muted-foreground', !isDone && 'text-card-foreground')}>{task.title}</h3>
+
+								{/* Board indicator for All Tasks view */}
+								{isAllTasksBoard && boardInfo && (
+									<div className='flex items-center gap-1 mt-1'>
+										<div
+											className='w-2 h-2 rounded-full'
+											style={{ backgroundColor: boardInfo.color || '#3B82F6' }}
+										/>
+										<span className='text-xs text-muted-foreground truncate'>{boardInfo.name}</span>
+									</div>
+								)}
 
 								<div className='mt-1.5'>
 									{isEditingTime ? (
@@ -179,6 +192,11 @@ export const TaskCard = ({ task, onMove, onEdit, onUpdateTimeEstimate, isDone = 
 							</Button>
 						</div>
 					</div>
+					{boardInfo && (
+						<div className='mt-2 text-xs text-muted-foreground'>
+							<span>Board: {boardInfo.name}</span>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>

@@ -178,6 +178,7 @@ function App() {
 			<div className='h-screen bg-background flex flex-col'>
 				<CustomTitlebar title={`DayFlow - ${selectedBoard.name}`} />{' '}
 				<div className='flex-1'>
+					{' '}
 					<KanbanBoardView
 						board={selectedBoard}
 						tasks={tasks}
@@ -190,6 +191,7 @@ function App() {
 						onUpdateTimeEstimate={handleUpdateTimeEstimate}
 						onStartSprint={handleStartSprint}
 						isAllTasksBoard={selectedBoard.isDefault}
+						boards={boards}
 					/>
 				</div>
 				{showSprintConfig && (
