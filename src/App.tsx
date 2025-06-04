@@ -8,15 +8,33 @@ import { CustomTitlebar } from '@/components/ui/custom-titlebar';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { SprintMode } from './components/sprint/SprintMode';
 import { SprintConfig, SprintConfiguration } from '@/components/sprint/SprintConfig';
+import { Auth } from '@/components/ui/auth';
 
-import { useDatabase } from '@/hooks/useDatabase';
+import { useSupabaseDatabase } from '@/hooks/useSupabaseDatabase';
 import { Task } from '@/types';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { TaskCard } from '@/components/kanban/TaskCard';
 import './App.css';
 
 function App() {
-	const { tasks, addTask, deleteTask, moveTask, updateTask, reorderTasksInColumn, isLoading } = useDatabase();
+	const { 
+		tasks, 
+		addTask, 
+		deleteTask, 
+		moveTask, 
+		updateTask, 
+		reorderTasksInColumn, 
+		isLoading,
+		user,
+		signUp,
+		signIn,
+		signOut,		isInitialized
+	} = useSupabaseDatabase();
+
+	// Wrapper function to match the expected signature
+	const handleAddTask = async (task: Omit<Task, 'id' | 'createdAt'>) => {
+		await addTask(task);
+	};
 	const [currentView, setCurrentView] = useState<'kanban' | 'sprint'>('kanban');
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -200,6 +218,26 @@ function App() {
 		setShowSprintConfig(false);
 	};
 
+	if (!isInitialized) {
+		return (
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar />
+				<div className='flex-1 flex items-center justify-center relative overflow-hidden pt-8'>
+					<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 animate-pulse'></div>
+					<div className='text-center relative z-10'>
+						<div className='animate-spin rounded-full h-16 w-16 border-4 border-muted border-t-primary mx-auto'></div>
+						<p className='mt-6 text-muted-foreground text-lg font-medium'>Initializing DayFlow...</p>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	// Show authentication if user is not logged in
+	if (!user) {
+		return <Auth onSignUp={signUp} onSignIn={signIn} />;
+	}
+
 	if (isLoading) {
 		return (
 			<div className='h-screen bg-background flex flex-col'>
@@ -266,8 +304,7 @@ function App() {
 						/>
 
 						<h1 className='text-3xl font-bold text-foreground'>DayFlow</h1>
-					</div>
-					<div className='flex items-center gap-3'>
+					</div>					<div className='flex items-center gap-3'>
 						<div className='flex gap-2'>
 							{' '}
 							<Button
@@ -277,6 +314,18 @@ function App() {
 								className='transition-all duration-200 hover:scale-105'
 							>
 								Start Sprint
+							</Button>
+						</div>
+						<div className='h-6 w-px bg-border'></div>
+						<div className='flex items-center gap-2 text-sm text-muted-foreground'>
+							<span>{user?.email}</span>
+							<Button
+								variant='ghost'
+								size='sm'
+								onClick={signOut}
+								className='h-8 px-2 text-xs'
+							>
+								Sign Out
 							</Button>
 						</div>
 						<div className='h-6 w-px bg-border'></div>
@@ -343,53 +392,49 @@ function App() {
 					onDragStart={handleDragStart}
 					onDragEnd={handleDragEnd}
 				>
-					<div className='flex-1 overflow-x-auto overflow-y-hidden kanban-scroll-container transition-all duration-300'>
-						<div className='flex justify-center gap-8 p-4 min-w-fit h-full'>
+					<div className='flex-1 overflow-x-auto overflow-y-hidden kanban-scroll-container transition-all duration-300'>						<div className='flex justify-center gap-8 p-4 min-w-fit h-full'>
 							<KanbanColumn
 								title='Backlog'
 								status='backlog'
 								tasks={getTasksByStatus('backlog')}
 								onMoveTask={moveTask}
 								onEditTask={handleEditTask}
-								onAddTask={addTask}
+								onAddTask={handleAddTask}
 								onUpdateTimeEstimate={handleUpdateTimeEstimate}
 								showAddButton={true}
 								showProgress={false}
 								totalTimeEstimate={getTotalTimeForColumn('backlog')}
-							/>
-							<KanbanColumn
+							/>							<KanbanColumn
 								title='This Week'
 								status='this-week'
 								tasks={getTasksByStatus('this-week')}
 								onMoveTask={moveTask}
 								onEditTask={handleEditTask}
-								onAddTask={addTask}
+								onAddTask={handleAddTask}
 								onUpdateTimeEstimate={handleUpdateTimeEstimate}
 								showAddButton={true}
 								showProgress={false}
 								totalTimeEstimate={getTotalTimeForColumn('this-week')}
 							/>
-							<KanbanColumn
-								title='Today'
+							<KanbanColumn								title='Today'
 								status='today'
 								tasks={getTasksByStatus('today')}
 								onMoveTask={moveTask}
 								onEditTask={handleEditTask}
-								onAddTask={addTask}
+								onAddTask={handleAddTask}
 								onUpdateTimeEstimate={handleUpdateTimeEstimate}
 								showAddButton={true}
 								showProgress={true}
 								completedCount={getTodayCompletedCount()}
 								totalTimeEstimate={getTotalTimeForColumn('today')}
 								onStartSprint={handleStartSprint}
-							/>
-							<KanbanColumn
+							/>							<KanbanColumn
 								title='Done'
 								status='done'
 								tasks={getTasksByStatus('done')}
 								onMoveTask={moveTask}
 								onEditTask={handleEditTask}
-								onAddTask={addTask}
+								onAddTask={handleAddTask}
 								onUpdateTimeEstimate={handleUpdateTimeEstimate}
 								showAddButton={false}
 								showProgress={false}

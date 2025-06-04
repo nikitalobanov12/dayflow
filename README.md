@@ -102,7 +102,6 @@ CREATE TABLE tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
   description TEXT,
-  priority TEXT DEFAULT 'medium',
   time_estimate INTEGER DEFAULT 30,
   status TEXT DEFAULT 'backlog',
   position INTEGER DEFAULT 0,

@@ -20,7 +20,6 @@ export const useDatabase = () => {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           description TEXT,
-          priority TEXT NOT NULL DEFAULT 'medium',
           time_estimate INTEGER NOT NULL DEFAULT 30,
           status TEXT NOT NULL DEFAULT 'backlog',
           position INTEGER NOT NULL DEFAULT 0,
