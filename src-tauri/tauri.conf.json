@@ -4,17 +4,17 @@
 	"version": "0.1.0",
 	"identifier": "com.dayflow.app",
 	"build": {
-		"beforeDevCommand": "npm run dev",
+		"beforeDevCommand": "bun run dev",
 		"devUrl": "http://localhost:1420",
-		"beforeBuildCommand": "npm run build",
+		"beforeBuildCommand": "bun run build",
 		"frontendDist": "../dist"
 	},
 	"app": {
 		"windows": [
 			{
 				"title": "dayflow",
-				"width": 800,
-				"height": 600,
+				"width": 1500,
+				"height": 900,
 				"decorations": false
 			}
 		],

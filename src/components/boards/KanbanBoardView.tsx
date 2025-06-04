@@ -66,7 +66,6 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 		setEditingTask(task);
 		setIsEditingTask(true);
 	};
-
 	const handleUpdateTask = async () => {
 		if (!editingTask || !editingTask.title.trim()) return;
 
@@ -75,6 +74,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 				title: editingTask.title,
 				description: editingTask.description,
 				timeEstimate: editingTask.timeEstimate,
+				boardId: editingTask.boardId,
 			});
 			setEditingTask(null);
 			setIsEditingTask(false);
