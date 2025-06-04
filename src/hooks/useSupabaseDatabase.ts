@@ -44,16 +44,16 @@ export const useSupabaseDatabase = () => {
 		});
 
 		// Listen for auth changes
-		const { data: { subscription } } = supabase.auth.onAuthStateChange(
-			(event, session) => {
-				setUser(session?.user ?? null);
-				if (event === 'SIGNED_IN') {
-					loadTasks();
-				} else if (event === 'SIGNED_OUT') {
-					setTasks([]);
-				}
+		const {
+			data: { subscription },
+		} = supabase.auth.onAuthStateChange((event, session) => {
+			setUser(session?.user ?? null);
+			if (event === 'SIGNED_IN') {
+				loadTasks();
+			} else if (event === 'SIGNED_OUT') {
+				setTasks([]);
 			}
-		);
+		});
 
 		return () => subscription.unsubscribe();
 	}, []);
@@ -76,13 +76,7 @@ export const useSupabaseDatabase = () => {
 
 		try {
 			setIsLoading(true);
-			const { data, error } = await supabase
-				.from('tasks')
-				.select('*')
-				.eq('user_id', user.id)
-				.order('status')
-				.order('position', { ascending: true })
-				.order('created_at', { ascending: false });
+			const { data, error } = await supabase.from('tasks').select('*').eq('user_id', user.id).order('status').order('position', { ascending: true }).order('created_at', { ascending: false });
 
 			if (error) {
 				console.error('Failed to load tasks:', error);
@@ -103,31 +97,23 @@ export const useSupabaseDatabase = () => {
 
 		try {
 			// Get the highest position for the given status and add 1
-			const { data: maxPositionData } = await supabase
-				.from('tasks')
-				.select('position')
-				.eq('user_id', user.id)
-				.eq('status', task.status)
-				.order('position', { ascending: false })
-				.limit(1);
+			const { data: maxPositionData } = await supabase.from('tasks').select('position').eq('user_id', user.id).eq('status', task.status).order('position', { ascending: false }).limit(1);
 
 			const maxPosition = maxPositionData?.[0]?.position || 0;
 			const newPosition = maxPosition + 1;
 
 			const taskToInsert = convertTaskToDb({ ...task, position: newPosition }, user.id);
-
-			const { data, error } = await supabase
-				.from('tasks')
-				.insert([taskToInsert])
-				.select()
-				.single();
+			const { data, error } = await supabase.from('tasks').insert([taskToInsert]).select().single();
 
 			if (error) {
 				console.error('Failed to add task:', error);
 				return null;
 			}
 
-			await loadTasks(); // Refresh tasks after adding
+			// Optimistically add the new task to local state
+			const newTask = convertTaskFromDb(data as TaskRow);
+			setTasks(prevTasks => [...prevTasks, newTask]);
+
 			return data.id;
 		} catch (error) {
 			console.error('Failed to add task:', error);
@@ -139,13 +125,7 @@ export const useSupabaseDatabase = () => {
 		if (!user) return [];
 
 		try {
-			const { data, error } = await supabase
-				.from('tasks')
-				.select('*')
-				.eq('user_id', user.id)
-				.order('status')
-				.order('position', { ascending: true })
-				.order('created_at', { ascending: false });
+			const { data, error } = await supabase.from('tasks').select('*').eq('user_id', user.id).order('status').order('position', { ascending: true }).order('created_at', { ascending: false });
 
 			if (error) {
 				console.error('Failed to get tasks:', error);
@@ -158,11 +138,13 @@ export const useSupabaseDatabase = () => {
 			return [];
 		}
 	};
-
 	const updateTask = async (id: number, updates: Partial<Task>): Promise<boolean> => {
 		if (!user) return false;
 
 		try {
+			// Optimistic update: Update local state immediately
+			setTasks(prevTasks => prevTasks.map(task => (task.id === id ? { ...task, ...updates } : task)));
+
 			// Convert updates to database format
 			const dbUpdates: any = {};
 			if (updates.title !== undefined) dbUpdates.title = updates.title;
@@ -174,44 +156,44 @@ export const useSupabaseDatabase = () => {
 			if (updates.tags !== undefined) dbUpdates.tags = updates.tags || [];
 			if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt || null;
 
-			const { error } = await supabase
-				.from('tasks')
-				.update(dbUpdates)
-				.eq('id', id)
-				.eq('user_id', user.id);
+			const { error } = await supabase.from('tasks').update(dbUpdates).eq('id', id).eq('user_id', user.id);
 
 			if (error) {
 				console.error('Failed to update task:', error);
+				// Revert optimistic update on error
+				await loadTasks();
 				return false;
 			}
 
-			await loadTasks(); // Refresh tasks after updating
 			return true;
 		} catch (error) {
 			console.error('Failed to update task:', error);
+			// Revert optimistic update on error
+			await loadTasks();
 			return false;
 		}
 	};
-
 	const deleteTask = async (id: number): Promise<boolean> => {
 		if (!user) return false;
 
 		try {
-			const { error } = await supabase
-				.from('tasks')
-				.delete()
-				.eq('id', id)
-				.eq('user_id', user.id);
+			// Optimistic update: Remove task from local state immediately
+			setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
+
+			const { error } = await supabase.from('tasks').delete().eq('id', id).eq('user_id', user.id);
 
 			if (error) {
 				console.error('Failed to delete task:', error);
+				// Revert optimistic update on error
+				await loadTasks();
 				return false;
 			}
 
-			await loadTasks(); // Refresh tasks after deleting
 			return true;
 		} catch (error) {
 			console.error('Failed to delete task:', error);
+			// Revert optimistic update on error
+			await loadTasks();
 			return false;
 		}
 	};
@@ -232,12 +214,7 @@ export const useSupabaseDatabase = () => {
 
 			if (newPosition !== undefined) {
 				// Get all tasks in the target status
-				const { data: tasksInStatus } = await supabase
-					.from('tasks')
-					.select('id, position')
-					.eq('user_id', user.id)
-					.eq('status', newStatus)
-					.order('position', { ascending: true });
+				const { data: tasksInStatus } = await supabase.from('tasks').select('id, position').eq('user_id', user.id).eq('status', newStatus).order('position', { ascending: true });
 
 				if (tasksInStatus) {
 					// Update positions of other tasks to make room
@@ -246,11 +223,7 @@ export const useSupabaseDatabase = () => {
 						if (task.id !== id) {
 							const adjustedPosition = i >= newPosition ? i + 1 : i;
 							if (adjustedPosition !== task.position) {
-								await supabase
-									.from('tasks')
-									.update({ position: adjustedPosition })
-									.eq('id', task.id)
-									.eq('user_id', user.id);
+								await supabase.from('tasks').update({ position: adjustedPosition }).eq('id', task.id).eq('user_id', user.id);
 							}
 						}
 					}
@@ -261,13 +234,7 @@ export const useSupabaseDatabase = () => {
 				return await updateTask(id, updateData);
 			} else {
 				// Just move to end of column
-				const { data: maxPositionData } = await supabase
-					.from('tasks')
-					.select('position')
-					.eq('user_id', user.id)
-					.eq('status', newStatus)
-					.order('position', { ascending: false })
-					.limit(1);
+				const { data: maxPositionData } = await supabase.from('tasks').select('position').eq('user_id', user.id).eq('status', newStatus).order('position', { ascending: false }).limit(1);
 
 				const maxPosition = maxPositionData?.[0]?.position || 0;
 				updateData.position = maxPosition + 1;
@@ -282,27 +249,44 @@ export const useSupabaseDatabase = () => {
 	const reorderTask = async (id: number, newPosition: number, status: Task['status']): Promise<boolean> => {
 		return await moveTask(id, status, newPosition);
 	};
-
 	const reorderTasksInColumn = async (taskIds: number[], status: Task['status']): Promise<boolean> => {
 		if (!user) return false;
 
 		try {
+			// Optimistic update: Update local state immediately
+			setTasks(prevTasks => {
+				const updatedTasks = [...prevTasks];
+
+				// Update positions for the reordered tasks
+				taskIds.forEach((taskId, index) => {
+					const taskIndex = updatedTasks.findIndex(task => task.id === taskId);
+					if (taskIndex !== -1) {
+						updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], position: index + 1 };
+					}
+				});
+
+				return updatedTasks;
+			});
+
 			// Update all tasks in the column with their new positions
 			for (let i = 0; i < taskIds.length; i++) {
 				const taskId = taskIds[i];
 				const newPosition = i + 1; // Start positions from 1
-				await supabase
-					.from('tasks')
-					.update({ position: newPosition })
-					.eq('id', taskId)
-					.eq('user_id', user.id)
-					.eq('status', status);
+				const { error } = await supabase.from('tasks').update({ position: newPosition }).eq('id', taskId).eq('user_id', user.id).eq('status', status);
+
+				if (error) {
+					console.error('Failed to update task position:', error);
+					// Revert optimistic update on error
+					await loadTasks();
+					return false;
+				}
 			}
 
-			await loadTasks(); // Refresh tasks after reordering
 			return true;
 		} catch (error) {
 			console.error('Failed to reorder tasks in column:', error);
+			// Revert optimistic update on error
+			await loadTasks();
 			return false;
 		}
 	};
@@ -335,7 +319,7 @@ export const useSupabaseDatabase = () => {
 		tasks,
 		isLoading,
 		user,
-		
+
 		// Task operations
 		addTask,
 		getTasks,
@@ -344,12 +328,12 @@ export const useSupabaseDatabase = () => {
 		moveTask,
 		reorderTask,
 		reorderTasksInColumn,
-		
+
 		// Auth operations
 		signUp,
 		signIn,
 		signOut,
-		
+
 		// Utility
 		loadTasks,
 	};
