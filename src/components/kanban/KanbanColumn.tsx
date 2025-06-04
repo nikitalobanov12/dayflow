@@ -1,4 +1,4 @@
-import { Task } from '@/types';
+import { Task, Board } from '@/types';
 import { TaskCard } from './TaskCard';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface KanbanColumnProps {
 	title: string;
@@ -21,15 +22,19 @@ interface KanbanColumnProps {
 	completedCount?: number; // For progress calculation
 	totalTimeEstimate?: number; // Total time in minutes for cumulative display
 	onStartSprint?: () => void; // For sprint functionality
+	isAllTasksBoard?: boolean; // Whether this is the "All Tasks" board
+	boards?: Board[]; // Available boards for board selection
+	getBoardInfo?: (boardId: number) => Board | null; // Function to get board info
 }
 
-export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint }: KanbanColumnProps) {
+export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo }: KanbanColumnProps) {
 	const { isOver, setNodeRef } = useDroppable({
 		id: status,
 	});
 	const [isAdding, setIsAdding] = useState(false);
 	const [newTaskTitle, setNewTaskTitle] = useState('');
-	const [newTaskTime, setNewTaskTime] = useState(''); // Calculate progress percentage
+	const [newTaskTime, setNewTaskTime] = useState('');
+	const [newTaskBoardId, setNewTaskBoardId] = useState<number | null>(null); // Calculate progress percentage
 	const progressPercentage = showProgress && status === 'today' ? (completedCount / (tasks.length + completedCount)) * 100 || 0 : showProgress && tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 	// Utility function to format minutes as HH:MM
 	const formatTime = (minutes: number): string => {
@@ -85,7 +90,6 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 			});
 		}
 	};
-
 	const handleAddTask = async () => {
 		if (!newTaskTitle.trim() || !onAddTask) return;
 
@@ -98,9 +102,11 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 				timeEstimate: timeInMinutes,
 				status: status,
 				position: tasks.length, // Add to end of current column
+				boardId: isAllTasksBoard ? newTaskBoardId || undefined : undefined, // Add board selection for All Tasks board
 			});
 			setNewTaskTitle('');
 			setNewTaskTime('');
+			setNewTaskBoardId(null); // Reset board selection
 			// Don't close the form - keep isAdding true for easier multiple task creation
 		} catch (error) {
 			console.error('Failed to add task:', error);
@@ -153,7 +159,36 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 							onChange={e => setNewTaskTitle(e.target.value)}
 							onKeyDown={e => e.key === 'Enter' && handleAddTask()}
 							className='text-sm'
-						/>{' '}
+						/>
+						{/* Board selection for All Tasks board */}
+						{isAllTasksBoard && boards.length > 0 && (
+							<Select
+								value={newTaskBoardId?.toString() || ''}
+								onValueChange={value => setNewTaskBoardId(value ? parseInt(value) : null)}
+							>
+								<SelectTrigger className='text-sm'>
+									<SelectValue placeholder='Select board (optional)' />
+								</SelectTrigger>
+								<SelectContent>
+									{boards
+										.filter(board => !board.isDefault)
+										.map(board => (
+											<SelectItem
+												key={board.id}
+												value={board.id.toString()}
+											>
+												<div className='flex items-center gap-2'>
+													<div
+														className='w-3 h-3 rounded-full'
+														style={{ backgroundColor: board.color || '#3B82F6' }}
+													/>
+													{board.name}
+												</div>
+											</SelectItem>
+										))}
+								</SelectContent>
+							</Select>
+						)}{' '}
 						<div className='flex gap-2'>
 							<Input
 								type='number'
@@ -178,6 +213,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 									setIsAdding(false);
 									setNewTaskTitle('');
 									setNewTaskTime('');
+									setNewTaskBoardId(null);
 								}}
 							>
 								Done
@@ -207,6 +243,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 									items={dateTasks.map(task => task.id.toString())}
 									strategy={verticalListSortingStrategy}
 								>
+									{' '}
 									{dateTasks.map(task => (
 										<TaskCard
 											key={task.id}
@@ -215,6 +252,8 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 											onEdit={onEditTask}
 											onUpdateTimeEstimate={onUpdateTimeEstimate}
 											isDone={true}
+											isAllTasksBoard={isAllTasksBoard}
+											boardInfo={getBoardInfo && task.boardId ? getBoardInfo(task.boardId) : null}
 										/>
 									))}
 								</SortableContext>
@@ -227,6 +266,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 						items={tasks.map(task => task.id.toString())}
 						strategy={verticalListSortingStrategy}
 					>
+						{' '}
 						{tasks.map(task => (
 							<TaskCard
 								key={task.id}
@@ -235,6 +275,8 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 								onEdit={onEditTask}
 								onUpdateTimeEstimate={onUpdateTimeEstimate}
 								isDone={false}
+								isAllTasksBoard={isAllTasksBoard}
+								boardInfo={getBoardInfo && task.boardId ? getBoardInfo(task.boardId) : null}
 							/>
 						))}
 					</SortableContext>

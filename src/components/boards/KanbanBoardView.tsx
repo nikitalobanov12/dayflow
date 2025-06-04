@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { TaskCard } from '@/components/kanban/TaskCard';
 import { Task, Board } from '@/types';
@@ -21,9 +22,10 @@ interface KanbanBoardViewProps {
 	onUpdateTimeEstimate: (taskId: number, timeEstimate: number) => Promise<void>;
 	onStartSprint?: () => void;
 	isAllTasksBoard?: boolean;
+	boards?: Board[]; // Available boards for board selection
 }
 
-export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false }: KanbanBoardViewProps) {
+export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [] }: KanbanBoardViewProps) {
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
@@ -91,11 +93,16 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 			console.error('Failed to delete task:', error);
 		}
 	};
-
 	const handleAddTask = async (task: Omit<Task, 'id' | 'createdAt'>) => {
 		// Add boardId to the task if not all tasks board
 		const taskWithBoard = isAllTasksBoard ? task : { ...task, boardId: board.id };
 		await onAddTask(taskWithBoard);
+	};
+
+	// Helper function to get board information by ID
+	const getBoardInfo = (boardId: number): Board | null => {
+		if (!isAllTasksBoard || !boards) return null;
+		return boards.find(b => b.id === boardId) || null;
 	};
 
 	const handleDragStart = (event: DragStartEvent) => {
@@ -188,6 +195,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 				>
 					<div className='flex-1 overflow-x-auto overflow-y-hidden kanban-scroll-container'>
 						<div className='flex justify-center gap-8 p-4 min-w-fit h-full'>
+							{' '}
 							<KanbanColumn
 								title='Backlog'
 								status='backlog'
@@ -199,7 +207,10 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								showAddButton={true}
 								showProgress={false}
 								totalTimeEstimate={getTotalTimeForColumn('backlog')}
-							/>
+								isAllTasksBoard={isAllTasksBoard}
+								boards={boards}
+								getBoardInfo={getBoardInfo}
+							/>{' '}
 							<KanbanColumn
 								title='This Week'
 								status='this-week'
@@ -211,6 +222,9 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								showAddButton={true}
 								showProgress={false}
 								totalTimeEstimate={getTotalTimeForColumn('this-week')}
+								isAllTasksBoard={isAllTasksBoard}
+								boards={boards}
+								getBoardInfo={getBoardInfo}
 							/>
 							<KanbanColumn
 								title='Today'
@@ -225,6 +239,9 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								completedCount={getTodayCompletedCount()}
 								totalTimeEstimate={getTotalTimeForColumn('today')}
 								onStartSprint={onStartSprint}
+								isAllTasksBoard={isAllTasksBoard}
+								boards={boards}
+								getBoardInfo={getBoardInfo}
 							/>
 							<KanbanColumn
 								title='Done'
@@ -236,9 +253,12 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								onUpdateTimeEstimate={onUpdateTimeEstimate}
 								showAddButton={false}
 								showProgress={false}
+								isAllTasksBoard={isAllTasksBoard}
+								boards={boards}
+								getBoardInfo={getBoardInfo}
 							/>
 						</div>
-					</div>
+					</div>{' '}
 					<DragOverlay dropAnimation={null}>
 						{activeId ? (
 							<div className='rotate-2 scale-105 shadow-2xl opacity-95'>
@@ -246,6 +266,8 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 									task={getActiveTask()!}
 									onMove={() => {}}
 									onEdit={() => {}}
+									isAllTasksBoard={isAllTasksBoard}
+									boardInfo={getActiveTask()?.boardId ? getBoardInfo(getActiveTask()!.boardId!) : null}
 								/>
 							</div>
 						) : null}
@@ -264,6 +286,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 					</DialogHeader>
 					{editingTask && (
 						<div className='space-y-4'>
+							{' '}
 							<Input
 								placeholder='Task title'
 								value={editingTask.title}
@@ -274,6 +297,38 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								value={editingTask.description}
 								onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
 							/>
+							{/* Board selection for All Tasks board */}
+							{isAllTasksBoard && boards && boards.length > 0 && (
+								<div className='space-y-2'>
+									<label className='text-sm font-medium'>Board</label>
+									<Select
+										value={editingTask.boardId?.toString() || ''}
+										onValueChange={(value: string) => setEditingTask({ ...editingTask, boardId: value ? parseInt(value) : undefined })}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder='Select board (optional)' />
+										</SelectTrigger>
+										<SelectContent>
+											{boards
+												.filter(board => !board.isDefault)
+												.map(board => (
+													<SelectItem
+														key={board.id}
+														value={board.id.toString()}
+													>
+														<div className='flex items-center gap-2'>
+															<div
+																className='w-3 h-3 rounded-full'
+																style={{ backgroundColor: board.color || '#3B82F6' }}
+															/>
+															{board.name}
+														</div>
+													</SelectItem>
+												))}
+										</SelectContent>
+									</Select>
+								</div>
+							)}
 							<Input
 								type='number'
 								placeholder='Minutes (optional)'
