@@ -212,9 +212,7 @@ export const useSupabaseDatabase = () => {
 
 		try {
 			// Optimistic update: Update local state immediately
-			setTasks(prevTasks => prevTasks.map(task => (task.id === id ? { ...task, ...updates } : task)));
-
-			// Convert updates to database format
+			setTasks(prevTasks => prevTasks.map(task => (task.id === id ? { ...task, ...updates } : task))); // Convert updates to database format
 			const dbUpdates: any = {};
 			if (updates.title !== undefined) dbUpdates.title = updates.title;
 			if (updates.description !== undefined) dbUpdates.description = updates.description || null;
@@ -224,6 +222,7 @@ export const useSupabaseDatabase = () => {
 			if (updates.scheduledDate !== undefined) dbUpdates.scheduled_date = updates.scheduledDate || null;
 			if (updates.tags !== undefined) dbUpdates.tags = updates.tags || [];
 			if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt || null;
+			if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId || null;
 
 			const { error } = await supabase.from('tasks').update(dbUpdates).eq('id', id).eq('user_id', user.id);
 
