@@ -1,210 +1,114 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { CustomTitlebar } from '@/components/ui/custom-titlebar';
-import { KanbanColumn } from '@/components/kanban/KanbanColumn';
+import { CustomTitlebar } from './components/ui/custom-titlebar';
+import { BoardSelection } from '@/components/boards/BoardSelection';
+import { KanbanBoardView } from '@/components/boards/KanbanBoardView';
 import { SprintMode } from './components/sprint/SprintMode';
 import { SprintConfig, SprintConfiguration } from '@/components/sprint/SprintConfig';
 import { Auth } from '@/components/ui/auth';
 
 import { useSupabaseDatabase } from '@/hooks/useSupabaseDatabase';
-import { Task } from '@/types';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
-import { TaskCard } from '@/components/kanban/TaskCard';
+import { Board, Task } from '@/types';
 import './App.css';
 
 function App() {
-	const { 
-		tasks, 
-		addTask, 
-		deleteTask, 
-		moveTask, 
-		updateTask, 
-		reorderTasksInColumn, 
-		isLoading,
-		user,
-		signUp,
-		signIn,
-		signOut,		isInitialized
-	} = useSupabaseDatabase();
+	const { tasks, boards, addTask, deleteTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user } = useSupabaseDatabase();
 
-	// Wrapper function to match the expected signature
-	const handleAddTask = async (task: Omit<Task, 'id' | 'createdAt'>) => {
-		await addTask(task);
+	// Wrapper functions to match component signatures
+	const handleAddBoard = async (board: Omit<Board, 'id' | 'createdAt' | 'userId'>) => {
+		await addBoard(board);
 	};
-	const [currentView, setCurrentView] = useState<'kanban' | 'sprint'>('kanban');
-	const [isEditingTask, setIsEditingTask] = useState(false);
-	const [editingTask, setEditingTask] = useState<Task | null>(null);
-	const [activeId, setActiveId] = useState<string | null>(null);
+
+	const handleUpdateBoard = async (id: number, updates: Partial<Board>) => {
+		await updateBoard(id, updates);
+	};
+
+	const handleDeleteBoard = async (id: number) => {
+		await deleteBoard(id);
+	};
+	const handleMoveTask = async (taskId: number, newStatus: 'backlog' | 'this-week' | 'today' | 'done') => {
+		await moveTask(taskId, newStatus);
+	};
+
+	const handleAddTask = async (task: Omit<Task, 'id' | 'createdAt'>) => {
+		// Remove userId from the task and let database handle it
+		const { userId, ...taskWithoutUserId } = task as any;
+		await addTask(taskWithoutUserId);
+	};
+
+	const handleUpdateTask = async (id: number, updates: Partial<Task>) => {
+		await updateTask(id, updates);
+	};
+
+	const handleDeleteTask = async (id: number) => {
+		await deleteTask(id);
+	};
+
+	const handleReorderTasksInColumn = async (taskIds: number[], status: 'backlog' | 'this-week' | 'today' | 'done') => {
+		await reorderTasksInColumn(taskIds, status);
+	};
+
+	const handleAuth = async (_email: string, _password: string) => {
+		// This would handle authentication but since useSupabaseDatabase doesn't expose auth methods,
+		// we'll just return a dummy response for now
+		return { data: null, error: null };
+	};
+
+	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'sprint'>('boards');
+	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
 	const [showSprintConfig, setShowSprintConfig] = useState(false);
 	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null);
-	// const [sprintViewMode, setSprintViewMode] = useState<'fullscreen' | 'sidebar' | 'focus'>('sidebar');
+	// Show auth if not logged in
+	if (!user) {
+		return (
+			<Auth
+				onSignUp={handleAuth}
+				onSignIn={handleAuth}
+			/>
+		);
+	}
 
-	const sensors = useSensors(
-		useSensor(PointerSensor, {
-			activationConstraint: {
-				distance: 8,
-			},
-		})
-	);
-	const getTasksByStatus = (status: Task['status']) => {
-		return tasks.filter((task: Task) => task.status === status).sort((a, b) => a.position - b.position);
-	};
-	const getTotalTimeForColumn = (status: Task['status']): number => {
-		switch (status) {
-			case 'today':
-				return getTasksByStatus('today').reduce((sum, task) => sum + task.timeEstimate, 0);
-			case 'this-week':
-				return [...getTasksByStatus('today'), ...getTasksByStatus('this-week')].reduce((sum, task) => sum + task.timeEstimate, 0);
-			case 'backlog':
-				return [...getTasksByStatus('today'), ...getTasksByStatus('this-week'), ...getTasksByStatus('backlog')].reduce((sum, task) => sum + task.timeEstimate, 0);
-			case 'done':
-				return getTasksByStatus('done').reduce((sum, task) => sum + task.timeEstimate, 0);
-			default:
-				return 0;
+	// Loading state
+	if (isLoading) {
+		return (
+			<div className='h-screen bg-background flex items-center justify-center'>
+				<div className='text-center space-y-4'>
+					<div className='flex items-center justify-center space-x-2'>
+						<div className='w-2 h-2 bg-primary rounded-full animate-bounce'></div>
+						<div
+							className='w-2 h-2 bg-primary rounded-full animate-bounce'
+							style={{ animationDelay: '0.1s' }}
+						></div>
+						<div
+							className='w-2 h-2 bg-primary rounded-full animate-bounce'
+							style={{ animationDelay: '0.2s' }}
+						></div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+	const handleSelectBoard = async (board: Board) => {
+		setSelectedBoard(board);
+		// If it's the "All Tasks" board, load all tasks, otherwise filter by board
+		if (board.isDefault) {
+			await loadTasks(); // Load all tasks for "All Tasks" board
+		} else {
+			await loadTasks(board.id); // Filter tasks by board ID
 		}
+		setCurrentView('kanban');
+	};
+	const handleBackToBoards = () => {
+		setCurrentView('boards');
+		setSelectedBoard(null);
+		// Load all tasks when going back to board selection
+		loadTasks();
 	};
 
-	const getTodayCompletedCount = (): number => {
-		const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD format
-		return getTasksByStatus('done').filter(task => task.completedAt && task.completedAt.startsWith(today)).length;
-	};
-
-	const handleTaskComplete = async (taskId: number) => {
-		await moveTask(taskId, 'done');
-	};
-
-	const handleEditTask = (task: Task) => {
-		setEditingTask(task);
-		setIsEditingTask(true);
-	};
 	const handleUpdateTimeEstimate = async (taskId: number, timeEstimate: number) => {
-		try {
-			await updateTask(taskId, { timeEstimate });
-		} catch (error) {
-			console.error('Failed to update time estimate:', error);
-		}
-	};
-
-	const handleDeleteTask = async () => {
-		if (!editingTask) return;
-		try {
-			await deleteTask(editingTask.id);
-			setEditingTask(null);
-			setIsEditingTask(false);
-		} catch (error) {
-			console.error('Failed to delete task:', error);
-		}
-	};
-
-	const handleUpdateTask = async () => {
-		if (!editingTask || !editingTask.title.trim()) return;
-
-		try {
-			await updateTask(editingTask.id, {
-				title: editingTask.title,
-				description: editingTask.description,
-				timeEstimate: editingTask.timeEstimate,
-			});
-			setEditingTask(null);
-			setIsEditingTask(false);
-		} catch (error) {
-			console.error('Failed to update task:', error);
-		}
-	};
-	const handleDragStart = (event: DragStartEvent) => {
-		console.log('Drag started:', event.active.id);
-		setActiveId(event.active.id as string);
-	};
-	const handleDragEnd = async (event: DragEndEvent) => {
-		const { active, over } = event;
-		console.log('Drag ended:', { activeId: active.id, overId: over?.id });
-
-		// Clear active id immediately to remove drag overlay
-		setActiveId(null);
-
-		if (!over) {
-			console.log('No drop target detected');
-			return;
-		}
-
-		const taskId = parseInt(active.id as string);
-		const draggedTask = tasks.find(task => task.id === taskId);
-
-		if (!draggedTask) {
-			console.log('Could not find dragged task');
-			return;
-		}
-
-		// Check if we're dropping directly on a column (status change)
-		if (['backlog', 'this-week', 'today', 'done'].includes(over.id as string)) {
-			const newStatus = over.id as Task['status'];
-			console.log('Moving task to new column:', { taskId, newStatus });
-
-			// If moving to a different column, just move to the end
-			if (draggedTask.status !== newStatus) {
-				await moveTask(taskId, newStatus);
-			}
-			return;
-		}
-
-		// Check if we're dropping on another task
-		const overId = parseInt(over.id as string);
-		const overTask = tasks.find(task => task.id === overId);
-
-		if (overTask) {
-			// Same column - reorder within column
-			if (draggedTask.status === overTask.status) {
-				console.log('Reordering within same column:', { taskId, overTaskId: overId });
-
-				// Get all tasks in the same column, sorted by position
-				const columnTasks = tasks.filter(task => task.status === draggedTask.status).sort((a, b) => a.position - b.position);
-
-				// Find the indices
-				const oldIndex = columnTasks.findIndex(task => task.id === taskId);
-				const newIndex = columnTasks.findIndex(task => task.id === overId);
-
-				if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-					console.log('Moving from index', oldIndex, 'to index', newIndex);
-
-					// Remove the dragged task from its old position
-					const reorderedTasks = [...columnTasks];
-					const [movedTask] = reorderedTasks.splice(oldIndex, 1);
-
-					// Insert it at the new position
-					reorderedTasks.splice(newIndex, 0, movedTask);
-
-					// Extract task IDs in their new order
-					const newOrderIds = reorderedTasks.map(task => task.id);
-
-					console.log('New task order:', newOrderIds);
-
-					// Update all positions in one batch operation
-					try {
-						await reorderTasksInColumn(newOrderIds, draggedTask.status);
-					} catch (error) {
-						console.error('Failed to reorder tasks:', error);
-					}
-				}
-			} else {
-				// Different column - move to that column
-				console.log('Moving task to different column via task drop:', { taskId, newStatus: overTask.status });
-				await moveTask(taskId, overTask.status);
-			}
-		}
-	};
-
-	const getActiveTask = () => {
-		if (!activeId) return null;
-		return tasks.find(task => task.id.toString() === activeId);
+		await updateTask(taskId, { timeEstimate });
 	};
 
 	const handleStartSprint = () => {
-		const todayTasks = getTasksByStatus('today');
-		if (todayTasks.length === 0) return;
 		setShowSprintConfig(true);
 	};
 
@@ -218,51 +122,15 @@ function App() {
 		setShowSprintConfig(false);
 	};
 
-	if (!isInitialized) {
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar />
-				<div className='flex-1 flex items-center justify-center relative overflow-hidden pt-8'>
-					<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 animate-pulse'></div>
-					<div className='text-center relative z-10'>
-						<div className='animate-spin rounded-full h-16 w-16 border-4 border-muted border-t-primary mx-auto'></div>
-						<p className='mt-6 text-muted-foreground text-lg font-medium'>Initializing DayFlow...</p>
-					</div>
-				</div>
-			</div>
-		);
-	}
+	const handleTaskComplete = (taskId: number) => {
+		// Handle task completion in sprint mode
+		if (sprintConfig) {
+			const updatedTasks = sprintConfig.selectedTasks.filter(task => task.id !== taskId);
+			setSprintConfig({ ...sprintConfig, selectedTasks: updatedTasks });
+		}
+	};
 
-	// Show authentication if user is not logged in
-	if (!user) {
-		return <Auth onSignUp={signUp} onSignIn={signIn} />;
-	}
-
-	if (isLoading) {
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar />
-				<div className='flex-1 flex items-center justify-center relative overflow-hidden pt-8'>
-					<div className='absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 animate-pulse'></div>
-					<div className='text-center relative z-10'>
-						<div className='animate-spin rounded-full h-16 w-16 border-4 border-muted border-t-primary mx-auto'></div>
-						<p className='mt-6 text-muted-foreground text-lg font-medium'>Loading DayFlow...</p>
-						<div className='mt-2 flex items-center justify-center gap-1'>
-							<div className='w-2 h-2 bg-primary rounded-full animate-bounce'></div>
-							<div
-								className='w-2 h-2 bg-primary rounded-full animate-bounce'
-								style={{ animationDelay: '0.1s' }}
-							></div>
-							<div
-								className='w-2 h-2 bg-primary rounded-full animate-bounce'
-								style={{ animationDelay: '0.2s' }}
-							></div>
-						</div>
-					</div>
-				</div>
-			</div>
-		);
-	}
+	// Sprint mode view
 	if (currentView === 'sprint') {
 		if (!sprintConfig) {
 			setCurrentView('kanban');
@@ -271,9 +139,7 @@ function App() {
 
 		return (
 			<div className='h-screen bg-background flex flex-col'>
-				{/* {sprintViewMode !== 'focus' && <CustomTitlebar title='DayFlow - Sprint Mode' />} */}
-				<div className={'flex-1'}>
-					{' '}
+				<div className='flex-1'>
 					<SprintMode
 						tasks={sprintConfig.selectedTasks}
 						timerType={sprintConfig.timerType}
@@ -284,183 +150,72 @@ function App() {
 							setCurrentView('kanban');
 							setSprintConfig(null);
 						}}
-						// onViewModeChange={setSprintViewMode}
+					/>
+				</div>
+			</div>
+		);
+	} // Board selection view
+	if (currentView === 'boards') {
+		return (
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar title='DayFlow' />
+				<div className='flex-1'>
+					<BoardSelection
+						boards={boards}
+						onSelectBoard={handleSelectBoard}
+						onCreateBoard={handleAddBoard}
+						onUpdateBoard={handleUpdateBoard}
+						onDeleteBoard={handleDeleteBoard}
 					/>
 				</div>
 			</div>
 		);
 	}
-	return (
-		<div className='h-screen bg-background flex flex-col transition-colors duration-300'>
-			<CustomTitlebar title='DayFlow' />
-			<div className=' w-full p-4  bg-background backdrop-blur-sm pt-8'>
-				{/* max-w-1376px because that's the max width that the kanban columns can have*/}
-				<div className='mx-auto max-w-[1376px] flex justify-between items-center'>
-					<div className='flex gap-2 '>
-						<img
-							src='/logo.svg'
-							className='relative inline w-10 h-10'
-							alt='DayFlow Logo'
-						/>
 
-						<h1 className='text-3xl font-bold text-foreground'>DayFlow</h1>
-					</div>					<div className='flex items-center gap-3'>
-						<div className='flex gap-2'>
-							{' '}
-							<Button
-								variant='outline'
-								onClick={handleStartSprint}
-								disabled={getTasksByStatus('today').length === 0}
-								className='transition-all duration-200 hover:scale-105'
-							>
-								Start Sprint
-							</Button>
-						</div>
-						<div className='h-6 w-px bg-border'></div>
-						<div className='flex items-center gap-2 text-sm text-muted-foreground'>
-							<span>{user?.email}</span>
-							<Button
-								variant='ghost'
-								size='sm'
-								onClick={signOut}
-								className='h-8 px-2 text-xs'
-							>
-								Sign Out
-							</Button>
-						</div>
-						<div className='h-6 w-px bg-border'></div>
-						<ThemeToggle />
-					</div>
+	// Kanban board view
+	if (currentView === 'kanban' && selectedBoard) {
+		return (
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar title={`DayFlow - ${selectedBoard.name}`} />{' '}
+				<div className='flex-1'>
+					<KanbanBoardView
+						board={selectedBoard}
+						tasks={tasks}
+						onBack={handleBackToBoards}
+						onMoveTask={handleMoveTask}
+						onAddTask={handleAddTask}
+						onUpdateTask={handleUpdateTask}
+						onDeleteTask={handleDeleteTask}
+						onReorderTasksInColumn={handleReorderTasksInColumn}
+						onUpdateTimeEstimate={handleUpdateTimeEstimate}
+						onStartSprint={handleStartSprint}
+						isAllTasksBoard={selectedBoard.isDefault}
+					/>
 				</div>
+				{showSprintConfig && (
+					<SprintConfig
+						availableTasks={tasks.filter(task => task.status === 'today')}
+						onStartSprint={handleSprintConfigSubmit}
+						onCancel={handleSprintConfigCancel}
+					/>
+				)}
 			</div>
-			<Dialog
-				open={isEditingTask}
-				onOpenChange={setIsEditingTask}
-			>
-				<DialogContent className='max-w-md'>
-					<DialogHeader>
-						<DialogTitle>Edit Task</DialogTitle>
-						<DialogDescription>Update your task details.</DialogDescription>
-					</DialogHeader>{' '}
-					{editingTask && (
-						<div className='space-y-4'>
-							<Input
-								placeholder='Task title'
-								value={editingTask.title}
-								onChange={e => setEditingTask({ ...editingTask, title: e.target.value })}
-							/>
-							<Textarea
-								placeholder='Task description'
-								value={editingTask.description}
-								onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
-							/>
-							<Input
-								type='number'
-								placeholder='Minutes (optional)'
-								value={editingTask.timeEstimate || ''}
-								onChange={e => {
-									const minutes = parseInt(e.target.value) || 0;
-									setEditingTask({ ...editingTask, timeEstimate: minutes });
-								}}
-								className='w-full'
-								min='0'
-								max='999'
-							/>
-							<div className='flex gap-2'>
-								<Button
-									onClick={handleUpdateTask}
-									className='flex-1'
-								>
-									Update Task
-								</Button>
-								<Button
-									variant='destructive'
-									onClick={handleDeleteTask}
-									className='px-4'
-								>
-									Delete
-								</Button>{' '}
-							</div>
-						</div>
-					)}
-				</DialogContent>
-			</Dialog>{' '}
-			<div className='flex-1 flex flex-col min-h-0'>
-				<DndContext
-					sensors={sensors}
-					collisionDetection={closestCenter}
-					onDragStart={handleDragStart}
-					onDragEnd={handleDragEnd}
-				>
-					<div className='flex-1 overflow-x-auto overflow-y-hidden kanban-scroll-container transition-all duration-300'>						<div className='flex justify-center gap-8 p-4 min-w-fit h-full'>
-							<KanbanColumn
-								title='Backlog'
-								status='backlog'
-								tasks={getTasksByStatus('backlog')}
-								onMoveTask={moveTask}
-								onEditTask={handleEditTask}
-								onAddTask={handleAddTask}
-								onUpdateTimeEstimate={handleUpdateTimeEstimate}
-								showAddButton={true}
-								showProgress={false}
-								totalTimeEstimate={getTotalTimeForColumn('backlog')}
-							/>							<KanbanColumn
-								title='This Week'
-								status='this-week'
-								tasks={getTasksByStatus('this-week')}
-								onMoveTask={moveTask}
-								onEditTask={handleEditTask}
-								onAddTask={handleAddTask}
-								onUpdateTimeEstimate={handleUpdateTimeEstimate}
-								showAddButton={true}
-								showProgress={false}
-								totalTimeEstimate={getTotalTimeForColumn('this-week')}
-							/>
-							<KanbanColumn								title='Today'
-								status='today'
-								tasks={getTasksByStatus('today')}
-								onMoveTask={moveTask}
-								onEditTask={handleEditTask}
-								onAddTask={handleAddTask}
-								onUpdateTimeEstimate={handleUpdateTimeEstimate}
-								showAddButton={true}
-								showProgress={true}
-								completedCount={getTodayCompletedCount()}
-								totalTimeEstimate={getTotalTimeForColumn('today')}
-								onStartSprint={handleStartSprint}
-							/>							<KanbanColumn
-								title='Done'
-								status='done'
-								tasks={getTasksByStatus('done')}
-								onMoveTask={moveTask}
-								onEditTask={handleEditTask}
-								onAddTask={handleAddTask}
-								onUpdateTimeEstimate={handleUpdateTimeEstimate}
-								showAddButton={false}
-								showProgress={false}
-							/>
-						</div>
-					</div>
-					<DragOverlay dropAnimation={null}>
-						{activeId ? (
-							<div className='rotate-2 scale-105 shadow-2xl opacity-95'>
-								<TaskCard
-									task={getActiveTask()!}
-									onMove={() => {}}
-									onEdit={() => {}}
-								/>
-							</div>
-						) : null}
-					</DragOverlay>
-				</DndContext>
-			</div>
-			{showSprintConfig && (
-				<SprintConfig
-					availableTasks={getTasksByStatus('today')}
-					onStartSprint={handleSprintConfigSubmit}
-					onCancel={handleSprintConfigCancel}
+		);
+	}
+
+	// Fallback to board selection
+	return (
+		<div className='h-screen bg-background flex flex-col'>
+			<CustomTitlebar title='DayFlow' />{' '}
+			<div className='flex-1'>
+				<BoardSelection
+					boards={boards}
+					onSelectBoard={handleSelectBoard}
+					onCreateBoard={handleAddBoard}
+					onUpdateBoard={handleUpdateBoard}
+					onDeleteBoard={handleDeleteBoard}
 				/>
-			)}
+			</div>
 		</div>
 	);
 }

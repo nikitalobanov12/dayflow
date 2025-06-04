@@ -348,9 +348,8 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 			</div>
 		);
 	}
-
 	const renderFullscreenMode = () => (
-		<div className='min-h-screen bg-gradient-to-br from-background via-accent/20 to-primary/10 p-4'>
+		<div className='min-h-screen bg-gradient-to-br from-background via-accent/20 to-primary/10 p-4 pt-8'>
 			<div className='max-w-lg mx-auto space-y-6'>
 				<div className='flex justify-between items-center'>
 					<div>

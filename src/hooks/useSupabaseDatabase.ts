@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import supabase from '@/utils/supabase';
-import { Task, TaskRow } from '@/types';
+import { Task, TaskRow, Board, BoardRow } from '@/types';
 
 // Helper functions to convert between database rows and application types
 const convertTaskFromDb = (row: TaskRow): Task => ({
@@ -15,6 +15,7 @@ const convertTaskFromDb = (row: TaskRow): Task => ({
 	completedAt: row.completed_at || undefined,
 	tags: row.tags || [],
 	userId: row.user_id,
+	boardId: row.board_id || undefined,
 });
 
 const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId: string): Omit<TaskRow, 'id' | 'created_at'> => ({
@@ -27,10 +28,32 @@ const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId
 	tags: task.tags || [],
 	completed_at: task.completedAt || null,
 	user_id: userId,
+	board_id: task.boardId || null,
+});
+
+const convertBoardFromDb = (row: BoardRow): Board => ({
+	id: row.id,
+	name: row.name,
+	description: row.description || undefined,
+	color: row.color || undefined,
+	icon: row.icon || undefined,
+	createdAt: row.created_at,
+	userId: row.user_id,
+	isDefault: row.is_default,
+});
+
+const convertBoardToDb = (board: Omit<Board, 'id' | 'createdAt' | 'userId'>, userId: string): Omit<BoardRow, 'id' | 'created_at'> => ({
+	name: board.name,
+	description: board.description || null,
+	color: board.color || null,
+	icon: board.icon || null,
+	user_id: userId,
+	is_default: board.isDefault || false,
 });
 
 export const useSupabaseDatabase = () => {
 	const [tasks, setTasks] = useState<Task[]>([]);
+	const [boards, setBoards] = useState<Board[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [user, setUser] = useState<any>(null);
 	const [isInitialized, setIsInitialized] = useState(false);
@@ -50,45 +73,91 @@ export const useSupabaseDatabase = () => {
 			setUser(session?.user ?? null);
 			if (event === 'SIGNED_IN') {
 				loadTasks();
+				loadBoards();
 			} else if (event === 'SIGNED_OUT') {
 				setTasks([]);
+				setBoards([]);
 			}
 		});
 
 		return () => subscription.unsubscribe();
 	}, []);
 
-	// Load tasks when user is available
+	// Load tasks and boards when user is available
 	useEffect(() => {
 		if (user && isInitialized) {
 			loadTasks();
+			loadBoards();
 		} else if (!user && isInitialized) {
 			setTasks([]);
+			setBoards([]);
 			setIsLoading(false);
 		}
 	}, [user, isInitialized]);
-
-	const loadTasks = useCallback(async () => {
-		if (!user) {
-			setIsLoading(false);
-			return;
-		}
-
-		try {
-			setIsLoading(true);
-			const { data, error } = await supabase.from('tasks').select('*').eq('user_id', user.id).order('status').order('position', { ascending: true }).order('created_at', { ascending: false });
-
-			if (error) {
-				console.error('Failed to load tasks:', error);
+	const loadTasks = useCallback(
+		async (boardId?: number) => {
+			if (!user) {
+				setIsLoading(false);
 				return;
 			}
 
-			const taskList = (data as TaskRow[]).map(convertTaskFromDb);
-			setTasks(taskList);
+			try {
+				setIsLoading(true);
+				let query = supabase.from('tasks').select('*').eq('user_id', user.id);
+
+				// Filter by board if boardId is provided
+				if (boardId !== undefined) {
+					query = query.eq('board_id', boardId);
+				}
+
+				const { data, error } = await query.order('status').order('position', { ascending: true }).order('created_at', { ascending: false });
+
+				if (error) {
+					console.error('Failed to load tasks:', error);
+					return;
+				}
+
+				const taskList = (data as TaskRow[]).map(convertTaskFromDb);
+				setTasks(taskList);
+			} catch (error) {
+				console.error('Failed to load tasks:', error);
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[user]
+	);
+
+	const loadBoards = useCallback(async () => {
+		if (!user) return;
+
+		try {
+			const { data, error } = await supabase.from('boards').select('*').eq('user_id', user.id).order('created_at', { ascending: true });
+
+			if (error) {
+				console.error('Failed to load boards:', error);
+				return;
+			}
+
+			let boardList = (data as BoardRow[]).map(convertBoardFromDb);
+
+			// Ensure "All Tasks" board exists
+			const allTasksBoard = boardList.find(board => board.isDefault);
+			if (!allTasksBoard) {
+				const { data: newBoard, error: createError } = await supabase
+					.from('boards')
+					.insert([{ name: 'All Tasks', description: 'View all tasks across all boards', user_id: user.id, is_default: true }])
+					.select()
+					.single();
+
+				if (!createError && newBoard) {
+					boardList.unshift(convertBoardFromDb(newBoard as BoardRow));
+				}
+			}
+
+			setBoards(boardList);
 		} catch (error) {
-			console.error('Failed to load tasks:', error);
-		} finally {
-			setIsLoading(false);
+			console.error('Failed to load boards:', error);
 		}
 	}, [user]);
 
@@ -313,10 +382,109 @@ export const useSupabaseDatabase = () => {
 		return { error };
 	};
 
+	// Board operations
+	const addBoard = async (board: Omit<Board, 'id' | 'createdAt' | 'userId'>): Promise<number | null> => {
+		if (!user) return null;
+
+		try {
+			const boardToInsert = convertBoardToDb(board, user.id);
+			const { data, error } = await supabase.from('boards').insert([boardToInsert]).select().single();
+
+			if (error) {
+				console.error('Failed to add board:', error);
+				return null;
+			}
+
+			// Optimistically add the new board to local state
+			const newBoard = convertBoardFromDb(data as BoardRow);
+			setBoards(prevBoards => [...prevBoards, newBoard]);
+
+			return data.id;
+		} catch (error) {
+			console.error('Failed to add board:', error);
+			return null;
+		}
+	};
+
+	const updateBoard = async (id: number, updates: Partial<Board>): Promise<boolean> => {
+		if (!user) return false;
+
+		try {
+			// Optimistic update: Update local state immediately
+			setBoards(prevBoards => prevBoards.map(board => (board.id === id ? { ...board, ...updates } : board))); // Convert updates to database format
+			const dbUpdates: any = {};
+			if (updates.name !== undefined) dbUpdates.name = updates.name;
+			if (updates.description !== undefined) dbUpdates.description = updates.description || null;
+			if (updates.color !== undefined) dbUpdates.color = updates.color || null;
+			if (updates.icon !== undefined) dbUpdates.icon = updates.icon || null;
+
+			const { error } = await supabase.from('boards').update(dbUpdates).eq('id', id).eq('user_id', user.id);
+
+			if (error) {
+				console.error('Failed to update board:', error);
+				// Revert optimistic update on error
+				await loadBoards();
+				return false;
+			}
+
+			return true;
+		} catch (error) {
+			console.error('Failed to update board:', error);
+			// Revert optimistic update on error
+			await loadBoards();
+			return false;
+		}
+	};
+
+	const deleteBoard = async (id: number): Promise<boolean> => {
+		if (!user) return false;
+
+		try {
+			// Don't allow deleting the default board
+			const board = boards.find(b => b.id === id);
+			if (board?.isDefault) {
+				console.error('Cannot delete the default "All Tasks" board');
+				return false;
+			}
+
+			// Move all tasks from this board to the default board
+			const defaultBoard = boards.find(b => b.isDefault);
+			if (defaultBoard) {
+				const { error: tasksError } = await supabase.from('tasks').update({ board_id: defaultBoard.id }).eq('board_id', id).eq('user_id', user.id);
+
+				if (tasksError) {
+					console.error('Failed to move tasks to default board:', tasksError);
+					return false;
+				}
+			}
+
+			// Optimistic update: Remove board from local state immediately
+			setBoards(prevBoards => prevBoards.filter(board => board.id !== id));
+
+			const { error } = await supabase.from('boards').delete().eq('id', id).eq('user_id', user.id);
+
+			if (error) {
+				console.error('Failed to delete board:', error);
+				// Revert optimistic update on error
+				await loadBoards();
+				return false;
+			}
+
+			// Reload tasks to reflect the moved tasks
+			await loadTasks();
+			return true;
+		} catch (error) {
+			console.error('Failed to delete board:', error);
+			// Revert optimistic update on error
+			await loadBoards();
+			return false;
+		}
+	};
 	return {
 		// Database state
 		isInitialized,
 		tasks,
+		boards,
 		isLoading,
 		user,
 
@@ -328,6 +496,12 @@ export const useSupabaseDatabase = () => {
 		moveTask,
 		reorderTask,
 		reorderTasksInColumn,
+
+		// Board operations
+		addBoard,
+		updateBoard,
+		deleteBoard,
+		loadBoards,
 
 		// Auth operations
 		signUp,
