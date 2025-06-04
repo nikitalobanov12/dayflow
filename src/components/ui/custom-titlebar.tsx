@@ -28,7 +28,7 @@ export const CustomTitlebar: React.FC<CustomTitlebarProps> = () => {
 		}
 	};
 	return (
-		<div className='flex items-center justify-between h-8 select-none fixed top-0 left-0 right-0 z-50'>
+		<div className='flex items-center justify-between h-12 select-none fixed top-0 left-0 right-0 z-50'>
 			<div 
 				className='flex items-center gap-2 px-3 h-full flex-1'
 				data-tauri-drag-region
@@ -49,7 +49,7 @@ export const CustomTitlebar: React.FC<CustomTitlebarProps> = () => {
 					onClick={handleMinimize}
 					variant='ghost'
 					size='sm'
-					className='h-8 w-8 p-0 rounded-none hover:bg-muted/50 transition-colors'
+					className='h-12 w-12 p-0 rounded-none hover:bg-muted/50 transition-colors'
 					aria-label='Minimize'
 				>
 					<Minus className='h-3 w-3' />
@@ -58,7 +58,7 @@ export const CustomTitlebar: React.FC<CustomTitlebarProps> = () => {
 					onClick={handleToggleMaximize}
 					variant='ghost'
 					size='sm'
-					className='h-8 w-8 p-0 rounded-none hover:bg-muted/50 transition-colors'
+					className='h-12 w-12 p-0 rounded-none hover:bg-muted/50 transition-colors'
 					aria-label='Maximize'
 				>
 					<div className='w-2.5 h-2.5 border border-current' />
@@ -67,7 +67,7 @@ export const CustomTitlebar: React.FC<CustomTitlebarProps> = () => {
 					onClick={handleClose}
 					variant='ghost'
 					size='sm'
-					className='h-8 w-8 p-0 rounded-none hover:bg-destructive hover:text-destructive-foreground transition-colors'
+					className='h-12 w-12 p-0 rounded-none hover:bg-destructive hover:text-destructive-foreground transition-colors'
 					aria-label='Close'
 				>
 					<X  />
