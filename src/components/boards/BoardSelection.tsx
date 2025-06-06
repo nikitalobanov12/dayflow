@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Edit, Trash2, Layers } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
+import { isTauri } from '@/lib/platform';
 
 interface BoardSelectionProps {
 	boards: Board[];
@@ -14,6 +16,8 @@ interface BoardSelectionProps {
 	onCreateBoard: (board: Omit<Board, 'id' | 'createdAt' | 'userId'>) => Promise<void>;
 	onUpdateBoard: (id: number, updates: Partial<Board>) => Promise<void>;
 	onDeleteBoard: (id: number) => Promise<void>;
+	user?: any;
+	onSignOut?: () => Promise<{ error: any }>;
 }
 
 const BOARD_COLORS = [
@@ -31,7 +35,7 @@ const BOARD_COLORS = [
 
 const BOARD_ICONS = ['📋', '📊', '📅', '📝', '💼', '🎯', '📈', '🚀', '⭐', '🔥', '💡', '🎨', '⚡', '🌟', '🏆', '📌', '🎪', '🎭', '🎵', '🎮', '🌈', '🦄', '🍕', '☕', '🌱', '🔮', '🎊', '🎉', '💎', '🗂️'];
 
-export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard }: BoardSelectionProps) {
+export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, user, onSignOut }: BoardSelectionProps) {
 	const [isCreating, setIsCreating] = useState(false);
 	const [isEditing, setIsEditing] = useState<Board | null>(null);
 	const [newBoard, setNewBoard] = useState({
@@ -87,7 +91,8 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 
 	return (
 		<div className='h-screen bg-background flex flex-col'>
-			<div className='p-6 border-b border-border pt-8 pb-4 bg-card'>
+			{' '}
+			<div className={`p-6 border-b border-border ${!isTauri? 'pt-8' : ''} pb-4 bg-card`}>
 				<div className='flex items-center justify-between'>
 					<div className='flex items-center gap-3'>
 						<div className='p-2 rounded-lg bg-primary/10'>
@@ -98,16 +103,21 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 							<p className='text-sm text-muted-foreground'>Organize your tasks across multiple boards</p>
 						</div>
 					</div>
-					<Button
-						onClick={() => setIsCreating(true)}
-						className='gap-2'
-					>
-						<Plus className='h-4 w-4' />
-						New Board
-					</Button>
+					<div className='flex items-center gap-3'>
+						<ProfileDropdown
+							user={user}
+							onSignOut={onSignOut}
+						/>
+						<Button
+							onClick={() => setIsCreating(true)}
+							className='gap-2'
+						>
+							<Plus className='h-4 w-4' />
+							New Board
+						</Button>
+					</div>
 				</div>
 			</div>
-
 			<div className='flex-1 p-6 overflow-y-auto'>
 				<div className='max-w-6xl mx-auto'>
 					{/* All Tasks Board */}
@@ -190,7 +200,6 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 					)}
 				</div>
 			</div>
-
 			{/* Create/Edit Board Dialog */}
 			<Dialog
 				open={isCreating || !!isEditing}

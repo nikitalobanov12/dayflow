@@ -1,30 +1,40 @@
-import React from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import React, { useEffect, useState } from 'react';
 import { Minus, X } from 'lucide-react';
 import { Button } from './button';
+import { windowControls } from '@/lib/window-controls';
+import { isTauri } from '@/lib/platform';
 
 interface CustomTitlebarProps {
 	title?: string;
 }
 
 export const CustomTitlebar: React.FC<CustomTitlebarProps> = () => {
-	const appWindow = getCurrentWindow();
+	const [isClient, setIsClient] = useState(false);
+	// Ensure we're on the client side before checking platform
+	useEffect(() => {
+		setIsClient(true);
+	}, []);
+
+	// Don't render anything during SSR or on web
+	if (!isClient || !isTauri()) {
+		return null;
+	}
 
 	const handleMinimize = () => {
-		appWindow.minimize();
+		windowControls.minimize();
 	};
 
 	const handleToggleMaximize = () => {
-		appWindow.toggleMaximize();
+		windowControls.toggleMaximize();
 	};
 
 	const handleClose = () => {
-		appWindow.close();
+		windowControls.close();
 	};
 
 	const handleDragRegionDoubleClick = (e: React.MouseEvent) => {
 		if (e.detail === 2) {
-			appWindow.toggleMaximize();
+			windowControls.toggleMaximize();
 		}
 	};
 	return (
