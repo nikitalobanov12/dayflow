@@ -11,7 +11,7 @@ import { Board, Task } from '@/types';
 import './App.css';
 
 function App() {
-	const { tasks, boards, addTask, deleteTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user } = useSupabaseDatabase();
+	const { tasks, boards, addTask, deleteTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, resetPasswordForEmail } = useSupabaseDatabase();
 
 	// Wrapper functions to match component signatures
 	const handleAddBoard = async (board: Omit<Board, 'id' | 'createdAt' | 'userId'>) => {
@@ -46,23 +46,24 @@ function App() {
 	const handleReorderTasksInColumn = async (taskIds: number[], status: 'backlog' | 'this-week' | 'today' | 'done') => {
 		await reorderTasksInColumn(taskIds, status);
 	};
+	const handleSignUp = async (email: string, password: string) => {
+		return await signUp(email, password);
+	};
 
-	const handleAuth = async (_email: string, _password: string) => {
-		// This would handle authentication but since useSupabaseDatabase doesn't expose auth methods,
-		// we'll just return a dummy response for now
-		return { data: null, error: null };
+	const handleSignIn = async (email: string, password: string) => {
+		return await signIn(email, password);
 	};
 
 	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'sprint'>('boards');
 	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
 	const [showSprintConfig, setShowSprintConfig] = useState(false);
-	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null);
-	// Show auth if not logged in
+	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null); // Show auth if not logged in
 	if (!user) {
 		return (
 			<Auth
-				onSignUp={handleAuth}
-				onSignIn={handleAuth}
+				onSignUp={handleSignUp}
+				onSignIn={handleSignIn}
+				onResetPassword={resetPasswordForEmail}
 			/>
 		);
 	}
@@ -136,7 +137,6 @@ function App() {
 			setCurrentView('kanban');
 			return null;
 		}
-
 		return (
 			<div className='h-screen bg-background flex flex-col'>
 				<div className='flex-1'>
@@ -154,7 +154,9 @@ function App() {
 				</div>
 			</div>
 		);
-	} // Board selection view
+	}
+
+	// Board selection view
 	if (currentView === 'boards') {
 		return (
 			<div className='h-screen bg-background flex flex-col'>
@@ -166,6 +168,8 @@ function App() {
 						onCreateBoard={handleAddBoard}
 						onUpdateBoard={handleUpdateBoard}
 						onDeleteBoard={handleDeleteBoard}
+						user={user}
+						onSignOut={signOut}
 					/>
 				</div>
 			</div>
@@ -192,6 +196,8 @@ function App() {
 						onStartSprint={handleStartSprint}
 						isAllTasksBoard={selectedBoard.isDefault}
 						boards={boards}
+						user={user}
+						onSignOut={signOut}
 					/>
 				</div>
 				{showSprintConfig && (
@@ -204,7 +210,6 @@ function App() {
 			</div>
 		);
 	}
-
 	// Fallback to board selection
 	return (
 		<div className='h-screen bg-background flex flex-col'>
@@ -216,6 +221,8 @@ function App() {
 					onCreateBoard={handleAddBoard}
 					onUpdateBoard={handleUpdateBoard}
 					onDeleteBoard={handleDeleteBoard}
+					user={user}
+					onSignOut={signOut}
 				/>
 			</div>
 		</div>

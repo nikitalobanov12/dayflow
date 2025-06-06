@@ -9,6 +9,7 @@ import { TaskCard } from '@/components/kanban/TaskCard';
 import { Task, Board } from '@/types';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { ArrowLeft } from 'lucide-react';
+import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 
 interface KanbanBoardViewProps {
 	board: Board;
@@ -23,9 +24,11 @@ interface KanbanBoardViewProps {
 	onStartSprint?: () => void;
 	isAllTasksBoard?: boolean;
 	boards?: Board[]; // Available boards for board selection
+	user?: any;
+	onSignOut?: () => Promise<{ error: any }>;
 }
 
-export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [] }: KanbanBoardViewProps) {
+export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut }: KanbanBoardViewProps) {
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
@@ -156,7 +159,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 	return (
 		<div className='h-screen bg-background flex flex-col'>
 			{' '}
-			{/* Header with proper titlebar spacing */}
+			{/* Header with proper titlebar spacing */}{' '}
 			<div className='pt-8 p-4 border-b border-border bg-card relative z-10'>
 				<div className='flex items-center justify-between'>
 					<div className='flex items-center gap-4'>
@@ -183,6 +186,10 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							</div>
 						</div>
 					</div>
+					<ProfileDropdown
+						user={user}
+						onSignOut={onSignOut}
+					/>
 				</div>
 			</div>
 			{/* Kanban Board */}

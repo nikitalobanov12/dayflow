@@ -8,6 +8,7 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { isTauri } from '@/lib/platform';
 
 interface KanbanColumnProps {
 	title: string;
@@ -286,8 +287,9 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 						<p className='text-sm font-medium'>No tasks</p>
 						<p className='text-xs mt-1 opacity-70'>Drag tasks here or add new ones</p>
 					</div>
-				)}
-				{status === 'today' && tasks.length > 0 && onStartSprint && (
+				)}{' '}
+				{/* Sprint button - only show on desktop (Tauri) app */}
+				{status === 'today' && tasks.length > 0 && onStartSprint && isTauri() && (
 					<div className='pt-2 border-t border-border/30 mt-4'>
 						<Button
 							onClick={onStartSprint}

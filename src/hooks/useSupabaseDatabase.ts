@@ -375,10 +375,16 @@ export const useSupabaseDatabase = () => {
 		});
 		return { data, error };
 	};
-
 	const signOut = async () => {
 		const { error } = await supabase.auth.signOut();
 		return { error };
+	};
+
+	const resetPasswordForEmail = async (email: string) => {
+		const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+			redirectTo: `${window.location.origin}/auth/reset-password`,
+		});
+		return { data, error };
 	};
 
 	// Board operations
@@ -501,11 +507,11 @@ export const useSupabaseDatabase = () => {
 		updateBoard,
 		deleteBoard,
 		loadBoards,
-
 		// Auth operations
 		signUp,
 		signIn,
 		signOut,
+		resetPasswordForEmail,
 
 		// Utility
 		loadTasks,

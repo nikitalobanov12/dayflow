@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { LogicalSize, LogicalPosition } from '@tauri-apps/api/dpi';
 import { Task } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { TimerMode } from '@/components/timer/Timer';
 import { SprintTimerType } from './SprintConfig';
 import { Minimize2, Check, SkipForward, Maximize2, X, Play, Pause } from 'lucide-react';
+import { windowControls } from '@/lib/window-controls';
+import { isTauri } from '@/lib/platform';
 
 interface SprintModeProps {
 	tasks: Task[];
@@ -89,27 +89,23 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 
 		const setupAlwaysOnTopMaintenance = async () => {
 			try {
-				const window = getCurrentWindow();
+				// Only run in Tauri environment
+				if (!isTauri()) return;
 
 				// For sidebar and focus modes, aggressively maintain always-on-top status
 				if (viewMode === 'sidebar' || viewMode === 'focus') {
 					// Set initial always-on-top and visible on all workspaces for maximum visibility
-					await window.setAlwaysOnTop(true);
-					try {
-						await window.setVisibleOnAllWorkspaces(true);
-					} catch (error) {
-						// Ignore if not supported on this platform
-						console.debug('setVisibleOnAllWorkspaces not supported:', error);
-					}
+					await windowControls.setAlwaysOnTop(true);
+					await windowControls.setVisibleOnAllWorkspaces(true);
 
 					// Aggressively check and re-apply always-on-top every 2 seconds
 					intervalId = setInterval(async () => {
 						try {
-							const isAlwaysOnTop = await window.isAlwaysOnTop();
+							const isAlwaysOnTop = await windowControls.isAlwaysOnTop();
 							if (!isAlwaysOnTop) {
-								await window.setAlwaysOnTop(true);
+								await windowControls.setAlwaysOnTop(true);
 								// Also try to bring window to front
-								await window.setFocus();
+								await windowControls.setFocus();
 							}
 						} catch (error) {
 							// Ignore errors - window might be closing
@@ -132,48 +128,38 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 	useEffect(() => {
 		const resizeWindow = async () => {
 			try {
-				const window = getCurrentWindow();
+				// Only run in Tauri environment
+				if (!isTauri()) return;
+
 				switch (viewMode) {
 					case 'sidebar':
-						await window.setSize(new LogicalSize(220, 500));
-						await window.setResizable(false);
-						await window.setPosition(new LogicalPosition(0, 0));
-						await window.setAlwaysOnTop(true);
-						try {
-							await window.setVisibleOnAllWorkspaces(true);
-						} catch (error) {
-							// Ignore if not supported on this platform
-						}
-						await window.setMinimizable(true);
-						await window.setFullscreen(false);
+						await windowControls.setSize(220, 500);
+						await windowControls.setResizable(false);
+						await windowControls.setPosition(0, 0);
+						await windowControls.setAlwaysOnTop(true);
+						await windowControls.setVisibleOnAllWorkspaces(true);
+						await windowControls.setMinimizable(true);
+						await windowControls.setFullscreen(false);
 						break;
 					case 'focus':
-						await window.setSize(new LogicalSize(220, 60));
-						await window.setResizable(false);
-						await window.setPosition(new LogicalPosition(0, 0));
-						await window.setAlwaysOnTop(true);
-						try {
-							await window.setVisibleOnAllWorkspaces(true);
-						} catch (error) {
-							// Ignore if not supported on this platform
-						}
-						await window.setMinimizable(true);
-						await window.setDecorations(false);
-						await window.setFullscreen(false);
+						await windowControls.setSize(220, 60);
+						await windowControls.setResizable(false);
+						await windowControls.setPosition(0, 0);
+						await windowControls.setAlwaysOnTop(true);
+						await windowControls.setVisibleOnAllWorkspaces(true);
+						await windowControls.setMinimizable(true);
+						await windowControls.setDecorations(false);
+						await windowControls.setFullscreen(false);
 						break;
 					case 'fullscreen':
-						await window.setSize(new LogicalSize(1376, 800));
-						await window.setResizable(true);
-						await window.setAlwaysOnTop(false);
-						try {
-							await window.setVisibleOnAllWorkspaces(false);
-						} catch (error) {
-							// Ignore if not supported on this platform
-						}
-						await window.setMinimizable(true);
-						await window.setDecorations(true);
-						await window.setFullscreen(false);
-						await window.center();
+						await windowControls.setSize(1376, 800);
+						await windowControls.setResizable(true);
+						await windowControls.setAlwaysOnTop(false);
+						await windowControls.setVisibleOnAllWorkspaces(false);
+						await windowControls.setMinimizable(true);
+						await windowControls.setDecorations(true);
+						await windowControls.setFullscreen(false);
+						await windowControls.center();
 						break;
 				}
 			} catch (error) {
@@ -201,17 +187,15 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 	};
 	const handleMinimize = async () => {
 		try {
-			const window = getCurrentWindow();
+			// Only run in Tauri environment
+			if (!isTauri()) return;
+
 			// Temporarily disable always-on-top and workspace visibility before minimizing
 			if (viewMode === 'sidebar' || viewMode === 'focus') {
-				await window.setAlwaysOnTop(false);
-				try {
-					await window.setVisibleOnAllWorkspaces(false);
-				} catch (error) {
-					// Ignore if not supported on this platform
-				}
+				await windowControls.setAlwaysOnTop(false);
+				await windowControls.setVisibleOnAllWorkspaces(false);
 			}
-			await window.minimize();
+			await windowControls.minimize();
 			// Note: The interval-based maintenance will re-enable always-on-top when window is restored
 		} catch (error) {
 			console.error('Failed to minimize window:', error);
