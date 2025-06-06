@@ -39,3 +39,4 @@ Desktop.ini
 
 # Tauri build outputs
 src-tauri/target/
+.env
