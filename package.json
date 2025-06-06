@@ -8,9 +8,9 @@
 		"build": "tsc && vite build",
 		"preview": "vite preview",
 		"tauri": "tauri",
-		"build:web": "tsc && vite build --mode web --outDir dist-web",
+		"build:web": "cross-env IS_BROWSER=true tsc && cross-env IS_BROWSER=true vite build --mode web --outDir dist-web",
 		"preview:web": "vite preview --outDir dist-web",
-		"dev:web": "vite --mode web"
+		"dev:web": "cross-env IS_BROWSER=true vite --mode web"
 	},
 	"dependencies": {
 		"@dnd-kit/core": "^6.3.1",
@@ -42,6 +42,7 @@
 		"@types/react": "^18.3.1",
 		"@types/react-dom": "^18.3.1",
 		"@vitejs/plugin-react": "^4.3.4",
+		"cross-env": "^7.0.3",
 		"png2icons": "^2.0.1",
 		"sharp": "^0.34.2",
 		"tailwindcss": "^4.1.8",

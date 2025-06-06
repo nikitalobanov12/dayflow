@@ -14,9 +14,9 @@ export default defineConfig(async () => ({
 		},
 	},
 
-	// Define globals for platform detection
+	// Define environment variables for platform detection
 	define: {
-		__TAURI__: process.env.TAURI_ENV ? true : undefined,
+		'import.meta.env.IS_BROWSER': JSON.stringify(process.env.IS_BROWSER || false),
 	},
 
 	// Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
