@@ -10,6 +10,7 @@ import { Task, Board } from '@/types';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { ArrowLeft } from 'lucide-react';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
+import { isTauri } from '@/lib/platform';
 
 interface KanbanBoardViewProps {
 	board: Board;
@@ -159,8 +160,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 	return (
 		<div className='h-screen bg-background flex flex-col'>
 			{' '}
-			{/* Header with proper titlebar spacing */}{' '}
-			<div className='pt-8 p-4 border-b border-border bg-card relative z-10'>
+			<div className={`${!isTauri ? 'pt-8' : ''} p-4 border-b border-border bg-card relative z-10`}>
 				<div className='flex items-center justify-between'>
 					<div className='flex items-center gap-4'>
 						{' '}

@@ -2,24 +2,20 @@
  * Platform detection utilities for Tauri/Web hybrid app
  */
 
-declare global {
-	interface Window {
-		__TAURI__?: unknown;
-	}
-}
-
 /**
  * Detect if the app is running in Tauri (desktop) environment
+ * Uses IS_BROWSER environment variable - if set, we're in browser mode
+ * If not set, we assume we're in Tauri desktop mode
  */
 export const isTauri = (): boolean => {
-	return typeof window !== 'undefined' && window.__TAURI__ !== undefined && window.__TAURI__ !== false && window.__TAURI__ !== null;
+	return !import.meta.env.IS_BROWSER;
 };
 
 /**
  * Detect if the app is running in web browser environment
  */
 export const isWeb = (): boolean => {
-	return !isTauri();
+	return !!import.meta.env.IS_BROWSER;
 };
 
 /**
