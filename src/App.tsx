@@ -11,7 +11,7 @@ import { Board, Task } from '@/types';
 import './App.css';
 
 function App() {
-	const { tasks, boards, addTask, deleteTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, resetPasswordForEmail } = useSupabaseDatabase();
+	const { tasks, boards, addTask, deleteTask, duplicateTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, resetPasswordForEmail } = useSupabaseDatabase();
 
 	// Wrapper functions to match component signatures
 	const handleAddBoard = async (board: Omit<Board, 'id' | 'createdAt' | 'userId'>) => {
@@ -38,9 +38,11 @@ function App() {
 	const handleUpdateTask = async (id: number, updates: Partial<Task>) => {
 		await updateTask(id, updates);
 	};
-
 	const handleDeleteTask = async (id: number) => {
 		await deleteTask(id);
+	};
+	const handleDuplicateTask = async (task: Task) => {
+		await duplicateTask(task);
 	};
 
 	const handleReorderTasksInColumn = async (taskIds: number[], status: 'backlog' | 'this-week' | 'today' | 'done') => {
@@ -191,6 +193,7 @@ function App() {
 						onAddTask={handleAddTask}
 						onUpdateTask={handleUpdateTask}
 						onDeleteTask={handleDeleteTask}
+						onDuplicateTask={handleDuplicateTask}
 						onReorderTasksInColumn={handleReorderTasksInColumn}
 						onUpdateTimeEstimate={handleUpdateTimeEstimate}
 						onStartSprint={handleStartSprint}

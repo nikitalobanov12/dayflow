@@ -266,6 +266,30 @@ export const useSupabaseDatabase = () => {
 		}
 	};
 
+	const duplicateTask = async (originalTask: Task): Promise<number | null> => {
+		if (!user) return null;
+
+		try {
+			// Create a new task object without id and createdAt
+			const duplicatedTask = {
+				title: `${originalTask.title} (Copy)`,
+				description: originalTask.description,
+				timeEstimate: originalTask.timeEstimate,
+				status: originalTask.status,
+				position: 0, // Will be set by addTask
+				scheduledDate: originalTask.scheduledDate,
+				tags: originalTask.tags,
+				boardId: originalTask.boardId,
+			};
+
+			// Use the existing addTask function
+			return await addTask(duplicatedTask);
+		} catch (error) {
+			console.error('Failed to duplicate task:', error);
+			return null;
+		}
+	};
+
 	const moveTask = async (id: number, newStatus: Task['status'], newPosition?: number): Promise<boolean> => {
 		if (!user) return false;
 
@@ -498,6 +522,7 @@ export const useSupabaseDatabase = () => {
 		getTasks,
 		updateTask,
 		deleteTask,
+		duplicateTask,
 		moveTask,
 		reorderTask,
 		reorderTasksInColumn,

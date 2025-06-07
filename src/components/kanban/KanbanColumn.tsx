@@ -18,6 +18,8 @@ interface KanbanColumnProps {
 	onEditTask?: (task: Task) => void;
 	onAddTask?: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
 	onUpdateTimeEstimate?: (taskId: number, timeEstimate: number) => void;
+	onDuplicateTask?: (task: Task) => Promise<void>;
+	onDeleteTask?: (taskId: number) => Promise<void>;
 	showAddButton?: boolean;
 	showProgress?: boolean;
 	completedCount?: number; // For progress calculation
@@ -28,7 +30,7 @@ interface KanbanColumnProps {
 	getBoardInfo?: (boardId: number) => Board | null; // Function to get board info
 }
 
-export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo }: KanbanColumnProps) {
+export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, onDuplicateTask, onDeleteTask, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo }: KanbanColumnProps) {
 	const { isOver, setNodeRef } = useDroppable({
 		id: status,
 	});
@@ -252,7 +254,9 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 											onMove={onMoveTask}
 											onEdit={onEditTask}
 											onUpdateTimeEstimate={onUpdateTimeEstimate}
-											isDone={true}
+											onDuplicate={onDuplicateTask}
+											onDelete={onDeleteTask}
+											isDone={task.status === 'done'}
 											isAllTasksBoard={isAllTasksBoard}
 											boardInfo={getBoardInfo && task.boardId ? getBoardInfo(task.boardId) : null}
 										/>
@@ -275,7 +279,9 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 								onMove={onMoveTask}
 								onEdit={onEditTask}
 								onUpdateTimeEstimate={onUpdateTimeEstimate}
-								isDone={false}
+								onDuplicate={onDuplicateTask}
+								onDelete={onDeleteTask}
+								isDone={task.status === 'done'}
 								isAllTasksBoard={isAllTasksBoard}
 								boardInfo={getBoardInfo && task.boardId ? getBoardInfo(task.boardId) : null}
 							/>

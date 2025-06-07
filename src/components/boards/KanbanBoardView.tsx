@@ -20,6 +20,7 @@ interface KanbanBoardViewProps {
 	onAddTask: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
 	onUpdateTask: (id: number, updates: Partial<Task>) => Promise<void>;
 	onDeleteTask: (id: number) => Promise<void>;
+	onDuplicateTask?: (task: Task) => Promise<void>;
 	onReorderTasksInColumn: (taskIds: number[], status: Task['status']) => Promise<void>;
 	onUpdateTimeEstimate: (taskId: number, timeEstimate: number) => Promise<void>;
 	onStartSprint?: () => void;
@@ -29,7 +30,7 @@ interface KanbanBoardViewProps {
 	onSignOut?: () => Promise<{ error: any }>;
 }
 
-export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut }: KanbanBoardViewProps) {
+export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut }: KanbanBoardViewProps) {
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
@@ -211,6 +212,8 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								onEditTask={handleEditTask}
 								onAddTask={handleAddTask}
 								onUpdateTimeEstimate={onUpdateTimeEstimate}
+								onDuplicateTask={onDuplicateTask}
+								onDeleteTask={onDeleteTask}
 								showAddButton={true}
 								showProgress={false}
 								totalTimeEstimate={getTotalTimeForColumn('backlog')}
@@ -226,13 +229,15 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								onEditTask={handleEditTask}
 								onAddTask={handleAddTask}
 								onUpdateTimeEstimate={onUpdateTimeEstimate}
+								onDuplicateTask={onDuplicateTask}
+								onDeleteTask={onDeleteTask}
 								showAddButton={true}
 								showProgress={false}
 								totalTimeEstimate={getTotalTimeForColumn('this-week')}
 								isAllTasksBoard={isAllTasksBoard}
 								boards={boards}
 								getBoardInfo={getBoardInfo}
-							/>
+							/>{' '}
 							<KanbanColumn
 								title='Today'
 								status='today'
@@ -241,6 +246,8 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								onEditTask={handleEditTask}
 								onAddTask={handleAddTask}
 								onUpdateTimeEstimate={onUpdateTimeEstimate}
+								onDuplicateTask={onDuplicateTask}
+								onDeleteTask={onDeleteTask}
 								showAddButton={true}
 								showProgress={true}
 								completedCount={getTodayCompletedCount()}
@@ -249,7 +256,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								isAllTasksBoard={isAllTasksBoard}
 								boards={boards}
 								getBoardInfo={getBoardInfo}
-							/>
+							/>{' '}
 							<KanbanColumn
 								title='Done'
 								status='done'
@@ -258,6 +265,8 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								onEditTask={handleEditTask}
 								onAddTask={handleAddTask}
 								onUpdateTimeEstimate={onUpdateTimeEstimate}
+								onDuplicateTask={onDuplicateTask}
+								onDeleteTask={onDeleteTask}
 								showAddButton={false}
 								showProgress={false}
 								isAllTasksBoard={isAllTasksBoard}
