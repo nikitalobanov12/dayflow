@@ -80,6 +80,8 @@ jobs:
               run: bun install
 
             - name: build frontend
+              env:
+                  TAURI_ENV: true
               run: bun run build
 
             - uses: tauri-apps/tauri-action@v0
