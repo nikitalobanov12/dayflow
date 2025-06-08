@@ -10,7 +10,7 @@ export function ThemeToggle() {
 			variant='outline'
 			size='sm'
 			onClick={toggleTheme}
-			className='h-10 w-10 p-0 rounded-full border-border/40 bg-background/80 backdrop-blur-sm hover:bg-accent/80 hover:scale-105 transition-all duration-300 shadow-sm hover:shadow-md group flex items-center justify-center'
+			className='h-8 w-8 p-0 rounded-full border-border/40 bg-background/80 backdrop-blur-sm hover:bg-accent/80 hover:scale-105 transition-all duration-300 shadow-sm hover:shadow-md group flex items-center justify-center'
 			aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
 		>
 			<div className='relative w-5 h-5 flex items-center justify-center'>

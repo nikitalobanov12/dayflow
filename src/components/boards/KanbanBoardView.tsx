@@ -6,12 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { TaskCard } from '@/components/kanban/TaskCard';
+import { ViewHeader } from '@/components/ui/view-header';
 import { Task, Board } from '@/types';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
-import { ArrowLeft } from 'lucide-react';
-import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
-import { isTauri } from '@/lib/platform';
 
 interface KanbanBoardViewProps {
 	board: Board;
@@ -29,9 +27,10 @@ interface KanbanBoardViewProps {
 	boards?: Board[]; // Available boards for board selection
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
+	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => Promise<void>;
 }
 
-export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut }: KanbanBoardViewProps) {
+export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange }: KanbanBoardViewProps) {
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
@@ -153,39 +152,15 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 	};
 	return (
 		<div className='h-screen bg-background flex flex-col'>
-			{' '}
-			<div className={`${!isTauri ? 'pt-8' : ''} p-4 border-b border-border bg-card relative z-10`}>
-				<div className='flex items-center justify-between'>
-					<div className='flex items-center gap-4'>
-						{' '}
-						<Button
-							variant='ghost'
-							size='sm'
-							onClick={onBack}
-							className='gap-2 relative z-[60] pointer-events-auto'
-						>
-							<ArrowLeft className='h-4 w-4' />
-							Back to Boards
-						</Button>{' '}
-						<div className='flex items-center gap-3'>
-							<div
-								className='w-8 h-8 rounded-lg flex items-center justify-center text-xl'
-								style={{ backgroundColor: board.color || '#3B82F6' }}
-							>
-								{board.icon || '📋'}
-							</div>
-							<div>
-								<h1 className='text-xl font-bold text-foreground'>{board.name}</h1>
-								{board.description && <p className='text-sm text-muted-foreground'>{board.description}</p>}
-							</div>
-						</div>
-					</div>
-					<ProfileDropdown
-						user={user}
-						onSignOut={onSignOut}
-					/>
-				</div>
-			</div>
+			{/* Header */}
+			<ViewHeader
+				board={board}
+				currentView='kanban'
+				onBack={onBack}
+				onViewChange={onViewChange}
+				user={user}
+				onSignOut={onSignOut}
+			/>
 			{/* Kanban Board */}
 			<div className='flex-1 flex flex-col min-h-0'>
 				<DndContext

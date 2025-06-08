@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { CustomTitlebar } from './components/ui/custom-titlebar';
 import { BoardSelection } from '@/components/boards/BoardSelection';
 import { KanbanBoardView } from '@/components/boards/KanbanBoardView';
+import { CalendarView } from '@/components/calendar/CalendarView';
+import { EisenhowerMatrixView } from '@/components/eisenhower/EisenhowerMatrixView';
+import { GanttChartView } from '@/components/gantt/GanttChartView';
 import { SprintMode } from './components/sprint/SprintMode';
 import { SprintConfig, SprintConfiguration } from '@/components/sprint/SprintConfig';
 import { Auth } from '@/components/ui/auth';
@@ -55,8 +58,7 @@ function App() {
 	const handleSignIn = async (email: string, password: string) => {
 		return await signIn(email, password);
 	};
-
-	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'sprint'>('boards');
+	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'calendar' | 'eisenhower' | 'gantt' | 'sprint'>('boards');
 	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
 	const [showSprintConfig, setShowSprintConfig] = useState(false);
 	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null); // Show auth if not logged in
@@ -99,6 +101,17 @@ function App() {
 			await loadTasks(board.id); // Filter tasks by board ID
 		}
 		setCurrentView('kanban');
+	};
+
+	const handleSelectView = async (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => {
+		setSelectedBoard(board);
+		// If it's the "All Tasks" board, load all tasks, otherwise filter by board
+		if (board.isDefault) {
+			await loadTasks(); // Load all tasks for "All Tasks" board
+		} else {
+			await loadTasks(board.id); // Filter tasks by board ID
+		}
+		setCurrentView(viewType);
 	};
 	const handleBackToBoards = () => {
 		setCurrentView('boards');
@@ -199,6 +212,7 @@ function App() {
 						boards={boards}
 						user={user}
 						onSignOut={signOut}
+						onViewChange={handleSelectView}
 					/>
 				</div>
 				{showSprintConfig && (
@@ -208,6 +222,87 @@ function App() {
 						onCancel={handleSprintConfigCancel}
 					/>
 				)}
+			</div>
+		);
+	}
+
+	// Calendar view
+	if (currentView === 'calendar' && selectedBoard) {
+		return (
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - Calendar`} />
+				<div className='flex-1'>
+					<CalendarView
+						board={selectedBoard}
+						tasks={tasks}
+						onBack={handleBackToBoards}
+						onMoveTask={handleMoveTask}
+						onAddTask={handleAddTask}
+						onUpdateTask={handleUpdateTask}
+						onDeleteTask={handleDeleteTask}
+						onDuplicateTask={handleDuplicateTask}
+						onUpdateTimeEstimate={handleUpdateTimeEstimate}
+						isAllTasksBoard={selectedBoard.isDefault}
+						boards={boards}
+						user={user}
+						onSignOut={signOut}
+						onViewChange={handleSelectView}
+					/>
+				</div>
+			</div>
+		);
+	}
+
+	// Eisenhower Matrix view
+	if (currentView === 'eisenhower' && selectedBoard) {
+		return (
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - Eisenhower Matrix`} />
+				<div className='flex-1'>
+					<EisenhowerMatrixView
+						board={selectedBoard}
+						tasks={tasks}
+						onBack={handleBackToBoards}
+						onMoveTask={handleMoveTask}
+						onAddTask={handleAddTask}
+						onUpdateTask={handleUpdateTask}
+						onDeleteTask={handleDeleteTask}
+						onDuplicateTask={handleDuplicateTask}
+						onUpdateTimeEstimate={handleUpdateTimeEstimate}
+						isAllTasksBoard={selectedBoard.isDefault}
+						boards={boards}
+						user={user}
+						onSignOut={signOut}
+						onViewChange={handleSelectView}
+					/>
+				</div>
+			</div>
+		);
+	}
+
+	// Gantt Chart view
+	if (currentView === 'gantt' && selectedBoard) {
+		return (
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - Gantt Chart`} />
+				<div className='flex-1'>
+					<GanttChartView
+						board={selectedBoard}
+						tasks={tasks}
+						onBack={handleBackToBoards}
+						onMoveTask={handleMoveTask}
+						onAddTask={handleAddTask}
+						onUpdateTask={handleUpdateTask}
+						onDeleteTask={handleDeleteTask}
+						onDuplicateTask={handleDuplicateTask}
+						onUpdateTimeEstimate={handleUpdateTimeEstimate}
+						isAllTasksBoard={selectedBoard.isDefault}
+						boards={boards}
+						user={user}
+						onSignOut={signOut}
+						onViewChange={handleSelectView}
+					/>
+				</div>
 			</div>
 		);
 	}
