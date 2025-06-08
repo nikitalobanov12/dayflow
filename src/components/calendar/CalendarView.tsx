@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, Board } from '@/types';
-import { Trash2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Trash2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle } from 'lucide-react';
 import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
 import { ViewHeader } from '@/components/ui/view-header';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -92,10 +92,14 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 				};
 			});
 	}, [tasks]);
-
 	// Get unscheduled tasks (tasks without scheduledDate, startDate, or dueDate)
 	const unscheduledTasks = useMemo(() => {
-		return tasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate);
+		return tasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate && task.status !== 'done');
+	}, [tasks]);
+
+	// Get completed unscheduled tasks
+	const completedUnscheduledTasks = useMemo(() => {
+		return tasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate && task.status === 'done');
 	}, [tasks]);
 
 	const handleScheduleTask = async (task: Task, date: Date) => {
@@ -305,6 +309,43 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 		};
 	}, []);
 
+	const renderTaskCard = (task: Task, isCompleted = false) => (
+		<div
+			key={task.id}
+			className={`p-3 bg-background rounded-lg border border-border hover:shadow-sm transition-shadow cursor-pointer ${isCompleted ? 'opacity-70' : ''}`}
+			draggable={!isCompleted}
+			onDragStart={e => {
+				if (!isCompleted) {
+					e.dataTransfer.setData('text/plain', task.id.toString());
+				}
+			}}
+			onClick={() => {
+				setEditingTask(task);
+				setIsEditingTask(true);
+			}}
+		>
+			<div className='flex items-start justify-between'>
+				<div className='flex-1 min-w-0'>
+					<div className='flex items-center gap-2'>
+						{isCompleted && <CheckCircle className='h-4 w-4 text-green-600 flex-shrink-0' />}
+						<h4 className={`text-sm font-medium truncate ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>{task.title}</h4>
+					</div>
+					{task.description && <p className={`text-xs mt-1 line-clamp-2 ${isCompleted ? 'text-muted-foreground' : 'text-muted-foreground'}`}>{task.description}</p>}
+					<div className='flex items-center gap-2 mt-2 text-xs text-muted-foreground'>
+						<span className={`px-2 py-1 rounded-full text-xs font-medium ${task.status === 'done' ? 'bg-green-100 text-green-800' : task.status === 'today' ? 'bg-red-100 text-red-800' : task.status === 'this-week' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>{task.status.replace('-', ' ')}</span>
+						{task.timeEstimate && task.timeEstimate > 0 && (
+							<span className='flex items-center gap-1'>
+								<Clock className='h-3 w-3' />
+								{task.timeEstimate}m
+							</span>
+						)}
+					</div>
+				</div>
+			</div>
+			{!isCompleted && <div className='text-xs text-muted-foreground mt-2 pt-2 border-t border-border'>Drag to calendar or click to edit</div>}
+		</div>
+	);
+
 	return (
 		<div className='h-full bg-background flex flex-col'>
 			{/* Header */}
@@ -319,49 +360,33 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 
 			{/* Main Content Area */}
 			<div className='flex-1 flex'>
-				{/* Unscheduled Tasks Sidebar */}
-				{unscheduledTasks.length > 0 && (
+				{' '}
+				{/* Sidebar for unscheduled and completed tasks */}
+				{(unscheduledTasks.length > 0 || completedUnscheduledTasks.length > 0) && (
 					<div className='w-80 border-r border-border bg-muted/20 p-4 overflow-y-auto'>
-						<h3 className='text-sm font-semibold mb-3 flex items-center gap-2'>
-							<CalendarIcon className='h-4 w-4' />
-							Unscheduled Tasks ({unscheduledTasks.length})
-						</h3>
-						<div className='space-y-2'>
-							{unscheduledTasks.map(task => (
-								<div
-									key={task.id}
-									className='p-3 bg-background rounded-lg border border-border hover:shadow-sm transition-shadow cursor-pointer'
-									draggable
-									onDragStart={e => {
-										e.dataTransfer.setData('text/plain', task.id.toString());
-									}}
-									onClick={() => {
-										setEditingTask(task);
-										setIsEditingTask(true);
-									}}
-								>
-									<div className='flex items-start justify-between'>
-										<div className='flex-1 min-w-0'>
-											<h4 className='text-sm font-medium truncate'>{task.title}</h4>
-											{task.description && <p className='text-xs text-muted-foreground mt-1 line-clamp-2'>{task.description}</p>}
-											<div className='flex items-center gap-2 mt-2 text-xs text-muted-foreground'>
-												<span className={`px-2 py-1 rounded-full text-xs font-medium ${task.status === 'done' ? 'bg-green-100 text-green-800' : task.status === 'today' ? 'bg-red-100 text-red-800' : task.status === 'this-week' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>{task.status.replace('-', ' ')}</span>
-												{task.timeEstimate && task.timeEstimate > 0 && (
-													<span className='flex items-center gap-1'>
-														<Clock className='h-3 w-3' />
-														{task.timeEstimate}m
-													</span>
-												)}
-											</div>
-										</div>
-									</div>
-									<div className='text-xs text-muted-foreground mt-2 pt-2 border-t border-border'>Drag to calendar or click to edit</div>
-								</div>
-							))}
-						</div>
+						{/* Unscheduled Tasks Section */}
+						{unscheduledTasks.length > 0 && (
+							<div className='mb-6'>
+								<h3 className='text-sm font-semibold mb-3 flex items-center gap-2'>
+									<CalendarIcon className='h-4 w-4' />
+									Unscheduled Tasks ({unscheduledTasks.length})
+								</h3>
+								<div className='space-y-2'>{unscheduledTasks.map(task => renderTaskCard(task, false))}</div>
+							</div>
+						)}
+
+						{/* Completed Unscheduled Tasks Section */}
+						{completedUnscheduledTasks.length > 0 && (
+							<div>
+								<h3 className='text-sm font-semibold mb-3 flex items-center gap-2'>
+									<CheckCircle className='h-4 w-4 text-green-600' />
+									Completed Tasks ({completedUnscheduledTasks.length})
+								</h3>
+								<div className='space-y-2'>{completedUnscheduledTasks.map(task => renderTaskCard(task, true))}</div>
+							</div>
+						)}
 					</div>
 				)}
-
 				{/* Calendar */}
 				<div
 					className='flex-1 p-4'

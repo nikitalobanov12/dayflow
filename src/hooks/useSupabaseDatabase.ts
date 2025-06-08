@@ -30,28 +30,45 @@ const convertTaskFromDb = (row: TaskRow): Task => ({
 	tags: row.tags || [],
 	userId: row.user_id,
 	boardId: row.board_id || undefined,
-	// Default values for new properties (will be added to DB later)
-	priority: 2 as const, // Medium priority
-	effortEstimate: 2 as const, // Medium effort
-	impactEstimate: 2 as const, // Medium impact
-	progressPercentage: 0,
-	timeSpent: 0,
+	// New properties - use database values if available, otherwise defaults
+	priority: (row as any).priority || 2,
+	dueDate: (row as any).due_date || undefined,
+	startDate: (row as any).start_date || undefined,
+	effortEstimate: (row as any).effort_estimate || 2,
+	impactEstimate: (row as any).impact_estimate || 2,
+	category: (row as any).category || undefined,
+	progressPercentage: (row as any).progress_percentage || 0,
+	timeSpent: (row as any).time_spent || 0,
+	assigneeId: (row as any).assignee_id || undefined,
+	parentTaskId: (row as any).parent_task_id || undefined,
 	labels: [],
 	attachments: [],
 });
 
-const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId: string): Omit<TaskRow, 'id' | 'created_at'> => ({
-	title: task.title,
-	description: task.description || null,
-	time_estimate: task.timeEstimate,
-	status: task.status,
-	position: task.position,
-	scheduled_date: task.scheduledDate || null,
-	tags: task.tags || [],
-	completed_at: task.completedAt || null,
-	user_id: userId,
-	board_id: task.boardId || null,
-});
+const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId: string): Omit<TaskRow, 'id' | 'created_at'> =>
+	({
+		title: task.title,
+		description: task.description || null,
+		time_estimate: task.timeEstimate,
+		status: task.status,
+		position: task.position,
+		scheduled_date: task.scheduledDate || null,
+		tags: task.tags || [],
+		completed_at: task.completedAt || null,
+		user_id: userId,
+		board_id: task.boardId || null,
+		// Include new fields
+		priority: task.priority || 2,
+		due_date: task.dueDate || null,
+		start_date: task.startDate || null,
+		effort_estimate: task.effortEstimate || 2,
+		impact_estimate: task.impactEstimate || 2,
+		category: task.category || null,
+		progress_percentage: task.progressPercentage || 0,
+		time_spent: task.timeSpent || 0,
+		assignee_id: task.assigneeId || null,
+		parent_task_id: task.parentTaskId || null,
+	} as any);
 
 const convertBoardFromDb = (row: BoardRow): Board => ({
 	id: row.id,
@@ -258,6 +275,18 @@ export const useSupabaseDatabase = () => {
 			if (updates.tags !== undefined) dbUpdates.tags = updates.tags || [];
 			if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt || null;
 			if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId || null;
+
+			// Handle new fields
+			if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+			if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate || null;
+			if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate || null;
+			if (updates.effortEstimate !== undefined) dbUpdates.effort_estimate = updates.effortEstimate;
+			if (updates.impactEstimate !== undefined) dbUpdates.impact_estimate = updates.impactEstimate;
+			if (updates.category !== undefined) dbUpdates.category = updates.category || null;
+			if (updates.progressPercentage !== undefined) dbUpdates.progress_percentage = updates.progressPercentage;
+			if (updates.timeSpent !== undefined) dbUpdates.time_spent = updates.timeSpent;
+			if (updates.assigneeId !== undefined) dbUpdates.assignee_id = updates.assigneeId || null;
+			if (updates.parentTaskId !== undefined) dbUpdates.parent_task_id = updates.parentTaskId || null;
 
 			const { error } = await supabase.from('tasks').update(dbUpdates).eq('id', id).eq('user_id', user.id);
 

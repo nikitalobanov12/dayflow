@@ -32,7 +32,6 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [selectedQuadrant, setSelectedQuadrant] = useState<keyof typeof quadrants | null>(null);
-
 	// Define the four quadrants of the Eisenhower Matrix
 	const quadrants = useMemo(
 		() => ({
@@ -40,32 +39,32 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 				title: 'Do First',
 				description: 'Urgent & Important',
 				icon: <AlertTriangle className='h-5 w-5' />,
-				color: 'text-red-600',
-				bgColor: 'bg-red-50 border-red-200',
+				color: 'text-red-600 dark:text-red-400',
+				bgColor: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800',
 				filter: (task: Task) => task.effortEstimate >= 3 && task.impactEstimate >= 3,
 			},
 			not_urgent_important: {
 				title: 'Schedule',
 				description: 'Not Urgent & Important',
 				icon: <Star className='h-5 w-5' />,
-				color: 'text-blue-600',
-				bgColor: 'bg-blue-50 border-blue-200',
+				color: 'text-blue-600 dark:text-blue-400',
+				bgColor: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800',
 				filter: (task: Task) => task.effortEstimate <= 2 && task.impactEstimate >= 3,
 			},
 			urgent_not_important: {
 				title: 'Delegate',
 				description: 'Urgent & Not Important',
 				icon: <Clock className='h-5 w-5' />,
-				color: 'text-orange-600',
-				bgColor: 'bg-orange-50 border-orange-200',
+				color: 'text-orange-600 dark:text-orange-400',
+				bgColor: 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800',
 				filter: (task: Task) => task.effortEstimate >= 3 && task.impactEstimate <= 2,
 			},
 			not_urgent_not_important: {
 				title: 'Eliminate',
 				description: 'Not Urgent & Not Important',
 				icon: <Archive className='h-5 w-5' />,
-				color: 'text-gray-600',
-				bgColor: 'bg-gray-50 border-gray-200',
+				color: 'text-gray-600 dark:text-gray-400',
+				bgColor: 'bg-gray-50 dark:bg-gray-950/30 border-gray-200 dark:border-gray-800',
 				filter: (task: Task) => task.effortEstimate <= 2 && task.impactEstimate <= 2,
 			},
 		}),
@@ -199,7 +198,7 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 				<div className='space-y-2'>
 					<div className='flex items-start justify-between'>
 						<h4 className='font-medium text-sm leading-tight'>{task.title}</h4>
-						<div className='flex items-center gap-1 text-xs text-muted-foreground'>{task.timeEstimate > 0 && <span className='bg-white/80 px-2 py-1 rounded'>{task.timeEstimate}m</span>}</div>
+						<div className='flex items-center gap-1 text-xs text-muted-foreground'>{task.timeEstimate > 0 && <span className='bg-white/80 dark:bg-gray-800/80 px-2 py-1 rounded'>{task.timeEstimate}m</span>}</div>
 					</div>
 
 					{task.description && <p className='text-xs text-muted-foreground line-clamp-2'>{task.description}</p>}
