@@ -33,7 +33,7 @@ interface GanttTask extends Task {
 	progress: number;
 }
 
-export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onUpdateTimeEstimate, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange }: GanttChartViewProps) {
+export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange }: GanttChartViewProps) {
 	const [viewMode, setViewMode] = useState<'days' | 'weeks' | 'months'>('weeks');
 	const [currentDate, setCurrentDate] = useState(new Date());
 	const [isEditingTask, setIsEditingTask] = useState(false);
