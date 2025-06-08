@@ -1,6 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import supabase from '@/utils/supabase';
-import { Task, TaskRow, Board, BoardRow } from '@/types';
+import { Task, TaskRow, Board, BoardRow, Subtask } from '@/types';
+
+// Subtask database row interface
+interface SubtaskRow {
+	id: number;
+	parent_task_id: number;
+	title: string;
+	description: string | null;
+	is_completed: boolean;
+	position: number;
+	time_estimate: number;
+	created_at: string;
+	completed_at: string | null;
+	user_id: string;
+}
 
 // Helper functions to convert between database rows and application types
 const convertTaskFromDb = (row: TaskRow): Task => ({
@@ -16,6 +30,14 @@ const convertTaskFromDb = (row: TaskRow): Task => ({
 	tags: row.tags || [],
 	userId: row.user_id,
 	boardId: row.board_id || undefined,
+	// Default values for new properties (will be added to DB later)
+	priority: 2 as const, // Medium priority
+	effortEstimate: 2 as const, // Medium effort
+	impactEstimate: 2 as const, // Medium impact
+	progressPercentage: 0,
+	timeSpent: 0,
+	labels: [],
+	attachments: [],
 });
 
 const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId: string): Omit<TaskRow, 'id' | 'created_at'> => ({
@@ -49,6 +71,19 @@ const convertBoardToDb = (board: Omit<Board, 'id' | 'createdAt' | 'userId'>, use
 	icon: board.icon || null,
 	user_id: userId,
 	is_default: board.isDefault || false,
+});
+
+const convertSubtaskFromDb = (row: SubtaskRow): Subtask => ({
+	id: row.id,
+	parentTaskId: row.parent_task_id,
+	title: row.title,
+	description: row.description || undefined,
+	isCompleted: row.is_completed,
+	position: row.position,
+	timeEstimate: row.time_estimate,
+	createdAt: row.created_at,
+	completedAt: row.completed_at || undefined,
+	userId: row.user_id,
 });
 
 export const useSupabaseDatabase = () => {
@@ -268,10 +303,9 @@ export const useSupabaseDatabase = () => {
 
 	const duplicateTask = async (originalTask: Task): Promise<number | null> => {
 		if (!user) return null;
-
 		try {
 			// Create a new task object without id and createdAt
-			const duplicatedTask = {
+			const duplicatedTask: Omit<Task, 'id' | 'createdAt' | 'userId'> = {
 				title: `${originalTask.title} (Copy)`,
 				description: originalTask.description,
 				timeEstimate: originalTask.timeEstimate,
@@ -280,6 +314,14 @@ export const useSupabaseDatabase = () => {
 				scheduledDate: originalTask.scheduledDate,
 				tags: originalTask.tags,
 				boardId: originalTask.boardId,
+				// Include all required new properties
+				priority: originalTask.priority,
+				effortEstimate: originalTask.effortEstimate,
+				impactEstimate: originalTask.impactEstimate,
+				progressPercentage: 0, // Reset progress for copy
+				timeSpent: 0, // Reset time spent for copy
+				labels: [...(originalTask.labels || [])],
+				attachments: [], // Don't copy attachments
 			};
 
 			// Use the existing addTask function
@@ -382,6 +424,109 @@ export const useSupabaseDatabase = () => {
 			return false;
 		}
 	};
+
+	// Subtask operations
+	const addSubtask = useCallback(
+		async (parentTaskId: number, title: string): Promise<Subtask> => {
+			if (!user) throw new Error('User not authenticated');
+
+			// Get the highest position for this task's subtasks
+			const { data: existingSubtasks } = await supabase.from('subtasks').select('position').eq('parent_task_id', parentTaskId).eq('user_id', user.id).order('position', { ascending: false }).limit(1);
+
+			const newPosition = existingSubtasks && existingSubtasks.length > 0 ? existingSubtasks[0].position + 1 : 0;
+
+			const subtaskData = {
+				parent_task_id: parentTaskId,
+				title,
+				description: null,
+				is_completed: false,
+				position: newPosition,
+				time_estimate: 15,
+				completed_at: null,
+				user_id: user.id,
+			};
+
+			const { data, error } = await supabase.from('subtasks').insert(subtaskData).select().single();
+
+			if (error) throw error;
+
+			return convertSubtaskFromDb(data);
+		},
+		[user]
+	);
+
+	const updateSubtask = useCallback(
+		async (id: number, updates: Partial<Subtask>): Promise<void> => {
+			if (!user) throw new Error('User not authenticated');
+
+			const updateData: Partial<SubtaskRow> = {};
+
+			if (updates.title !== undefined) updateData.title = updates.title;
+			if (updates.description !== undefined) updateData.description = updates.description || null;
+			if (updates.isCompleted !== undefined) {
+				updateData.is_completed = updates.isCompleted;
+				updateData.completed_at = updates.isCompleted ? new Date().toISOString() : null;
+			}
+			if (updates.position !== undefined) updateData.position = updates.position;
+			if (updates.timeEstimate !== undefined) updateData.time_estimate = updates.timeEstimate;
+
+			const { error } = await supabase.from('subtasks').update(updateData).eq('id', id).eq('user_id', user.id);
+
+			if (error) throw error;
+		},
+		[user]
+	);
+
+	const deleteSubtask = useCallback(
+		async (id: number): Promise<void> => {
+			if (!user) throw new Error('User not authenticated');
+
+			const { error } = await supabase.from('subtasks').delete().eq('id', id).eq('user_id', user.id);
+
+			if (error) throw error;
+		},
+		[user]
+	);
+	const getSubtasks = useCallback(
+		async (parentTaskId: number): Promise<Subtask[]> => {
+			if (!user) {
+				console.log('getSubtasks: No user authenticated');
+				return [];
+			}
+
+			console.log('getSubtasks: Fetching subtasks for task', parentTaskId, 'user', user.id);
+
+			const { data, error } = await supabase.from('subtasks').select('*').eq('parent_task_id', parentTaskId).eq('user_id', user.id).order('position', { ascending: true });
+
+			if (error) {
+				console.error('getSubtasks: Database error:', error);
+				throw error;
+			}
+
+			console.log('getSubtasks: Raw data from database:', data);
+			const result = data.map(convertSubtaskFromDb);
+			console.log('getSubtasks: Converted subtasks:', result);
+
+			return result;
+		},
+		[user]
+	);
+
+	const reorderSubtasks = useCallback(
+		async (subtaskIds: number[]): Promise<void> => {
+			if (!user) throw new Error('User not authenticated');
+
+			const updates = subtaskIds.map((id, index) => ({
+				id,
+				position: index,
+			}));
+
+			for (const update of updates) {
+				await supabase.from('subtasks').update({ position: update.position }).eq('id', update.id).eq('user_id', user.id);
+			}
+		},
+		[user]
+	);
 
 	// Authentication methods
 	const signUp = async (email: string, password: string) => {
@@ -516,7 +661,6 @@ export const useSupabaseDatabase = () => {
 		boards,
 		isLoading,
 		user,
-
 		// Task operations
 		addTask,
 		getTasks,
@@ -532,6 +676,14 @@ export const useSupabaseDatabase = () => {
 		updateBoard,
 		deleteBoard,
 		loadBoards,
+
+		// Subtask operations
+		addSubtask,
+		updateSubtask,
+		deleteSubtask,
+		getSubtasks,
+		reorderSubtasks,
+
 		// Auth operations
 		signUp,
 		signIn,

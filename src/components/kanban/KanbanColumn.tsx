@@ -28,16 +28,19 @@ interface KanbanColumnProps {
 	isAllTasksBoard?: boolean; // Whether this is the "All Tasks" board
 	boards?: Board[]; // Available boards for board selection
 	getBoardInfo?: (boardId: number) => Board | null; // Function to get board info
+	currentBoard?: Board; // Current board information to display when task has no specific board
 }
 
-export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, onDuplicateTask, onDeleteTask, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo }: KanbanColumnProps) {
+export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, onDuplicateTask, onDeleteTask, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo, currentBoard }: KanbanColumnProps) {
 	const { isOver, setNodeRef } = useDroppable({
 		id: status,
 	});
 	const [isAdding, setIsAdding] = useState(false);
 	const [newTaskTitle, setNewTaskTitle] = useState('');
 	const [newTaskTime, setNewTaskTime] = useState('');
-	const [newTaskBoardId, setNewTaskBoardId] = useState<number | null>(null); // Calculate progress percentage
+	const [newTaskBoardId, setNewTaskBoardId] = useState<number | null>(null);
+
+	// Calculate progress percentage
 	const progressPercentage = showProgress && status === 'today' ? (completedCount / (tasks.length + completedCount)) * 100 || 0 : showProgress && tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 	// Utility function to format minutes as HH:MM
 	const formatTime = (minutes: number): string => {
@@ -106,6 +109,14 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 				status: status,
 				position: tasks.length, // Add to end of current column
 				boardId: isAllTasksBoard ? newTaskBoardId || undefined : undefined, // Add board selection for All Tasks board
+				// Add required new properties with default values
+				priority: 2, // Medium priority
+				effortEstimate: 2, // Medium effort
+				impactEstimate: 2, // Medium impact
+				progressPercentage: 0,
+				timeSpent: 0,
+				labels: [],
+				attachments: [],
 			});
 			setNewTaskTitle('');
 			setNewTaskTime('');
@@ -257,8 +268,15 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 											onDuplicate={onDuplicateTask}
 											onDelete={onDeleteTask}
 											isDone={task.status === 'done'}
-											isAllTasksBoard={isAllTasksBoard}
-											boardInfo={getBoardInfo && task.boardId ? getBoardInfo(task.boardId) : null}
+											boardInfo={(() => {
+												// For All Tasks view, try to get task's specific board, otherwise use current board
+												if (isAllTasksBoard && getBoardInfo && task.boardId) {
+													const taskBoard = getBoardInfo(task.boardId);
+													if (taskBoard) return taskBoard;
+												}
+												// For regular board views or as fallback, always use current board
+												return currentBoard;
+											})()}
 										/>
 									))}
 								</SortableContext>
@@ -282,8 +300,15 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 								onDuplicate={onDuplicateTask}
 								onDelete={onDeleteTask}
 								isDone={task.status === 'done'}
-								isAllTasksBoard={isAllTasksBoard}
-								boardInfo={getBoardInfo && task.boardId ? getBoardInfo(task.boardId) : null}
+								boardInfo={(() => {
+									// For All Tasks view, try to get task's specific board, otherwise use current board
+									if (isAllTasksBoard && getBoardInfo && task.boardId) {
+										const taskBoard = getBoardInfo(task.boardId);
+										if (taskBoard) return taskBoard;
+									}
+									// For regular board views or as fallback, always use current board
+									return currentBoard;
+								})()}
 							/>
 						))}
 					</SortableContext>

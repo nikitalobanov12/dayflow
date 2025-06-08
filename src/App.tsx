@@ -176,9 +176,7 @@ function App() {
 				</div>
 			</div>
 		);
-	}
-
-	// Kanban board view
+	} // Kanban board view
 	if (currentView === 'kanban' && selectedBoard) {
 		return (
 			<div className='h-screen bg-background flex flex-col'>

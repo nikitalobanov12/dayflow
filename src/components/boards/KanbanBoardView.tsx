@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Task, Board } from '@/types';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { ArrowLeft } from 'lucide-react';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
+import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
 import { isTauri } from '@/lib/platform';
 
 interface KanbanBoardViewProps {
@@ -34,38 +35,30 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
-
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
 			activationConstraint: {
-				distance: 8,
+				distance: 3, // Reduced from 8 for more responsive dragging
 			},
 		})
 	);
-
-	const getTasksByStatus = (status: Task['status']) => {
-		return tasks.filter((task: Task) => task.status === status).sort((a, b) => a.position - b.position);
-	};
-
-	const getTotalTimeForColumn = (status: Task['status']): number => {
-		switch (status) {
-			case 'today':
-				return getTasksByStatus('today').reduce((sum, task) => sum + task.timeEstimate, 0);
-			case 'this-week':
-				return [...getTasksByStatus('today'), ...getTasksByStatus('this-week')].reduce((sum, task) => sum + task.timeEstimate, 0);
-			case 'backlog':
-				return [...getTasksByStatus('today'), ...getTasksByStatus('this-week'), ...getTasksByStatus('backlog')].reduce((sum, task) => sum + task.timeEstimate, 0);
-			case 'done':
-				return getTasksByStatus('done').reduce((sum, task) => sum + task.timeEstimate, 0);
-			default:
-				return 0;
-		}
-	};
-
-	const getTodayCompletedCount = (): number => {
+	// Memoize functions to prevent unnecessary re-renders
+	const getTasksByStatus = useCallback(
+		(status: Task['status']) => {
+			return tasks.filter((task: Task) => task.status === status).sort((a, b) => a.position - b.position);
+		},
+		[tasks]
+	);
+	const getTotalTimeForColumn = useCallback(
+		(status: Task['status']): number => {
+			return getTasksByStatus(status).reduce((total, task) => total + (task.timeEstimate || 0), 0);
+		},
+		[getTasksByStatus]
+	);
+	const getTodayCompletedCount = useCallback((): number => {
 		const today = new Date().toISOString().split('T')[0];
 		return getTasksByStatus('done').filter(task => task.completedAt && task.completedAt.startsWith(today)).length;
-	};
+	}, [getTasksByStatus]);
 
 	const handleEditTask = (task: Task) => {
 		setEditingTask(task);
@@ -220,6 +213,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								isAllTasksBoard={isAllTasksBoard}
 								boards={boards}
 								getBoardInfo={getBoardInfo}
+								currentBoard={board}
 							/>{' '}
 							<KanbanColumn
 								title='This Week'
@@ -237,6 +231,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								isAllTasksBoard={isAllTasksBoard}
 								boards={boards}
 								getBoardInfo={getBoardInfo}
+								currentBoard={board}
 							/>{' '}
 							<KanbanColumn
 								title='Today'
@@ -256,6 +251,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								isAllTasksBoard={isAllTasksBoard}
 								boards={boards}
 								getBoardInfo={getBoardInfo}
+								currentBoard={board}
 							/>{' '}
 							<KanbanColumn
 								title='Done'
@@ -272,6 +268,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 								isAllTasksBoard={isAllTasksBoard}
 								boards={boards}
 								getBoardInfo={getBoardInfo}
+								currentBoard={board}
 							/>
 						</div>
 					</div>{' '}
@@ -282,82 +279,226 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 									task={getActiveTask()!}
 									onMove={() => {}}
 									onEdit={() => {}}
-									isAllTasksBoard={isAllTasksBoard}
-									boardInfo={getActiveTask()?.boardId ? getBoardInfo(getActiveTask()!.boardId!) : null}
+									boardInfo={getActiveTask()?.boardId ? getBoardInfo(getActiveTask()!.boardId!) : board}
 								/>
 							</div>
 						) : null}
 					</DragOverlay>
 				</DndContext>
-			</div>
+			</div>{' '}
 			{/* Edit Task Dialog */}
 			<Dialog
 				open={isEditingTask}
 				onOpenChange={setIsEditingTask}
 			>
-				<DialogContent>
+				<DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
 					<DialogHeader>
 						<DialogTitle>Edit Task</DialogTitle>
 						<DialogDescription>Make changes to your task</DialogDescription>
 					</DialogHeader>
 					{editingTask && (
-						<div className='space-y-4'>
-							{' '}
-							<Input
-								placeholder='Task title'
-								value={editingTask.title}
-								onChange={e => setEditingTask({ ...editingTask, title: e.target.value })}
-							/>
-							<Textarea
-								placeholder='Task description'
-								value={editingTask.description}
-								onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
-							/>
-							{/* Board selection for All Tasks board */}
-							{isAllTasksBoard && boards && boards.length > 0 && (
+						<div className='space-y-6'>
+							{/* Basic Information */}
+							<div className='space-y-4'>
+								<h4 className='text-sm font-medium text-foreground'>Basic Information</h4>
+								<Input
+									placeholder='Task title'
+									value={editingTask.title}
+									onChange={e => setEditingTask({ ...editingTask, title: e.target.value })}
+								/>
+								<Textarea
+									placeholder='Task description'
+									value={editingTask.description}
+									onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
+									rows={3}
+								/>
+
+								{/* Board selection for All Tasks board */}
+								{isAllTasksBoard && boards && boards.length > 0 && (
+									<div className='space-y-2'>
+										<label className='text-sm font-medium'>Board</label>
+										<Select
+											value={editingTask.boardId?.toString() || ''}
+											onValueChange={(value: string) => setEditingTask({ ...editingTask, boardId: value ? parseInt(value) : undefined })}
+										>
+											<SelectTrigger>
+												<SelectValue placeholder='Select board (optional)' />
+											</SelectTrigger>
+											<SelectContent>
+												{boards
+													.filter(board => !board.isDefault)
+													.map(board => (
+														<SelectItem
+															key={board.id}
+															value={board.id.toString()}
+														>
+															<div className='flex items-center gap-2'>
+																<div
+																	className='w-3 h-3 rounded-full'
+																	style={{ backgroundColor: board.color || '#3B82F6' }}
+																/>
+																{board.name}
+															</div>
+														</SelectItem>
+													))}
+											</SelectContent>
+										</Select>
+									</div>
+								)}
+							</div>
+
+							{/* Priority and Category */}
+							<div className='grid grid-cols-2 gap-4'>
 								<div className='space-y-2'>
-									<label className='text-sm font-medium'>Board</label>
+									<label className='text-sm font-medium'>Priority</label>
 									<Select
-										value={editingTask.boardId?.toString() || ''}
-										onValueChange={(value: string) => setEditingTask({ ...editingTask, boardId: value ? parseInt(value) : undefined })}
+										value={editingTask.priority?.toString() || '2'}
+										onValueChange={(value: string) => setEditingTask({ ...editingTask, priority: parseInt(value) as 1 | 2 | 3 | 4 })}
 									>
 										<SelectTrigger>
-											<SelectValue placeholder='Select board (optional)' />
+											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
-											{boards
-												.filter(board => !board.isDefault)
-												.map(board => (
-													<SelectItem
-														key={board.id}
-														value={board.id.toString()}
-													>
-														<div className='flex items-center gap-2'>
-															<div
-																className='w-3 h-3 rounded-full'
-																style={{ backgroundColor: board.color || '#3B82F6' }}
-															/>
-															{board.name}
-														</div>
-													</SelectItem>
-												))}
+											<SelectItem value='1'>🟢 Low Priority</SelectItem>
+											<SelectItem value='2'>🟡 Medium Priority</SelectItem>
+											<SelectItem value='3'>🟠 High Priority</SelectItem>
+											<SelectItem value='4'>🔴 Critical Priority</SelectItem>
 										</SelectContent>
 									</Select>
 								</div>
-							)}
-							<Input
-								type='number'
-								placeholder='Minutes (optional)'
-								value={editingTask.timeEstimate || ''}
-								onChange={e => {
-									const minutes = parseInt(e.target.value) || 0;
-									setEditingTask({ ...editingTask, timeEstimate: minutes });
-								}}
-								className='w-full'
-								min='0'
-								max='999'
-							/>
-							<div className='flex gap-2'>
+
+								<div className='space-y-2'>
+									<label className='text-sm font-medium'>Category</label>
+									<Input
+										placeholder='e.g., Development, Design'
+										value={editingTask.category || ''}
+										onChange={e => setEditingTask({ ...editingTask, category: e.target.value })}
+									/>
+								</div>
+							</div>
+
+							{/* Dates */}
+							<div className='space-y-4'>
+								<h4 className='text-sm font-medium text-foreground'>Scheduling</h4>
+								<div className='grid grid-cols-2 gap-4'>
+									<div className='space-y-2'>
+										<label className='text-sm font-medium'>Start Date</label>
+										<Input
+											type='date'
+											value={editingTask.startDate ? editingTask.startDate.split('T')[0] : ''}
+											onChange={e =>
+												setEditingTask({
+													...editingTask,
+													startDate: e.target.value ? new Date(e.target.value).toISOString() : undefined,
+												})
+											}
+										/>
+									</div>
+
+									<div className='space-y-2'>
+										<label className='text-sm font-medium'>Due Date</label>
+										<Input
+											type='date'
+											value={editingTask.dueDate ? editingTask.dueDate.split('T')[0] : ''}
+											onChange={e =>
+												setEditingTask({
+													...editingTask,
+													dueDate: e.target.value ? new Date(e.target.value).toISOString() : undefined,
+												})
+											}
+										/>
+									</div>
+								</div>
+							</div>
+
+							{/* Eisenhower Matrix Estimates */}
+							<div className='space-y-4'>
+								<h4 className='text-sm font-medium text-foreground'>Eisenhower Matrix</h4>
+								<div className='grid grid-cols-2 gap-4'>
+									<div className='space-y-2'>
+										<label className='text-sm font-medium'>Effort Level (Urgency)</label>
+										<Select
+											value={editingTask.effortEstimate?.toString() || '2'}
+											onValueChange={(value: string) => setEditingTask({ ...editingTask, effortEstimate: parseInt(value) as 1 | 2 | 3 | 4 })}
+										>
+											<SelectTrigger>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value='1'>Low Effort</SelectItem>
+												<SelectItem value='2'>Medium Effort</SelectItem>
+												<SelectItem value='3'>High Effort</SelectItem>
+												<SelectItem value='4'>Very High Effort</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+
+									<div className='space-y-2'>
+										<label className='text-sm font-medium'>Impact Level (Importance)</label>
+										<Select
+											value={editingTask.impactEstimate?.toString() || '2'}
+											onValueChange={(value: string) => setEditingTask({ ...editingTask, impactEstimate: parseInt(value) as 1 | 2 | 3 | 4 })}
+										>
+											<SelectTrigger>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value='1'>Low Impact</SelectItem>
+												<SelectItem value='2'>Medium Impact</SelectItem>
+												<SelectItem value='3'>High Impact</SelectItem>
+												<SelectItem value='4'>Very High Impact</SelectItem>
+											</SelectContent>
+										</Select>
+									</div>
+								</div>
+							</div>
+
+							{/* Time and Progress */}
+							<div className='space-y-4'>
+								<h4 className='text-sm font-medium text-foreground'>Time & Progress</h4>
+								<div className='grid grid-cols-2 gap-4'>
+									<div className='space-y-2'>
+										<label className='text-sm font-medium'>Time Estimate (minutes)</label>
+										<Input
+											type='number'
+											placeholder='30'
+											value={editingTask.timeEstimate || ''}
+											onChange={e => {
+												const minutes = parseInt(e.target.value) || 0;
+												setEditingTask({ ...editingTask, timeEstimate: minutes });
+											}}
+											min='0'
+											max='999'
+										/>
+									</div>
+
+									<div className='space-y-2'>
+										<label className='text-sm font-medium'>Progress (%)</label>
+										<Input
+											type='number'
+											placeholder='0'
+											value={editingTask.progressPercentage || 0}
+											onChange={e => {
+												const progress = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+												setEditingTask({ ...editingTask, progressPercentage: progress });
+											}}
+											min='0'
+											max='100'
+										/>
+									</div>
+								</div>{' '}
+							</div>
+
+							{/* Subtasks */}
+							<div className='space-y-4'>
+								<h4 className='text-sm font-medium text-foreground'>Subtasks</h4>
+								<div className='border rounded-lg p-3 bg-background/50'>
+									<SubtasksContainer taskId={editingTask.id} />
+								</div>
+							</div>
+
+							{/* Action Buttons */}
+							<div className='flex gap-2 pt-4 border-t'>
 								<Button
 									onClick={handleUpdateTask}
 									className='flex-1'

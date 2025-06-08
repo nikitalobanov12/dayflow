@@ -11,6 +11,82 @@ export interface Task {
 	tags?: string[];
 	userId?: string; // UUID from Supabase auth
 	boardId?: number; // Reference to which board this task belongs to
+
+	// Enhanced properties for advanced views
+	priority: 1 | 2 | 3 | 4; // 1=Low, 2=Medium, 3=High, 4=Critical
+	dueDate?: string; // ISO date string
+	startDate?: string; // ISO date string
+	effortEstimate: 1 | 2 | 3 | 4; // 1=Low, 2=Medium, 3=High, 4=Very High (for Eisenhower Matrix)
+	impactEstimate: 1 | 2 | 3 | 4; // 1=Low, 2=Medium, 3=High, 4=Very High (for Eisenhower Matrix)
+	category?: string; // e.g., 'Development', 'Design', 'Marketing'
+	assigneeId?: string; // UUID for team collaboration
+	parentTaskId?: number; // For task dependencies
+	progressPercentage: number; // 0-100
+	recurringPattern?: RecurringPattern; // For recurring tasks
+	labels: TaskLabel[]; // Color-coded labels
+	attachments: TaskAttachment[]; // File attachments
+	timeSpent: number; // Actual time spent in minutes
+	subtasks?: Subtask[]; // Array of subtasks
+	dependencies?: TaskDependency[]; // Array of task dependencies
+}
+
+export interface Subtask {
+	id: number;
+	parentTaskId: number;
+	title: string;
+	description?: string;
+	isCompleted: boolean;
+	position: number;
+	timeEstimate: number; // in minutes
+	createdAt: string;
+	completedAt?: string;
+	userId: string;
+}
+
+export interface TaskDependency {
+	id: number;
+	predecessorTaskId: number;
+	successorTaskId: number;
+	dependencyType: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish';
+	lagDays: number; // Delay between tasks
+	createdAt: string;
+	userId: string;
+}
+
+export interface TaskLabel {
+	id: string;
+	name: string;
+	color: string; // Hex color
+}
+
+export interface TaskAttachment {
+	id: string;
+	name: string;
+	url: string;
+	type: 'image' | 'document' | 'link' | 'other';
+	size?: number; // File size in bytes
+	uploadedAt: string;
+}
+
+export interface RecurringPattern {
+	frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+	interval: number; // Every X days/weeks/months/years
+	daysOfWeek?: number[]; // For weekly recurrence (0=Sunday, 1=Monday, etc.)
+	dayOfMonth?: number; // For monthly recurrence
+	endDate?: string; // When to stop recurring
+	occurrences?: number; // How many times to repeat
+}
+
+export interface TimeEntry {
+	id: number;
+	taskId: number;
+	startTime: string;
+	endTime?: string;
+	durationMinutes?: number;
+	description?: string;
+	isBillable: boolean;
+	createdAt: string;
+	userId: string;
 }
 
 export interface Board {
