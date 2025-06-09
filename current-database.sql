@@ -1,4 +1,3 @@
-```sql
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
@@ -63,11 +62,11 @@ CREATE TABLE public.tasks (
   category text,
   progress_percentage integer DEFAULT 0 CHECK (progress_percentage >= 0 AND progress_percentage <= 100),
   time_spent integer DEFAULT 0,
-  assignee_id uuid REFERENCES auth.users(id),
-  parent_task_id bigint REFERENCES public.tasks(id),
+  assignee_id uuid,
+  parent_task_id bigint,
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
-  CONSTRAINT tasks_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id),
-  CONSTRAINT tasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+  CONSTRAINT tasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT tasks_parent_task_id_fkey FOREIGN KEY (parent_task_id) REFERENCES public.tasks(id),
+  CONSTRAINT tasks_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES auth.users(id),
+  CONSTRAINT tasks_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id)
 );
-
-```

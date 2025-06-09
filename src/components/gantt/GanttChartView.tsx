@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, Board } from '@/types';
 import { Plus, Calendar, Clock, ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
-import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
+import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { ViewHeader } from '@/components/ui/view-header';
 import { cn } from '@/lib/utils';
 
@@ -146,53 +146,29 @@ export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, 
 			})
 			.filter(task => task.duration > 0); // Only show tasks within timeline
 	}, [tasks, timePeriods]);
-
 	const handleEditTask = (task: Task) => {
 		setEditingTask(task);
 		setIsEditingTask(true);
 	};
 
-	const handleUpdateTask = async () => {
-		if (!editingTask || !editingTask.title.trim()) return;
-
-		try {
-			await onUpdateTask(editingTask.id, {
-				title: editingTask.title,
-				description: editingTask.description,
-				startDate: editingTask.startDate ? new Date(editingTask.startDate).toISOString() : editingTask.startDate,
-				dueDate: editingTask.dueDate ? new Date(editingTask.dueDate).toISOString() : editingTask.dueDate,
-				scheduledDate: editingTask.scheduledDate ? new Date(editingTask.scheduledDate).toISOString() : editingTask.scheduledDate,
-				timeEstimate: editingTask.timeEstimate,
-				status: editingTask.status,
-				progressPercentage: editingTask.progressPercentage,
-				boardId: editingTask.boardId,
-			});
-			setEditingTask(null);
-			setIsEditingTask(false);
-		} catch (error) {
-			console.error('Failed to update task:', error);
-		}
+	// Wrapper functions for the unified dialog
+	const handleEditTaskSave = async (id: number, updates: Partial<Task>) => {
+		await onUpdateTask(id, updates);
+		setIsEditingTask(false);
+		setEditingTask(null);
 	};
 
-	const handleDeleteTask = async () => {
-		if (!editingTask) return;
-		try {
-			await onDeleteTask(editingTask.id);
-			setEditingTask(null);
-			setIsEditingTask(false);
-		} catch (error) {
-			console.error('Failed to delete task:', error);
-		}
+	const handleEditTaskDelete = async (id: number) => {
+		await onDeleteTask(id);
+		setIsEditingTask(false);
+		setEditingTask(null);
 	};
 
-	const handleDuplicateTask = async () => {
-		if (!editingTask || !onDuplicateTask) return;
-		try {
-			await onDuplicateTask(editingTask);
-			setEditingTask(null);
+	const handleEditTaskDuplicate = async (task: Task) => {
+		if (onDuplicateTask) {
+			await onDuplicateTask(task);
 			setIsEditingTask(false);
-		} catch (error) {
-			console.error('Failed to duplicate task:', error);
+			setEditingTask(null);
 		}
 	};
 
@@ -295,7 +271,6 @@ export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, 
 				user={user}
 				onSignOut={onSignOut}
 			/>
-
 			{/* Controls */}
 			<div className='p-4 border-b border-border bg-card'>
 				<div className='flex items-center justify-between'>
@@ -347,7 +322,6 @@ export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, 
 					</div>
 				</div>
 			</div>
-
 			{/* Gantt Chart */}
 			<div className='flex-1 overflow-auto'>
 				{/* Timeline Header */}
@@ -452,7 +426,6 @@ export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, 
 					)}
 				</div>
 			</div>
-
 			{/* Create Task Dialog */}
 			<Dialog
 				open={isCreatingTask}
@@ -535,176 +508,18 @@ export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, 
 						</div>
 					</div>
 				</DialogContent>
-			</Dialog>
-
+			</Dialog>{' '}
 			{/* Edit Task Dialog */}
-			<Dialog
-				open={isEditingTask}
-				onOpenChange={setIsEditingTask}
-			>
-				<DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
-					<DialogHeader>
-						<DialogTitle>Edit Task</DialogTitle>
-						<DialogDescription>Update task details and timeline</DialogDescription>
-					</DialogHeader>
-					{editingTask && (
-						<div className='space-y-6'>
-							{/* Basic Information */}
-							<div className='space-y-4'>
-								<h4 className='text-sm font-medium text-foreground'>Basic Information</h4>
-								<Input
-									placeholder='Task title'
-									value={editingTask.title}
-									onChange={e => setEditingTask({ ...editingTask, title: e.target.value })}
-								/>
-								<Textarea
-									placeholder='Task description'
-									value={editingTask.description}
-									onChange={e => setEditingTask({ ...editingTask, description: e.target.value })}
-									rows={3}
-								/>
-
-								{/* Board selection for All Tasks board */}
-								{isAllTasksBoard && boards && boards.length > 0 && (
-									<div className='space-y-2'>
-										<label className='text-sm font-medium'>Board</label>
-										<Select
-											value={editingTask.boardId?.toString() || ''}
-											onValueChange={(value: string) => setEditingTask({ ...editingTask, boardId: value ? parseInt(value) : undefined })}
-										>
-											<SelectTrigger>
-												<SelectValue placeholder='Select board (optional)' />
-											</SelectTrigger>
-											<SelectContent>
-												{boards.map(board => (
-													<SelectItem
-														key={board.id}
-														value={board.id.toString()}
-													>
-														<div className='flex items-center gap-2'>
-															<div
-																className='w-3 h-3 rounded-full'
-																style={{ backgroundColor: board.color }}
-															/>
-															{board.name}
-														</div>
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-									</div>
-								)}
-							</div>
-
-							{/* Timeline */}
-							<div className='space-y-4'>
-								<h4 className='text-sm font-medium text-foreground'>Timeline</h4>
-								<div className='grid grid-cols-2 gap-4'>
-									<div className='space-y-2'>
-										<label className='text-sm font-medium'>Start Date</label>
-										<Input
-											type='date'
-											value={editingTask.startDate ? new Date(editingTask.startDate).toISOString().split('T')[0] : ''}
-											onChange={e => setEditingTask({ ...editingTask, startDate: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
-										/>
-									</div>
-									<div className='space-y-2'>
-										<label className='text-sm font-medium'>Due Date</label>
-										<Input
-											type='date'
-											value={editingTask.dueDate ? new Date(editingTask.dueDate).toISOString().split('T')[0] : ''}
-											onChange={e => setEditingTask({ ...editingTask, dueDate: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
-										/>
-									</div>
-								</div>
-								<div className='space-y-2'>
-									<label className='text-sm font-medium'>Time Estimate (minutes)</label>
-									<Input
-										type='number'
-										placeholder='60'
-										value={editingTask.timeEstimate || ''}
-										onChange={e => setEditingTask({ ...editingTask, timeEstimate: parseInt(e.target.value) || 0 })}
-									/>
-								</div>
-							</div>
-
-							{/* Status and Progress */}
-							<div className='space-y-4'>
-								<h4 className='text-sm font-medium text-foreground'>Status & Progress</h4>
-								<div className='grid grid-cols-2 gap-4'>
-									<div className='space-y-2'>
-										<label className='text-sm font-medium'>Status</label>
-										<Select
-											value={editingTask.status}
-											onValueChange={(value: any) => setEditingTask({ ...editingTask, status: value })}
-										>
-											<SelectTrigger>
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value='backlog'>Backlog</SelectItem>
-												<SelectItem value='this-week'>This Week</SelectItem>
-												<SelectItem value='today'>Today</SelectItem>
-												<SelectItem value='done'>Done</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
-									<div className='space-y-2'>
-										<label className='text-sm font-medium'>Progress (%)</label>
-										<Input
-											type='number'
-											min='0'
-											max='100'
-											value={editingTask.progressPercentage || 0}
-											onChange={e => setEditingTask({ ...editingTask, progressPercentage: parseInt(e.target.value) || 0 })}
-										/>
-									</div>
-								</div>{' '}
-							</div>
-
-							{/* Subtasks Section */}
-							<div className='space-y-4'>
-								<h4 className='text-sm font-medium text-foreground'>Subtasks</h4>
-								<SubtasksContainer taskId={editingTask.id} />
-							</div>
-
-							{/* Actions */}
-							<div className='flex justify-between'>
-								<div className='flex gap-2'>
-									{onDuplicateTask && (
-										<Button
-											variant='outline'
-											onClick={handleDuplicateTask}
-										>
-											Duplicate
-										</Button>
-									)}
-									<Button
-										variant='destructive'
-										onClick={handleDeleteTask}
-									>
-										Delete
-									</Button>
-								</div>
-								<div className='flex gap-2'>
-									<Button
-										variant='outline'
-										onClick={() => setIsEditingTask(false)}
-									>
-										Cancel
-									</Button>
-									<Button
-										onClick={handleUpdateTask}
-										disabled={!editingTask.title.trim()}
-									>
-										Update Task
-									</Button>
-								</div>
-							</div>
-						</div>
-					)}
-				</DialogContent>
-			</Dialog>
+			<TaskEditDialog
+				task={editingTask}
+				isOpen={isEditingTask}
+				onClose={() => setIsEditingTask(false)}
+				onSave={handleEditTaskSave}
+				onDelete={handleEditTaskDelete}
+				onDuplicate={onDuplicateTask ? handleEditTaskDuplicate : undefined}
+				isAllTasksBoard={isAllTasksBoard}
+				boards={boards}
+			/>
 		</div>
 	);
 }

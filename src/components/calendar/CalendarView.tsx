@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, Board } from '@/types';
-import { Trash2, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle } from 'lucide-react';
-import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle } from 'lucide-react';
+import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { ViewHeader } from '@/components/ui/view-header';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 
@@ -202,18 +202,16 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 			console.error('Failed to create task:', error);
 		}
 	};
-	const handleUpdateTask = async () => {
-		if (!editingTask || !editingTask.title.trim()) return;
-
+	const handleEditTaskSave = async (id: number, updates: Partial<Task>) => {
 		try {
 			// Determine the appropriate status based on scheduled date
-			let updatedStatus = editingTask.status; // Keep current status by default
+			let updatedStatus = updates.status;
 
-			if (editingTask.scheduledDate) {
+			if (updates.scheduledDate) {
 				const today = new Date();
 				today.setHours(0, 0, 0, 0);
 
-				const scheduledDate = new Date(editingTask.scheduledDate);
+				const scheduledDate = new Date(updates.scheduledDate);
 				scheduledDate.setHours(0, 0, 0, 0);
 
 				// Calculate week boundaries
@@ -224,45 +222,38 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 				endOfWeek.setDate(startOfWeek.getDate() + 6); // End of this week (Saturday)
 
 				if (scheduledDate.getTime() === today.getTime()) {
-					// Scheduled for today
 					updatedStatus = 'today';
 				} else if (scheduledDate >= startOfWeek && scheduledDate <= endOfWeek) {
-					// Scheduled for this week
 					updatedStatus = 'this-week';
 				} else {
-					// Scheduled for future or past - put in backlog (unless already done)
-					if (editingTask.status !== 'done') {
+					if (updates.status !== 'done') {
 						updatedStatus = 'backlog';
 					}
 				}
 			}
 
-			await onUpdateTask(editingTask.id, {
-				title: editingTask.title,
-				description: editingTask.description,
-				timeEstimate: editingTask.timeEstimate,
-				priority: editingTask.priority,
-				scheduledDate: editingTask.scheduledDate,
-				startDate: editingTask.startDate,
-				dueDate: editingTask.dueDate,
-				status: updatedStatus, // Use the automatically determined status
+			await onUpdateTask(id, {
+				...updates,
+				status: updatedStatus,
 			});
-			setEditingTask(null);
-			setIsEditingTask(false);
 		} catch (error) {
 			console.error('Failed to update task:', error);
+			throw error;
 		}
 	};
 
-	const handleDeleteTask = async () => {
-		if (!editingTask) return;
+	const handleEditTaskDelete = async (id: number) => {
 		try {
-			await onDeleteTask(editingTask.id);
-			setEditingTask(null);
-			setIsEditingTask(false);
+			await onDeleteTask(id);
 		} catch (error) {
 			console.error('Failed to delete task:', error);
+			throw error;
 		}
+	};
+
+	const handleCloseEditDialog = () => {
+		setEditingTask(null);
+		setIsEditingTask(false);
 	};
 
 	const eventStyleGetter = useCallback((event: CalendarEvent) => {
@@ -357,7 +348,6 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 				user={user}
 				onSignOut={onSignOut}
 			/>
-
 			{/* Main Content Area */}
 			<div className='flex-1 flex'>
 				{' '}
@@ -465,7 +455,6 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 					</div>
 				</div>
 			</div>
-
 			{/* Create Task Dialog */}
 			<Dialog
 				open={isCreatingTask}
@@ -534,136 +523,15 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 						</div>
 					</div>
 				</DialogContent>
-			</Dialog>
-
-			{/* Edit Task Dialog */}
-			<Dialog
-				open={isEditingTask}
-				onOpenChange={setIsEditingTask}
-			>
-				<DialogContent className='sm:max-w-2xl max-h-[80vh] overflow-y-auto'>
-					{editingTask && (
-						<>
-							<DialogHeader>
-								<DialogTitle>Edit Task</DialogTitle>
-								<DialogDescription>Modify task details and scheduling</DialogDescription>
-							</DialogHeader>
-							<div className='space-y-4'>
-								<div>
-									<label className='text-sm font-medium'>Title</label>
-									<Input
-										value={editingTask.title}
-										onChange={e => setEditingTask(prev => (prev ? { ...prev, title: e.target.value } : null))}
-										className='w-full'
-									/>
-								</div>
-								<div>
-									<label className='text-sm font-medium'>Description</label>
-									<Textarea
-										value={editingTask.description || ''}
-										onChange={e => setEditingTask(prev => (prev ? { ...prev, description: e.target.value } : null))}
-										className='w-full'
-										rows={3}
-									/>
-								</div>
-								<div className='grid grid-cols-2 gap-4'>
-									<div>
-										<label className='text-sm font-medium'>Time Estimate (minutes)</label>
-										<Input
-											type='number'
-											value={editingTask.timeEstimate}
-											onChange={e => setEditingTask(prev => (prev ? { ...prev, timeEstimate: parseInt(e.target.value) || 0 } : null))}
-											min='0'
-											step='15'
-										/>
-									</div>
-									<div>
-										<label className='text-sm font-medium'>Priority</label>
-										<Select
-											value={editingTask.priority.toString()}
-											onValueChange={value => setEditingTask(prev => (prev ? { ...prev, priority: parseInt(value) as 1 | 2 | 3 | 4 } : null))}
-										>
-											<SelectTrigger>
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value='1'>Low</SelectItem>
-												<SelectItem value='2'>Medium</SelectItem>
-												<SelectItem value='3'>High</SelectItem>
-												<SelectItem value='4'>Critical</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
-								</div>
-								<div className='grid grid-cols-2 gap-4'>
-									<div>
-										<label className='text-sm font-medium'>Start Date</label>
-										<Input
-											type='datetime-local'
-											value={editingTask.startDate ? moment(editingTask.startDate).format('YYYY-MM-DDTHH:mm') : ''}
-											onChange={e =>
-												setEditingTask(prev =>
-													prev
-														? {
-																...prev,
-																startDate: e.target.value ? new Date(e.target.value).toISOString() : undefined,
-														  }
-														: null
-												)
-											}
-										/>
-									</div>
-									<div>
-										<label className='text-sm font-medium'>Due Date</label>
-										<Input
-											type='datetime-local'
-											value={editingTask.dueDate ? moment(editingTask.dueDate).format('YYYY-MM-DDTHH:mm') : ''}
-											onChange={e =>
-												setEditingTask(prev =>
-													prev
-														? {
-																...prev,
-																dueDate: e.target.value ? new Date(e.target.value).toISOString() : undefined,
-														  }
-														: null
-												)
-											}
-										/>
-									</div>
-								</div>
-
-								{/* Subtasks */}
-								{editingTask.subtasks && editingTask.subtasks.length > 0 && (
-									<div>
-										<label className='text-sm font-medium'>Subtasks</label>
-										<SubtasksContainer taskId={editingTask.id} />
-									</div>
-								)}
-
-								<div className='flex justify-between'>
-									<Button
-										variant='destructive'
-										onClick={handleDeleteTask}
-									>
-										<Trash2 className='h-4 w-4 mr-2' />
-										Delete Task
-									</Button>
-									<div className='flex gap-2'>
-										<Button
-											variant='outline'
-											onClick={() => setIsEditingTask(false)}
-										>
-											Cancel
-										</Button>
-										<Button onClick={handleUpdateTask}>Save Changes</Button>
-									</div>
-								</div>
-							</div>
-						</>
-					)}
-				</DialogContent>
-			</Dialog>
-
+			</Dialog>{' '}
+			{/* Task Edit Dialog */}
+			<TaskEditDialog
+				task={editingTask}
+				isOpen={isEditingTask}
+				onClose={handleCloseEditDialog}
+				onSave={handleEditTaskSave}
+				onDelete={handleEditTaskDelete}
+			/>
 			{/* Dark mode calendar styles */}
 			<style>{`
 				.calendar-wrapper .rbc-calendar {

@@ -1,12 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, Board } from '@/types';
 import { Plus, AlertTriangle, Clock, Star, Archive } from 'lucide-react';
-import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
+import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { ViewHeader } from '@/components/ui/view-header';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +28,7 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [selectedQuadrant, setSelectedQuadrant] = useState<keyof typeof quadrants | null>(null);
+
 	// Define the four quadrants of the Eisenhower Matrix
 	const quadrants = useMemo(
 		() => ({
@@ -39,32 +36,32 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 				title: 'Do First',
 				description: 'Urgent & Important',
 				icon: <AlertTriangle className='h-5 w-5' />,
-				color: 'text-red-600 dark:text-red-400',
-				bgColor: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800',
+				color: 'text-red-700 dark:text-red-300',
+				bgColor: 'bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-700',
 				filter: (task: Task) => task.effortEstimate >= 3 && task.impactEstimate >= 3,
 			},
 			not_urgent_important: {
 				title: 'Schedule',
 				description: 'Not Urgent & Important',
 				icon: <Star className='h-5 w-5' />,
-				color: 'text-blue-600 dark:text-blue-400',
-				bgColor: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800',
+				color: 'text-blue-700 dark:text-blue-300',
+				bgColor: 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-700',
 				filter: (task: Task) => task.effortEstimate <= 2 && task.impactEstimate >= 3,
 			},
 			urgent_not_important: {
 				title: 'Delegate',
 				description: 'Urgent & Not Important',
 				icon: <Clock className='h-5 w-5' />,
-				color: 'text-orange-600 dark:text-orange-400',
-				bgColor: 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800',
+				color: 'text-orange-700 dark:text-orange-300',
+				bgColor: 'bg-orange-50 dark:bg-orange-950/50 border-orange-200 dark:border-orange-700',
 				filter: (task: Task) => task.effortEstimate >= 3 && task.impactEstimate <= 2,
 			},
 			not_urgent_not_important: {
 				title: 'Eliminate',
 				description: 'Not Urgent & Not Important',
 				icon: <Archive className='h-5 w-5' />,
-				color: 'text-gray-600 dark:text-gray-400',
-				bgColor: 'bg-gray-50 dark:bg-gray-950/30 border-gray-200 dark:border-gray-800',
+				color: 'text-gray-700 dark:text-gray-300',
+				bgColor: 'bg-gray-50 dark:bg-gray-950/50 border-gray-200 dark:border-gray-700',
 				filter: (task: Task) => task.effortEstimate <= 2 && task.impactEstimate <= 2,
 			},
 		}),
@@ -94,111 +91,88 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 
 		return result;
 	}, [tasks, quadrants]);
+	// Event handlers
+	const handleAddTask = (quadrant: keyof typeof quadrants) => {
+		setSelectedQuadrant(quadrant);
+		setIsAddingTask(true);
+	};
 
 	const handleEditTask = (task: Task) => {
 		setEditingTask(task);
 		setIsEditingTask(true);
 	};
 
-	const handleUpdateTask = async () => {
-		if (!editingTask || !editingTask.title.trim()) return;
+	// Wrapper functions for the unified dialog
+	const handleNewTaskSave = async (_id: number, updates: Partial<Task>) => {
+		// Add default values based on selected quadrant
+		const getDefaultValues = (quadrant: string | null) => {
+			switch (quadrant) {
+				case 'urgent_important':
+					return { effortEstimate: 4, impactEstimate: 4, priority: 1 };
+				case 'not_urgent_important':
+					return { effortEstimate: 2, impactEstimate: 4, priority: 2 };
+				case 'urgent_not_important':
+					return { effortEstimate: 4, impactEstimate: 2, priority: 3 };
+				case 'not_urgent_not_important':
+					return { effortEstimate: 2, impactEstimate: 2, priority: 4 };
+				default:
+					return { effortEstimate: 2, impactEstimate: 2, priority: 2 };
+			}
+		};
 
-		try {
-			await onUpdateTask(editingTask.id, {
-				title: editingTask.title,
-				description: editingTask.description,
-				timeEstimate: editingTask.timeEstimate,
-				effortEstimate: editingTask.effortEstimate,
-				impactEstimate: editingTask.impactEstimate,
-				priority: editingTask.priority,
-				category: editingTask.category,
-				dueDate: editingTask.dueDate,
-				startDate: editingTask.startDate,
-			});
-			setEditingTask(null);
-			setIsEditingTask(false);
-		} catch (error) {
-			console.error('Failed to update task:', error);
-		}
-	};
-
-	const handleDeleteTask = async () => {
-		if (!editingTask) return;
-		try {
-			await onDeleteTask(editingTask.id);
-			setEditingTask(null);
-			setIsEditingTask(false);
-		} catch (error) {
-			console.error('Failed to delete task:', error);
-		}
-	};
-
-	const handleAddTask = async (quadrant: keyof typeof quadrants) => {
-		setSelectedQuadrant(quadrant);
-		setIsAddingTask(true);
-	};
-	const submitNewTask = async (taskData: Partial<Task>) => {
-		if (!selectedQuadrant || !taskData.title?.trim()) return;
-
-		// Set default effort and impact estimates based on quadrant
-		let effortEstimate: 1 | 2 | 3 | 4 = 2;
-		let impactEstimate: 1 | 2 | 3 | 4 = 2;
-
-		switch (selectedQuadrant) {
-			case 'urgent_important':
-				effortEstimate = 4;
-				impactEstimate = 4;
-				break;
-			case 'not_urgent_important':
-				effortEstimate = 2;
-				impactEstimate = 4;
-				break;
-			case 'urgent_not_important':
-				effortEstimate = 4;
-				impactEstimate = 2;
-				break;
-			case 'not_urgent_not_important':
-				effortEstimate = 2;
-				impactEstimate = 2;
-				break;
-		}
-
-		const newTask = {
-			title: taskData.title,
-			description: taskData.description || '',
-			timeEstimate: taskData.timeEstimate || 0,
+		const defaultValues = getDefaultValues(selectedQuadrant);
+		const taskData = {
+			...defaultValues,
+			...updates,
 			status: 'backlog' as Task['status'],
 			position: 0,
-			priority: (taskData.priority || 2) as 1 | 2 | 3 | 4,
-			effortEstimate,
-			impactEstimate,
 			progressPercentage: 0,
 			timeSpent: 0,
 			labels: [],
 			attachments: [],
 			boardId: isAllTasksBoard ? undefined : board.id,
-			category: taskData.category,
-			dueDate: taskData.dueDate,
-			startDate: taskData.startDate,
 		};
 
-		await onAddTask(newTask);
+		await onAddTask(taskData as Omit<Task, 'id' | 'createdAt'>);
 		setIsAddingTask(false);
 		setSelectedQuadrant(null);
 	};
 
-	const TaskCard = ({ task, quadrant }: { task: Task; quadrant: keyof typeof quadrants }) => {
-		const config = quadrants[quadrant];
+	const handleEditTaskSave = async (id: number, updates: Partial<Task>) => {
+		await onUpdateTask(id, updates);
+		setIsEditingTask(false);
+		setEditingTask(null);
+	};
+
+	const handleEditTaskDelete = async (id: number) => {
+		await onDeleteTask(id);
+		setIsEditingTask(false);
+		setEditingTask(null);
+	}; // Task Card Component
+	const TaskCard = ({ task }: { task: Task }) => {
+		// Determine quadrant based on task properties
+		const getQuadrant = (): keyof typeof quadrants => {
+			const effort = task.effortEstimate || 2;
+			const impact = task.impactEstimate || 2;
+
+			if (effort >= 3 && impact >= 3) return 'urgent_important';
+			if (effort >= 3 && impact < 3) return 'urgent_not_important';
+			if (effort < 3 && impact >= 3) return 'not_urgent_important';
+			return 'not_urgent_not_important';
+		};
+
+		const quadrant = getQuadrant();
+		const quadrantConfig = quadrants[quadrant];
 
 		return (
 			<div
-				className={cn('p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md', config.bgColor, 'hover:scale-[1.02]')}
+				className={cn('p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md', quadrantConfig.bgColor, 'hover:scale-[1.02]')}
 				onClick={() => handleEditTask(task)}
 			>
 				<div className='space-y-2'>
 					<div className='flex items-start justify-between'>
 						<h4 className='font-medium text-sm leading-tight'>{task.title}</h4>
-						<div className='flex items-center gap-1 text-xs text-muted-foreground'>{task.timeEstimate > 0 && <span className='bg-white/80 dark:bg-gray-800/80 px-2 py-1 rounded'>{task.timeEstimate}m</span>}</div>
+						<div className='flex items-center gap-1 text-xs text-muted-foreground'>{task.timeEstimate > 0 && <span className='bg-white/80 px-2 py-1 rounded'>{task.timeEstimate}m</span>}</div>
 					</div>
 
 					{task.description && <p className='text-xs text-muted-foreground line-clamp-2'>{task.description}</p>}
@@ -214,7 +188,6 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 								{task.impactEstimate}/4
 							</span>
 						</div>
-
 						{task.dueDate && <span className='text-muted-foreground'>Due: {new Date(task.dueDate).toLocaleDateString()}</span>}
 					</div>
 
@@ -233,6 +206,7 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 			</div>
 		);
 	};
+
 	return (
 		<div className='h-screen bg-background flex flex-col'>
 			{/* Header */}
@@ -286,11 +260,11 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 								</Button>
 							</div>
 							<div className='space-y-3 max-h-[calc(100%-80px)] overflow-y-auto'>
+								{' '}
 								{categorizedTasks.urgent_important.map(task => (
 									<TaskCard
 										key={task.id}
 										task={task}
-										quadrant='urgent_important'
 									/>
 								))}
 								{categorizedTasks.urgent_important.length === 0 && (
@@ -321,11 +295,11 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 								</Button>
 							</div>
 							<div className='space-y-3 max-h-[calc(100%-80px)] overflow-y-auto'>
+								{' '}
 								{categorizedTasks.urgent_not_important.map(task => (
 									<TaskCard
 										key={task.id}
 										task={task}
-										quadrant='urgent_not_important'
 									/>
 								))}
 								{categorizedTasks.urgent_not_important.length === 0 && (
@@ -361,11 +335,11 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 								</Button>
 							</div>
 							<div className='space-y-3 max-h-[calc(100%-80px)] overflow-y-auto'>
+								{' '}
 								{categorizedTasks.not_urgent_important.map(task => (
 									<TaskCard
 										key={task.id}
 										task={task}
-										quadrant='not_urgent_important'
 									/>
 								))}
 								{categorizedTasks.not_urgent_important.length === 0 && (
@@ -396,11 +370,11 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 								</Button>
 							</div>
 							<div className='space-y-3 max-h-[calc(100%-80px)] overflow-y-auto'>
+								{' '}
 								{categorizedTasks.not_urgent_not_important.map(task => (
 									<TaskCard
 										key={task.id}
 										task={task}
-										quadrant='not_urgent_not_important'
 									/>
 								))}
 								{categorizedTasks.not_urgent_not_important.length === 0 && (
@@ -415,246 +389,22 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 			</div>
 
 			{/* Add Task Dialog */}
-			<Dialog
-				open={isAddingTask}
-				onOpenChange={setIsAddingTask}
-			>
-				<DialogContent className='max-w-2xl'>
-					<DialogHeader>
-						<DialogTitle>Add New Task</DialogTitle>
-						<DialogDescription>{selectedQuadrant && `Adding to: ${quadrants[selectedQuadrant].title} - ${quadrants[selectedQuadrant].description}`}</DialogDescription>
-					</DialogHeader>
-					<TaskForm
-						onSubmit={submitNewTask}
-						onCancel={() => setIsAddingTask(false)}
-					/>
-				</DialogContent>
-			</Dialog>
+			<TaskEditDialog
+				task={null}
+				isOpen={isAddingTask}
+				onClose={() => setIsAddingTask(false)}
+				onSave={handleNewTaskSave}
+				onDelete={() => Promise.resolve()}
+			/>
 
 			{/* Edit Task Dialog */}
-			<Dialog
-				open={isEditingTask}
-				onOpenChange={setIsEditingTask}
-			>
-				<DialogContent className='max-w-2xl max-h-[90vh] overflow-y-auto'>
-					<DialogHeader>
-						<DialogTitle>Edit Task</DialogTitle>
-						<DialogDescription>Make changes to your task</DialogDescription>
-					</DialogHeader>
-					{editingTask && (
-						<TaskForm
-							task={editingTask}
-							onSubmit={handleUpdateTask}
-							onCancel={() => setIsEditingTask(false)}
-							onDelete={handleDeleteTask}
-							isEditing
-						/>
-					)}
-				</DialogContent>
-			</Dialog>
-		</div>
-	);
-}
-
-// Task Form Component
-interface TaskFormProps {
-	task?: Task;
-	onSubmit: (taskData: Partial<Task>) => Promise<void>;
-	onCancel: () => void;
-	onDelete?: () => Promise<void>;
-	isEditing?: boolean;
-}
-
-function TaskForm({ task, onSubmit, onCancel, onDelete, isEditing = false }: TaskFormProps) {
-	const [formData, setFormData] = useState<Partial<Task>>({
-		title: task?.title || '',
-		description: task?.description || '',
-		timeEstimate: task?.timeEstimate || 0,
-		effortEstimate: task?.effortEstimate || 2,
-		impactEstimate: task?.impactEstimate || 2,
-		priority: task?.priority || 2,
-		category: task?.category || '',
-		dueDate: task?.dueDate || undefined,
-		startDate: task?.startDate || undefined,
-	});
-
-	const handleSubmit = async () => {
-		if (!formData.title?.trim()) return;
-
-		if (isEditing && task) {
-			// Update existing task
-			await onSubmit({
-				...task,
-				...formData,
-			});
-		} else {
-			// Create new task
-			await onSubmit(formData);
-		}
-	};
-
-	return (
-		<div className='space-y-6'>
-			<div className='space-y-4'>
-				<Input
-					placeholder='Task title'
-					value={formData.title}
-					onChange={e => setFormData({ ...formData, title: e.target.value })}
-				/>
-				<Textarea
-					placeholder='Task description'
-					value={formData.description}
-					onChange={e => setFormData({ ...formData, description: e.target.value })}
-					rows={3}
-				/>
-			</div>
-
-			<div className='grid grid-cols-2 gap-4'>
-				<div className='space-y-2'>
-					<label className='text-sm font-medium'>Effort Level (Urgency)</label>
-					<Select
-						value={formData.effortEstimate?.toString() || '2'}
-						onValueChange={(value: string) => setFormData({ ...formData, effortEstimate: parseInt(value) as 1 | 2 | 3 | 4 })}
-					>
-						<SelectTrigger>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value='1'>Low Effort</SelectItem>
-							<SelectItem value='2'>Medium Effort</SelectItem>
-							<SelectItem value='3'>High Effort</SelectItem>
-							<SelectItem value='4'>Very High Effort</SelectItem>
-						</SelectContent>
-					</Select>
-				</div>
-
-				<div className='space-y-2'>
-					<label className='text-sm font-medium'>Impact Level (Importance)</label>
-					<Select
-						value={formData.impactEstimate?.toString() || '2'}
-						onValueChange={(value: string) => setFormData({ ...formData, impactEstimate: parseInt(value) as 1 | 2 | 3 | 4 })}
-					>
-						<SelectTrigger>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value='1'>Low Impact</SelectItem>
-							<SelectItem value='2'>Medium Impact</SelectItem>
-							<SelectItem value='3'>High Impact</SelectItem>
-							<SelectItem value='4'>Very High Impact</SelectItem>
-						</SelectContent>
-					</Select>
-				</div>
-			</div>
-
-			<div className='grid grid-cols-2 gap-4'>
-				<div className='space-y-2'>
-					<label className='text-sm font-medium'>Time Estimate (minutes)</label>
-					<Input
-						type='number'
-						placeholder='30'
-						value={formData.timeEstimate || ''}
-						onChange={e => {
-							const minutes = parseInt(e.target.value) || 0;
-							setFormData({ ...formData, timeEstimate: minutes });
-						}}
-						min='0'
-						max='999'
-					/>
-				</div>
-
-				<div className='space-y-2'>
-					<label className='text-sm font-medium'>Priority</label>
-					<Select
-						value={formData.priority?.toString() || '2'}
-						onValueChange={(value: string) => setFormData({ ...formData, priority: parseInt(value) as 1 | 2 | 3 | 4 })}
-					>
-						<SelectTrigger>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value='1'>🟢 Low Priority</SelectItem>
-							<SelectItem value='2'>🟡 Medium Priority</SelectItem>
-							<SelectItem value='3'>🟠 High Priority</SelectItem>
-							<SelectItem value='4'>🔴 Critical Priority</SelectItem>
-						</SelectContent>
-					</Select>
-				</div>
-			</div>
-
-			<div className='grid grid-cols-2 gap-4'>
-				<div className='space-y-2'>
-					<label className='text-sm font-medium'>Start Date</label>
-					<Input
-						type='date'
-						value={formData.startDate ? formData.startDate.split('T')[0] : ''}
-						onChange={e =>
-							setFormData({
-								...formData,
-								startDate: e.target.value ? new Date(e.target.value).toISOString() : undefined,
-							})
-						}
-					/>
-				</div>
-
-				<div className='space-y-2'>
-					<label className='text-sm font-medium'>Due Date</label>
-					<Input
-						type='date'
-						value={formData.dueDate ? formData.dueDate.split('T')[0] : ''}
-						onChange={e =>
-							setFormData({
-								...formData,
-								dueDate: e.target.value ? new Date(e.target.value).toISOString() : undefined,
-							})
-						}
-					/>
-				</div>
-			</div>
-
-			<div className='space-y-2'>
-				<label className='text-sm font-medium'>Category</label>
-				<Input
-					placeholder='e.g., Development, Design'
-					value={formData.category || ''}
-					onChange={e => setFormData({ ...formData, category: e.target.value })}
-				/>
-			</div>
-
-			{isEditing && task && (
-				<div className='space-y-4'>
-					<h4 className='text-sm font-medium text-foreground'>Subtasks</h4>
-					<div className='border rounded-lg p-3 bg-background/50'>
-						<SubtasksContainer taskId={task.id} />
-					</div>
-				</div>
-			)}
-
-			<div className='flex gap-2 pt-4 border-t'>
-				<Button
-					onClick={handleSubmit}
-					className='flex-1'
-					disabled={!formData.title?.trim()}
-				>
-					{isEditing ? 'Update Task' : 'Add Task'}
-				</Button>
-				{isEditing && onDelete && (
-					<Button
-						variant='destructive'
-						onClick={onDelete}
-						className='px-4'
-					>
-						Delete
-					</Button>
-				)}
-				<Button
-					variant='outline'
-					onClick={onCancel}
-					className='px-4'
-				>
-					Cancel
-				</Button>
-			</div>
+			<TaskEditDialog
+				task={editingTask}
+				isOpen={isEditingTask}
+				onClose={() => setIsEditingTask(false)}
+				onSave={handleEditTaskSave}
+				onDelete={handleEditTaskDelete}
+			/>
 		</div>
 	);
 }
