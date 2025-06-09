@@ -134,7 +134,6 @@ export const useSupabaseDatabase = () => {
 
 		return () => subscription.unsubscribe();
 	}, []);
-
 	// Load tasks and boards when user is available
 	useEffect(() => {
 		if (user && isInitialized) {
@@ -145,7 +144,7 @@ export const useSupabaseDatabase = () => {
 			setBoards([]);
 			setIsLoading(false);
 		}
-	}, [user, isInitialized]);
+	}, [user?.id, isInitialized]);
 	const loadTasks = useCallback(
 		async (boardId?: number) => {
 			if (!user) {
@@ -177,7 +176,7 @@ export const useSupabaseDatabase = () => {
 				setIsLoading(false);
 			}
 		},
-		[user]
+		[user?.id]
 	);
 
 	const loadBoards = useCallback(async () => {
@@ -211,7 +210,7 @@ export const useSupabaseDatabase = () => {
 		} catch (error) {
 			console.error('Failed to load boards:', error);
 		}
-	}, [user]);
+	}, [user?.id]);
 
 	const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'userId'>): Promise<number | null> => {
 		if (!user) return null;
