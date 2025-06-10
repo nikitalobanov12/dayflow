@@ -21,9 +21,10 @@ interface EisenhowerMatrixViewProps {
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => Promise<void>;
+	onOpenSettings?: () => void;
 }
 
-export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange }: EisenhowerMatrixViewProps) {
+export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings }: EisenhowerMatrixViewProps) {
 	const [isAddingTask, setIsAddingTask] = useState(false);
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -209,7 +210,7 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 
 	return (
 		<div className='h-screen bg-background flex flex-col'>
-			{/* Header */}
+			{/* Header */}{' '}
 			<ViewHeader
 				board={board}
 				currentView='eisenhower'
@@ -217,8 +218,8 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 				onViewChange={onViewChange}
 				user={user}
 				onSignOut={onSignOut}
+				onOpenSettings={onOpenSettings}
 			/>
-
 			{/* Matrix Grid */}
 			<div className='flex-1 p-6 overflow-auto'>
 				<div className='max-w-7xl mx-auto'>
@@ -387,7 +388,6 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 					</div>
 				</div>
 			</div>
-
 			{/* Add Task Dialog */}
 			<TaskEditDialog
 				task={null}
@@ -396,7 +396,6 @@ export function EisenhowerMatrixView({ board, tasks, onBack, onAddTask, onUpdate
 				onSave={handleNewTaskSave}
 				onDelete={() => Promise.resolve()}
 			/>
-
 			{/* Edit Task Dialog */}
 			<TaskEditDialog
 				task={editingTask}

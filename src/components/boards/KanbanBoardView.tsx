@@ -5,6 +5,7 @@ import { ViewHeader } from '@/components/ui/view-header';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { Task, Board } from '@/types';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 
 interface KanbanBoardViewProps {
 	board: Board;
@@ -23,12 +24,17 @@ interface KanbanBoardViewProps {
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => Promise<void>;
+	onOpenSettings?: () => void;
+	userPreferences?: any; // Add user preferences prop
 }
 
-export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange }: KanbanBoardViewProps) {
+export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings, userPreferences }: KanbanBoardViewProps) {
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [activeId, setActiveId] = useState<string | null>(null);
+	// Apply user preferences for filtering and sorting
+	const { filterTasks, sortTasks } = useUserPreferences(userPreferences);
+
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
 			activationConstraint: {
@@ -36,12 +42,23 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 			},
 		})
 	);
+
 	// Memoize functions to prevent unnecessary re-renders
 	const getTasksByStatus = useCallback(
 		(status: Task['status']) => {
-			return tasks.filter((task: Task) => task.status === status).sort((a, b) => a.position - b.position);
+			// First filter by status
+			const statusTasks = tasks.filter((task: Task) => task.status === status);
+
+			// Apply user preferences: filter out completed tasks if disabled
+			const filteredTasks = filterTasks(statusTasks);
+
+			// Apply user sorting preferences
+			const sortedTasks = sortTasks(filteredTasks);
+
+			// Keep position-based sorting within each status for drag & drop consistency
+			return sortedTasks.sort((a, b) => a.position - b.position);
 		},
-		[tasks]
+		[tasks, filterTasks, sortTasks]
 	);
 	const getTotalTimeForColumn = useCallback(
 		(status: Task['status']): number => {
@@ -138,7 +155,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 	};
 	return (
 		<div className='h-screen bg-background flex flex-col'>
-			{/* Header */}
+			{/* Header */}{' '}
 			<ViewHeader
 				board={board}
 				currentView='kanban'
@@ -146,6 +163,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 				onViewChange={onViewChange}
 				user={user}
 				onSignOut={onSignOut}
+				onOpenSettings={onOpenSettings}
 			/>
 			{/* Kanban Board */}
 			<div className='flex-1 flex flex-col min-h-0'>

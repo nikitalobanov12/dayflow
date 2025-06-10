@@ -10,9 +10,8 @@ import { Task, Board } from '@/types';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle } from 'lucide-react';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { ViewHeader } from '@/components/ui/view-header';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-
-const localizer = momentLocalizer(moment);
 
 interface CalendarViewProps {
 	board: Board;
@@ -29,13 +28,15 @@ interface CalendarViewProps {
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => Promise<void>;
+	onOpenSettings?: () => void;
+	userPreferences?: any;
 }
 
 interface CalendarEvent extends Event {
 	resource: Task;
 }
 
-export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, isAllTasksBoard = false, user, onSignOut, onViewChange }: CalendarViewProps) {
+export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, isAllTasksBoard = false, user, onSignOut, onViewChange, onOpenSettings, userPreferences }: CalendarViewProps) {
 	const [currentView, setCurrentView] = useState<View>('week');
 	const [currentDate, setCurrentDate] = useState(new Date());
 	const [isEditingTask, setIsEditingTask] = useState(false);
@@ -49,10 +50,13 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 		priority: 2 as 1 | 2 | 3 | 4,
 		status: 'backlog' as Task['status'],
 	});
+	// Apply user preferences for filtering, sorting, and week start
+	const { filterTasks, sortTasks, weekStartsOn } = useUserPreferences(userPreferences);
 
 	// Convert tasks to calendar events
 	const events: CalendarEvent[] = useMemo(() => {
-		return tasks
+		const filteredTasks = filterTasks(tasks);
+		return filteredTasks
 			.filter(task => task.scheduledDate || task.startDate || task.dueDate)
 			.map(task => {
 				let start: Date;
@@ -91,16 +95,31 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 					allDay: false,
 				};
 			});
-	}, [tasks]);
+	}, [tasks, filterTasks]);
+
 	// Get unscheduled tasks (tasks without scheduledDate, startDate, or dueDate)
 	const unscheduledTasks = useMemo(() => {
-		return tasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate && task.status !== 'done');
-	}, [tasks]);
+		const allUnscheduledTasks = tasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate && task.status !== 'done');
+		return sortTasks(filterTasks(allUnscheduledTasks));
+	}, [tasks, filterTasks, sortTasks]);
 
 	// Get completed unscheduled tasks
 	const completedUnscheduledTasks = useMemo(() => {
-		return tasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate && task.status === 'done');
-	}, [tasks]);
+		const completedTasks = tasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate && task.status === 'done');
+		return sortTasks(filterTasks(completedTasks));
+	}, [tasks, filterTasks, sortTasks]);
+
+	// Configure calendar start of week based on user preference
+	const calendarLocalizer = useMemo(() => {
+		const customLocalizer = momentLocalizer(moment);
+		// Set the week start day
+		moment.updateLocale('en', {
+			week: {
+				dow: weekStartsOn, // 0 = Sunday, 1 = Monday
+			},
+		});
+		return customLocalizer;
+	}, [weekStartsOn]);
 
 	const handleScheduleTask = async (task: Task, date: Date) => {
 		// Determine the appropriate status based on scheduled date
@@ -339,7 +358,7 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 
 	return (
 		<div className='h-full bg-background flex flex-col'>
-			{/* Header */}
+			{/* Header */}{' '}
 			<ViewHeader
 				board={board}
 				currentView='calendar'
@@ -347,6 +366,7 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 				onViewChange={onViewChange}
 				user={user}
 				onSignOut={onSignOut}
+				onOpenSettings={onOpenSettings}
 			/>
 			{/* Main Content Area */}
 			<div className='flex-1 flex'>
@@ -396,7 +416,7 @@ export function CalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, on
 				>
 					<div className='h-full calendar-wrapper'>
 						<Calendar
-							localizer={localizer}
+							localizer={calendarLocalizer}
 							events={events}
 							startAccessor='start'
 							endAccessor='end'

@@ -18,6 +18,7 @@ interface BoardSelectionProps {
 	onDeleteBoard: (id: number) => Promise<void>;
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
+	onOpenSettings?: () => void;
 }
 
 const BOARD_COLORS = [
@@ -35,7 +36,7 @@ const BOARD_COLORS = [
 
 const BOARD_ICONS = ['📋', '📊', '📅', '📝', '💼', '🎯', '📈', '🚀', '⭐', '🔥', '💡', '🎨', '⚡', '🌟', '🏆', '📌', '🎪', '🎭', '🎵', '🎮', '🌈', '🦄', '🍕', '☕', '🌱', '🔮', '🎊', '🎉', '💎', '🗂️'];
 
-export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, user, onSignOut }: BoardSelectionProps) {
+export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, user, onSignOut, onOpenSettings }: BoardSelectionProps) {
 	const [isCreating, setIsCreating] = useState(false);
 	const [isEditing, setIsEditing] = useState<Board | null>(null);
 	const [newBoard, setNewBoard] = useState({
@@ -117,10 +118,11 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 								<Plus className='h-4 w-4' />
 								New Board
 							</Button>
-							<ThemeToggle />
+							<ThemeToggle />{' '}
 							<ProfileDropdown
 								user={user}
 								onSignOut={onSignOut}
+								onOpenSettings={onOpenSettings}
 							/>
 						</div>
 					</div>

@@ -25,6 +25,7 @@ interface GanttChartViewProps {
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => Promise<void>;
+	onOpenSettings?: () => void;
 }
 
 interface GanttTask extends Task {
@@ -33,7 +34,7 @@ interface GanttTask extends Task {
 	progress: number;
 }
 
-export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange }: GanttChartViewProps) {
+export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings }: GanttChartViewProps) {
 	const [viewMode, setViewMode] = useState<'days' | 'weeks' | 'months'>('weeks');
 	const [currentDate, setCurrentDate] = useState(new Date());
 	const [isEditingTask, setIsEditingTask] = useState(false);
@@ -262,7 +263,7 @@ export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, 
 
 	return (
 		<div className='h-screen bg-background flex flex-col'>
-			{/* Header */}
+			{/* Header */}{' '}
 			<ViewHeader
 				board={board}
 				currentView='gantt'
@@ -270,6 +271,7 @@ export function GanttChartView({ board, tasks, onBack, onAddTask, onUpdateTask, 
 				onViewChange={onViewChange}
 				user={user}
 				onSignOut={onSignOut}
+				onOpenSettings={onOpenSettings}
 			/>
 			{/* Controls */}
 			<div className='p-4 border-b border-border bg-card'>

@@ -12,6 +12,7 @@ interface ViewHeaderProps {
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => Promise<void>;
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
+	onOpenSettings?: () => void;
 }
 
 const VIEW_ICONS = {
@@ -28,7 +29,7 @@ const VIEW_NAMES = {
 	gantt: 'Gantt',
 };
 
-export function ViewHeader({ board, currentView, onBack, onViewChange, user, onSignOut }: ViewHeaderProps) {
+export function ViewHeader({ board, currentView, onBack, onViewChange, user, onSignOut, onOpenSettings }: ViewHeaderProps) {
 	return (
 		<div className={`${!isTauri() ? '' : ''} p-4 border-b border-border bg-card relative z-10`}>
 			<div className='flex items-center justify-between container max-w-[1376px] mx-auto'>
@@ -73,10 +74,11 @@ export function ViewHeader({ board, currentView, onBack, onViewChange, user, onS
 							))}
 						</div>
 					)}
-					<ThemeToggle/>
+					<ThemeToggle />{' '}
 					<ProfileDropdown
 						user={user}
 						onSignOut={onSignOut}
+						onOpenSettings={onOpenSettings}
 					/>
 				</div>
 			</div>

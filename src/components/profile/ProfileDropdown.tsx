@@ -1,13 +1,14 @@
-import { useState} from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { User, LogOut, Settings } from 'lucide-react';
 
 interface ProfileDropdownProps {
 	user: any;
 	onSignOut?: () => Promise<{ error: any }>;
+	onOpenSettings?: () => void;
 }
 
-export function ProfileDropdown({ user, onSignOut }: ProfileDropdownProps) {
+export function ProfileDropdown({ user, onSignOut, onOpenSettings }: ProfileDropdownProps) {
 	const [isSigningOut, setIsSigningOut] = useState(false);
 	const [isOpen, setIsOpen] = useState(false);
 
@@ -50,14 +51,16 @@ export function ProfileDropdown({ user, onSignOut }: ProfileDropdownProps) {
 							<p className='text-xs leading-none text-gray-500 dark:text-gray-400'>Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}</p>
 						</div>
 					</div>
-					<hr className='my-1' />
+					<hr className='my-1' />{' '}
 					<button
-						className='w-full text-left px-2 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-sm flex items-center opacity-50 cursor-not-allowed'
-						disabled
+						className='w-full text-left px-2 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-sm flex items-center'
+						onClick={() => {
+							onOpenSettings?.();
+							setIsOpen(false);
+						}}
 					>
 						<Settings className='mr-2 h-4 w-4' />
 						Settings
-						<span className='ml-auto text-xs text-gray-400'>Soon</span>
 					</button>
 					<hr className='my-1' />
 					{onSignOut && (

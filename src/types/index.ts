@@ -157,3 +157,54 @@ export interface Timer {
 	mode: 'pomodoro' | 'countdown' | 'stopwatch';
 	pomodoroLength: number; // in minutes
 }
+
+export interface UserPreferences {
+	id: string; // UUID matching auth.users.id
+	theme: 'light' | 'dark' | 'system';
+	language: string;
+	dateFormat: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
+	timeFormat: '12h' | '24h';
+	weekStartsOn: 0 | 1; // 0 = Sunday, 1 = Monday
+	autoSave: boolean;
+	showCompletedTasks: boolean;
+	taskSortBy: 'priority' | 'dueDate' | 'created' | 'alphabetical';
+	taskSortOrder: 'asc' | 'desc';
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface Profile {
+	id: string; // UUID matching auth.users.id
+	firstName?: string;
+	lastName?: string;
+	avatarUrl?: string;
+	timezone: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+// Database row interfaces for Supabase
+export interface UserPreferencesRow {
+	id: string;
+	theme: string;
+	language: string;
+	date_format: string;
+	time_format: string;
+	week_starts_on: number;
+	auto_save: boolean;
+	show_completed_tasks: boolean;
+	task_sort_by: string;
+	task_sort_order: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface ProfileRow {
+	id: string;
+	first_name: string | null;
+	last_name: string | null;
+	avatar_url: string | null;
+	timezone: string;
+	created_at: string;
+	updated_at: string;
+}

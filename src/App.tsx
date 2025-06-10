@@ -7,14 +7,17 @@ import { EisenhowerMatrixView } from '@/components/eisenhower/EisenhowerMatrixVi
 import { GanttChartView } from '@/components/gantt/GanttChartView';
 import { SprintMode } from './components/sprint/SprintMode';
 import { SprintConfig, SprintConfiguration } from '@/components/sprint/SprintConfig';
+import { SettingsPage } from '@/components/settings/SettingsPage';
 import { Auth } from '@/components/ui/auth';
 
 import { useSupabaseDatabase } from '@/hooks/useSupabaseDatabase';
+import { useUserSettings } from '@/hooks/useUserSettings';
 import { Board, Task } from '@/types';
 import './App.css';
 
 function App() {
 	const { tasks, boards, addTask, deleteTask, duplicateTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, resetPasswordForEmail } = useSupabaseDatabase();
+	const { userPreferences, userProfile, updateUserPreferences, updateUserProfile } = useUserSettings(user?.id);
 
 	// Wrapper functions to match component signatures
 	const handleAddBoard = async (board: Omit<Board, 'id' | 'createdAt' | 'userId'>) => {
@@ -58,7 +61,7 @@ function App() {
 	const handleSignIn = async (email: string, password: string) => {
 		return await signIn(email, password);
 	};
-	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'calendar' | 'eisenhower' | 'gantt' | 'sprint'>('boards');
+	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'calendar' | 'eisenhower' | 'gantt' | 'sprint' | 'settings'>('boards');
 	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
 	const [showSprintConfig, setShowSprintConfig] = useState(false);
 	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null); // Show auth if not logged in
@@ -103,15 +106,14 @@ function App() {
 		setCurrentView('kanban');
 	};
 
+	const handleOpenSettings = () => {
+		setCurrentView('settings');
+	};
+
 	const handleSelectView = async (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => {
 		setSelectedBoard(board);
-		// If it's the "All Tasks" board, load all tasks, otherwise filter by board
-		if (board.isDefault) {
-			await loadTasks(); // Load all tasks for "All Tasks" board
-		} else {
-			await loadTasks(board.id); // Filter tasks by board ID
-		}
 		setCurrentView(viewType);
+		await loadTasks();
 	};
 	const handleBackToBoards = () => {
 		setCurrentView('boards');
@@ -170,7 +172,6 @@ function App() {
 			</div>
 		);
 	}
-
 	// Board selection view
 	if (currentView === 'boards') {
 		return (
@@ -185,6 +186,7 @@ function App() {
 						onDeleteBoard={handleDeleteBoard}
 						user={user}
 						onSignOut={signOut}
+						onOpenSettings={handleOpenSettings}
 					/>
 				</div>
 			</div>
@@ -213,6 +215,8 @@ function App() {
 						user={user}
 						onSignOut={signOut}
 						onViewChange={handleSelectView}
+						onOpenSettings={handleOpenSettings}
+						userPreferences={userPreferences}
 					/>
 				</div>
 				{showSprintConfig && (
@@ -232,6 +236,7 @@ function App() {
 			<div className='h-screen bg-background flex flex-col'>
 				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - Calendar`} />
 				<div className='flex-1'>
+					{' '}
 					<CalendarView
 						board={selectedBoard}
 						tasks={tasks}
@@ -247,6 +252,8 @@ function App() {
 						user={user}
 						onSignOut={signOut}
 						onViewChange={handleSelectView}
+						onOpenSettings={handleOpenSettings}
+						userPreferences={userPreferences}
 					/>
 				</div>
 			</div>
@@ -259,6 +266,7 @@ function App() {
 			<div className='h-screen bg-background flex flex-col'>
 				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - Eisenhower Matrix`} />
 				<div className='flex-1'>
+					{' '}
 					<EisenhowerMatrixView
 						board={selectedBoard}
 						tasks={tasks}
@@ -274,6 +282,7 @@ function App() {
 						user={user}
 						onSignOut={signOut}
 						onViewChange={handleSelectView}
+						onOpenSettings={handleOpenSettings}
 					/>
 				</div>
 			</div>
@@ -286,6 +295,7 @@ function App() {
 			<div className='h-screen bg-background flex flex-col'>
 				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - Gantt Chart`} />
 				<div className='flex-1'>
+					{' '}
 					<GanttChartView
 						board={selectedBoard}
 						tasks={tasks}
@@ -301,6 +311,27 @@ function App() {
 						user={user}
 						onSignOut={signOut}
 						onViewChange={handleSelectView}
+						onOpenSettings={handleOpenSettings}
+					/>
+				</div>
+			</div>
+		);
+	}
+
+	// Settings view
+	if (currentView === 'settings') {
+		return (
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar title='DayFlow - Settings' />
+				<div className='flex-1'>
+					<SettingsPage
+						user={user}
+						userPreferences={userPreferences || undefined}
+						userProfile={userProfile || undefined}
+						onBack={handleBackToBoards}
+						onUpdatePreferences={updateUserPreferences}
+						onUpdateProfile={updateUserProfile}
+						onSignOut={signOut}
 					/>
 				</div>
 			</div>
@@ -319,6 +350,7 @@ function App() {
 					onDeleteBoard={handleDeleteBoard}
 					user={user}
 					onSignOut={signOut}
+					onOpenSettings={handleOpenSettings}
 				/>
 			</div>
 		</div>
