@@ -103,11 +103,20 @@ export function useUserPreferences(userPreferences?: UserPreferences | null) {
 	const weekStartsOn = useMemo(() => {
 		return userPreferences?.weekStartsOn ?? 0; // Default to Sunday
 	}, [userPreferences?.weekStartsOn]);
-
 	// Check if auto-save is enabled
 	const isAutoSaveEnabled = useMemo(() => {
 		return userPreferences?.autoSave !== false; // Default to true
 	}, [userPreferences?.autoSave]);
+
+	// Get calendar default zoom level
+	const calendarDefaultZoom = useMemo(() => {
+		return userPreferences?.calendarDefaultZoom ?? 1; // Default to comfortable view
+	}, [userPreferences?.calendarDefaultZoom]);
+
+	// Get calendar default view mode
+	const calendarDefaultView = useMemo(() => {
+		return userPreferences?.calendarDefaultView ?? '3-day'; // Default to 3-day view
+	}, [userPreferences?.calendarDefaultView]);
 
 	return {
 		formatDate,
@@ -115,6 +124,8 @@ export function useUserPreferences(userPreferences?: UserPreferences | null) {
 		sortTasks,
 		weekStartsOn,
 		isAutoSaveEnabled,
+		calendarDefaultZoom,
+		calendarDefaultView,
 		preferences: userPreferences,
 	};
 }

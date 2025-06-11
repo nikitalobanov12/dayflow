@@ -166,6 +166,8 @@ export interface UserPreferences {
 	showCompletedTasks: boolean;
 	taskSortBy: 'priority' | 'dueDate' | 'created' | 'alphabetical';
 	taskSortOrder: 'asc' | 'desc';
+	calendarDefaultZoom: number; // 0-3 for zoom levels
+	calendarDefaultView: '3-day' | 'week';
 	createdAt: string;
 	updatedAt: string;
 }
@@ -192,6 +194,8 @@ export interface UserPreferencesRow {
 	show_completed_tasks: boolean;
 	task_sort_by: string;
 	task_sort_order: string;
+	calendar_default_zoom: number;
+	calendar_default_view: string;
 	created_at: string;
 	updated_at: string;
 }

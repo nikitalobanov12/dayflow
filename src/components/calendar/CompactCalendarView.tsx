@@ -49,9 +49,28 @@ const ZOOM_LEVELS = [
 ];
 
 export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, user, onSignOut, onViewChange, onOpenSettings, userPreferences }: CompactCalendarViewProps) {
+	// Apply user preferences
+	const { filterTasks, weekStartsOn, calendarDefaultZoom, calendarDefaultView } = useUserPreferences(userPreferences);
+
+	// Priority colors and display
+	const getPriorityColor = (priority: Task['priority']) => {
+		switch (priority) {
+			case 4:
+				return 'bg-red-500'; // Urgent
+			case 3:
+				return 'bg-orange-500'; // High
+			case 2:
+				return 'bg-blue-500'; // Medium
+			case 1:
+				return 'bg-gray-400'; // Low
+			default:
+				return 'bg-gray-400';
+		}
+	};
+
 	const [currentDate, setCurrentDate] = useState(new Date());
-	const [viewMode, setViewMode] = useState<ViewMode>('3-day');
-	const [zoomLevel, setZoomLevel] = useState(1); // Start with comfortable view
+	const [viewMode, setViewMode] = useState<ViewMode>(calendarDefaultView);
+	const [zoomLevel, setZoomLevel] = useState(calendarDefaultZoom);
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [isCreatingTask, setIsCreatingTask] = useState(false);
@@ -64,11 +83,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 		priority: 2 as 1 | 2 | 3 | 4,
 		status: 'backlog' as Task['status'],
 	});
-
 	const calendarContainerRef = useRef<HTMLDivElement>(null);
-
-	// Apply user preferences
-	const { filterTasks, sortTasks, weekStartsOn } = useUserPreferences(userPreferences);
 
 	// Get current zoom configuration
 	const currentZoom = ZOOM_LEVELS[zoomLevel];
@@ -378,7 +393,6 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 	const handleTaskDelete = async (taskId: number) => {
 		await onDeleteTask(taskId);
 	};
-
 	const handleTaskToggleComplete = async (task: Task) => {
 		const newStatus = task.status === 'done' ? 'today' : 'done';
 		const updates: Partial<Task> = {
@@ -387,6 +401,12 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 			progressPercentage: newStatus === 'done' ? 100 : task.progressPercentage,
 		};
 		await onUpdateTask(task.id, updates);
+	};
+
+	// Handle checkbox click without triggering card click
+	const handleCheckboxClick = (e: React.MouseEvent, task: Task) => {
+		e.stopPropagation(); // Prevent opening edit dialog
+		handleTaskToggleComplete(task);
 	};
 
 	const handleTaskMove = async (task: Task, newStatus: Task['status']) => {
@@ -438,9 +458,12 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 				}}
 			>
 				<div className='flex items-start justify-between'>
+					{' '}
 					<div className='flex-1 min-w-0'>
+						{' '}
 						<div className='flex items-center gap-2'>
 							{isCompleted && <CheckCircle className='h-4 w-4 text-green-600 flex-shrink-0' />}
+							<div className={`w-5 h-5 rounded-full ${getPriorityColor(task.priority)} text-white text-xs flex items-center justify-center font-bold flex-shrink-0`}>{task.priority}</div>
 							<h4 className={`text-sm font-medium truncate ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>{task.title}</h4>
 						</div>
 						{task.description && <p className={`text-xs mt-1 line-clamp-2 ${isCompleted ? 'text-muted-foreground' : 'text-muted-foreground'}`}>{task.description}</p>}
@@ -813,25 +836,35 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																<div className='text-xs font-medium truncate leading-none'>{event.title}</div>
 																{event.task.status === 'done' && <CheckCircle className='h-3 w-3 text-green-300 ml-1 flex-shrink-0' />}
 															</div>
-														)}
-
+														)}{' '}
 														{/* Small Cards (30-50px) - Title + time on same line */}
 														{isSmall && !isVerySmall && (
 															<div className='p-1.5 h-full flex flex-col justify-center'>
 																<div className='flex items-center justify-between'>
 																	<div className='text-xs font-semibold truncate flex-1 leading-tight'>{event.title}</div>
-																	{event.task.status === 'done' && <CheckCircle className='h-3 w-3 text-green-300 ml-1 flex-shrink-0' />}
+																	<button
+																		onClick={e => handleCheckboxClick(e, event.task)}
+																		className={`ml-1 flex-shrink-0 w-3 h-3 rounded-sm border transition-all duration-200 flex items-center justify-center ${event.task.status === 'done' ? 'bg-green-500 border-green-500 text-white' : 'border-white/50 hover:border-white hover:bg-white/10'}`}
+																		title={event.task.status === 'done' ? 'Mark as incomplete' : 'Mark as complete'}
+																	>
+																		{event.task.status === 'done' && <CheckCircle className='h-2.5 w-2.5' />}
+																	</button>
 																</div>
 																<div className='text-xs opacity-90 leading-none mt-0.5'>{format(event.start, 'h:mm a')}</div>
 															</div>
-														)}
-
+														)}{' '}
 														{/* Medium Cards (50-80px) - Title, time, basic info */}
 														{isMedium && (
 															<div className='p-2 h-full flex flex-col'>
 																<div className='flex items-start justify-between mb-1'>
 																	<div className='font-semibold text-sm leading-tight truncate flex-1'>{event.title}</div>
-																	{event.task.status === 'done' && <CheckCircle className='h-4 w-4 text-green-300 ml-1 flex-shrink-0' />}
+																	<button
+																		onClick={e => handleCheckboxClick(e, event.task)}
+																		className={`ml-1 flex-shrink-0 w-4 h-4 rounded border transition-all duration-200 flex items-center justify-center ${event.task.status === 'done' ? 'bg-green-500 border-green-500 text-white' : 'border-white/50 hover:border-white hover:bg-white/10'}`}
+																		title={event.task.status === 'done' ? 'Mark as incomplete' : 'Mark as complete'}
+																	>
+																		{event.task.status === 'done' && <CheckCircle className='h-3 w-3' />}
+																	</button>
 																</div>
 																<div className='text-xs opacity-90 mb-1'>
 																	{format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
@@ -845,14 +878,19 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																	)}
 																</div>
 															</div>
-														)}
-
+														)}{' '}
 														{/* Large Cards (80px+) - Full info */}
 														{isLarge && (
 															<div className='p-2 h-full flex flex-col'>
 																<div className='flex items-start justify-between mb-1'>
 																	<div className='font-semibold text-sm leading-tight truncate flex-1'>{event.title}</div>
-																	{event.task.status === 'done' && <CheckCircle className='h-4 w-4 text-green-300 ml-1 flex-shrink-0' />}
+																	<button
+																		onClick={e => handleCheckboxClick(e, event.task)}
+																		className={`ml-1 flex-shrink-0 w-4 h-4 rounded border transition-all duration-200 flex items-center justify-center ${event.task.status === 'done' ? 'bg-green-500 border-green-500 text-white' : 'border-white/50 hover:border-white hover:bg-white/10'}`}
+																		title={event.task.status === 'done' ? 'Mark as incomplete' : 'Mark as complete'}
+																	>
+																		{event.task.status === 'done' && <CheckCircle className='h-3 w-3' />}
+																	</button>
 																</div>
 
 																<div className='text-xs opacity-90 mb-2'>

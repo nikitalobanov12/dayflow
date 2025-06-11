@@ -14,6 +14,8 @@ const transformUserPreferences = (row: UserPreferencesRow): UserPreferences => (
 	showCompletedTasks: row.show_completed_tasks,
 	taskSortBy: row.task_sort_by as 'priority' | 'dueDate' | 'created' | 'alphabetical',
 	taskSortOrder: row.task_sort_order as 'asc' | 'desc',
+	calendarDefaultZoom: row.calendar_default_zoom || 1,
+	calendarDefaultView: (row.calendar_default_view as '3-day' | 'week') || '3-day',
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 });
@@ -41,6 +43,8 @@ const transformUserPreferencesToRow = (preferences: Partial<UserPreferences>): P
 	...(preferences.showCompletedTasks !== undefined && { show_completed_tasks: preferences.showCompletedTasks }),
 	...(preferences.taskSortBy && { task_sort_by: preferences.taskSortBy }),
 	...(preferences.taskSortOrder && { task_sort_order: preferences.taskSortOrder }),
+	...(preferences.calendarDefaultZoom !== undefined && { calendar_default_zoom: preferences.calendarDefaultZoom }),
+	...(preferences.calendarDefaultView && { calendar_default_view: preferences.calendarDefaultView }),
 	updated_at: new Date().toISOString(),
 });
 
@@ -69,24 +73,12 @@ export function useUserSettings(userId?: string) {
 
 		try {
 			// Load preferences and profile in parallel
-			const [preferencesResult, profileResult] = await Promise.allSettled([
-				supabase
-					.from('user_preferences')
-					.select('*')
-					.eq('id', userId)
-					.single(),
-				supabase
-					.from('profiles')
-					.select('*')
-					.eq('id', userId)
-					.single()
-			]);
+			const [preferencesResult, profileResult] = await Promise.allSettled([supabase.from('user_preferences').select('*').eq('id', userId).single(), supabase.from('profiles').select('*').eq('id', userId).single()]);
 
 			// Handle preferences result
 			if (preferencesResult.status === 'fulfilled' && preferencesResult.value.data) {
 				setUserPreferences(transformUserPreferences(preferencesResult.value.data));
-			} else if (preferencesResult.status === 'rejected' || 
-					   (preferencesResult.status === 'fulfilled' && preferencesResult.value.error?.code === 'PGRST116')) {
+			} else if (preferencesResult.status === 'rejected' || (preferencesResult.status === 'fulfilled' && preferencesResult.value.error?.code === 'PGRST116')) {
 				// Create default preferences if they don't exist
 				await createDefaultUserPreferences(userId);
 			}
@@ -94,8 +86,7 @@ export function useUserSettings(userId?: string) {
 			// Handle profile result
 			if (profileResult.status === 'fulfilled' && profileResult.value.data) {
 				setUserProfile(transformProfile(profileResult.value.data));
-			} else if (profileResult.status === 'rejected' || 
-					  (profileResult.status === 'fulfilled' && profileResult.value.error?.code === 'PGRST116')) {
+			} else if (profileResult.status === 'rejected' || (profileResult.status === 'fulfilled' && profileResult.value.error?.code === 'PGRST116')) {
 				// Create default profile if it doesn't exist
 				await createDefaultProfile(userId);
 			}
@@ -106,7 +97,6 @@ export function useUserSettings(userId?: string) {
 			setIsLoading(false);
 		}
 	};
-
 	// Create default user preferences
 	const createDefaultUserPreferences = async (userId: string) => {
 		const defaultPreferences: Partial<UserPreferencesRow> = {
@@ -120,13 +110,11 @@ export function useUserSettings(userId?: string) {
 			show_completed_tasks: false,
 			task_sort_by: 'priority',
 			task_sort_order: 'asc',
+			calendar_default_zoom: 1,
+			calendar_default_view: '3-day',
 		};
 
-		const { data, error } = await supabase
-			.from('user_preferences')
-			.insert(defaultPreferences)
-			.select()
-			.single();
+		const { data, error } = await supabase.from('user_preferences').insert(defaultPreferences).select().single();
 
 		if (error) {
 			console.error('Error creating default preferences:', error);
@@ -145,11 +133,7 @@ export function useUserSettings(userId?: string) {
 			timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 		};
 
-		const { data, error } = await supabase
-			.from('profiles')
-			.insert(defaultProfile)
-			.select()
-			.single();
+		const { data, error } = await supabase.from('profiles').insert(defaultProfile).select().single();
 
 		if (error) {
 			console.error('Error creating default profile:', error);
@@ -171,14 +155,9 @@ export function useUserSettings(userId?: string) {
 			const updateData = transformUserPreferencesToRow(updates);
 
 			// Update local state optimistically
-			setUserPreferences(prev => prev ? { ...prev, ...updates } : null);
+			setUserPreferences(prev => (prev ? { ...prev, ...updates } : null));
 
-			const { data, error } = await supabase
-				.from('user_preferences')
-				.update(updateData)
-				.eq('id', userId)
-				.select()
-				.single();
+			const { data, error } = await supabase.from('user_preferences').update(updateData).eq('id', userId).select().single();
 
 			if (error) throw error;
 
@@ -204,14 +183,9 @@ export function useUserSettings(userId?: string) {
 			const updateData = transformProfileToRow(updates);
 
 			// Update local state optimistically
-			setUserProfile(prev => prev ? { ...prev, ...updates } : null);
+			setUserProfile(prev => (prev ? { ...prev, ...updates } : null));
 
-			const { data, error } = await supabase
-				.from('profiles')
-				.update(updateData)
-				.eq('id', userId)
-				.select()
-				.single();
+			const { data, error } = await supabase.from('profiles').update(updateData).eq('id', userId).select().single();
 
 			if (error) throw error;
 

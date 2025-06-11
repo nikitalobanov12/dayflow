@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Task, Board } from '@/types';
 import { Clock, Calendar, X, CheckCircle, Circle } from 'lucide-react';
 import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import moment from 'moment';
 
 interface TaskEditDialogProps {
@@ -21,14 +22,18 @@ interface TaskEditDialogProps {
 	isAllTasksBoard?: boolean;
 	boards?: Board[];
 	isCreating?: boolean; // Whether this is creating a new task
+	userPreferences?: any; // User preferences for date formatting
 }
 
-export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard = false, boards = [], isCreating = false }: TaskEditDialogProps) {
+export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard = false, boards = [], isCreating = false, userPreferences }: TaskEditDialogProps) {
 	const [formData, setFormData] = useState<Partial<Task>>({});
 	const [originalData, setOriginalData] = useState<Partial<Task>>({});
 	const [isLoading, setIsLoading] = useState(false);
 	const [tempTimeEstimate, setTempTimeEstimate] = useState('');
 	const [isEditingTime, setIsEditingTime] = useState(false);
+
+	// Apply user preferences for date formatting
+	const { formatDate } = useUserPreferences(userPreferences);
 
 	// Check if form has changes - more robust comparison
 	const hasChanges = useMemo(() => {
@@ -387,8 +392,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 										onChange={e => updateFormData('scheduledDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
 										className='bg-background border-border text-foreground'
 									/>
-								</div>
-
+								</div>{' '}
 								<div>
 									<label className='text-sm font-medium text-muted-foreground block mb-3'>Start Date</label>
 									<Input
@@ -397,8 +401,8 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 										onChange={e => updateFormData('startDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
 										className='bg-background border-border text-foreground'
 									/>
+									{formData.startDate && <p className='text-xs text-muted-foreground mt-1'>Will display as: {formatDate(formData.startDate, true)}</p>}
 								</div>
-
 								<div>
 									<label className='text-sm font-medium text-muted-foreground block mb-3'>Due Date</label>
 									<Input
@@ -406,7 +410,8 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 										value={formData.dueDate ? moment(formData.dueDate).format('YYYY-MM-DDTHH:mm') : ''}
 										onChange={e => updateFormData('dueDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
 										className='bg-background border-border text-foreground'
-									/>{' '}
+									/>
+									{formData.dueDate && <p className='text-xs text-muted-foreground mt-1'>Will display as: {formatDate(formData.dueDate, true)}</p>}
 								</div>
 							</div>
 

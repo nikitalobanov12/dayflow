@@ -1,6 +1,5 @@
 import { Task, Board } from '@/types';
 import { TaskCard } from './TaskCard';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -27,38 +26,14 @@ interface KanbanColumnProps {
 	boards?: Board[]; // Available boards for board selection
 	getBoardInfo?: (boardId: number) => Board | null; // Function to get board info
 	currentBoard?: Board; // Current board information to display when task has no specific board
-	isDragging?: boolean;
-	onDragStart?: () => void;
-	onDragEnd?: () => void;
+	userPreferences?: any; // User preferences for date formatting
 }
 
-export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, onDuplicateTask, onDeleteTask, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo, currentBoard, isDragging = false, onDragStart, onDragEnd }: KanbanColumnProps) {
-	const [isDragOver, setIsDragOver] = useState(false);
+export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, onDuplicateTask, onDeleteTask, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo, currentBoard, userPreferences }: KanbanColumnProps) {
 	const [isAdding, setIsAdding] = useState(false);
 	const [newTaskTitle, setNewTaskTitle] = useState('');
 	const [newTaskTime, setNewTaskTime] = useState('');
-	const [newTaskBoardId, setNewTaskBoardId] = useState<number | null>(null); // Handle drag and drop
-	const handleDragOver = (e: React.DragEvent) => {
-		e.preventDefault();
-		e.dataTransfer.dropEffect = 'move';
-		setIsDragOver(true);
-	};
-
-	const handleDragLeave = (e: React.DragEvent) => {
-		// Only remove highlight if we're leaving the column entirely
-		if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-			setIsDragOver(false);
-		}
-	};
-
-	const handleDrop = (e: React.DragEvent) => {
-		e.preventDefault();
-		setIsDragOver(false);
-		const taskId = e.dataTransfer.getData('text/plain');
-		if (taskId) {
-			onMoveTask(parseInt(taskId), status);
-		}
-	};
+	const [newTaskBoardId, setNewTaskBoardId] = useState<number | null>(null);
 
 	// Calculate progress percentage
 	const progressPercentage = showProgress && status === 'today' ? (completedCount / (tasks.length + completedCount)) * 100 || 0 : showProgress && tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
@@ -254,12 +229,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 					</div>
 				)}
 			</div>{' '}
-			<div
-				className={cn('flex-1 overflow-y-auto kanban-scroll-container p-3 space-y-3 transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent', isDragOver && 'bg-accent/20 ring-2 ring-primary/20 ring-inset', isDragging && 'border-dashed border-primary/30')}
-				onDragOver={handleDragOver}
-				onDragLeave={handleDragLeave}
-				onDrop={handleDrop}
-			>
+			<div className='flex-1 overflow-y-auto kanban-scroll-container p-3 space-y-3 transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent'>
 				{status === 'done' ? (
 					// Grouped view for done tasks
 					<div className='space-y-4'>
@@ -274,6 +244,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 									<span className='text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full'>{dateTasks.length}</span>
 								</div>{' '}
 								<div className='space-y-3'>
+									{' '}
 									{dateTasks.map(task => (
 										<TaskCard
 											key={task.id}
@@ -284,9 +255,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 											onDuplicate={onDuplicateTask}
 											onDelete={onDeleteTask}
 											isDone={task.status === 'done'}
-											isDragging={isDragging}
-											onDragStart={onDragStart}
-											onDragEnd={onDragEnd}
+											userPreferences={userPreferences}
 											boardInfo={(() => {
 												// For All Tasks view, try to get task's specific board, otherwise use current board
 												if (isAllTasksBoard && getBoardInfo && task.boardId) {
@@ -304,6 +273,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 					</div> // Regular view for other columns
 				) : (
 					<div className='space-y-3'>
+						{' '}
 						{tasks.map(task => (
 							<TaskCard
 								key={task.id}
@@ -314,9 +284,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 								onDuplicate={onDuplicateTask}
 								onDelete={onDeleteTask}
 								isDone={task.status === 'done'}
-								isDragging={isDragging}
-								onDragStart={onDragStart}
-								onDragEnd={onDragEnd}
+								userPreferences={userPreferences}
 								boardInfo={(() => {
 									// For All Tasks view, try to get task's specific board, otherwise use current board
 									if (isAllTasksBoard && getBoardInfo && task.boardId) {

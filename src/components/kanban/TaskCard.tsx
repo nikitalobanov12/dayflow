@@ -2,9 +2,10 @@ import { Task, Board } from '@/types';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, Edit, Check, Copy, Trash2, ArrowLeft, ArrowRight, ArrowUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit, Check, Copy, Trash2, ArrowLeft, ArrowRight, ArrowUp, Calendar } from 'lucide-react';
 import { useState } from 'react';
 import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 
 interface TaskCardProps {
 	task: Task;
@@ -15,14 +16,51 @@ interface TaskCardProps {
 	onDelete?: (taskId: number) => void;
 	isDone?: boolean;
 	boardInfo?: Board | null; // Board information for display
-	isDragging?: boolean;
-	onDragStart?: () => void;
-	onDragEnd?: () => void;
+	userPreferences?: any; // User preferences for date formatting
 }
 
-export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplicate, onDelete, isDone = false, boardInfo = null, isDragging = false, onDragStart, onDragEnd }: TaskCardProps) {
+export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplicate, onDelete, isDone = false, boardInfo = null, userPreferences }: TaskCardProps) {
 	const [isEditingTime, setIsEditingTime] = useState(false);
 	const [tempTimeEstimate, setTempTimeEstimate] = useState(task.timeEstimate.toString());
+	// Apply user preferences for date formatting
+	const { formatDate } = useUserPreferences(userPreferences);
+	// Helper function to get priority color and style
+	const getPriorityStyle = (priority: Task['priority']) => {
+		switch (priority) {
+			case 1: // Low
+				return {
+					color: '#0ea5e9', // sky-500
+					bgColor: '#e0f2fe', // sky-100
+					darkBgColor: '#0c4a6e', // sky-900
+				};
+			case 2: // Medium
+				return {
+					color: '#eab308', // yellow-500
+					bgColor: '#fefce8', // yellow-50
+					darkBgColor: '#713f12', // yellow-900
+				};
+			case 3: // High
+				return {
+					color: '#f97316', // orange-500
+					bgColor: '#fff7ed', // orange-50
+					darkBgColor: '#9a3412', // orange-900
+				};
+			case 4: // Critical
+				return {
+					color: '#ef4444', // red-500
+					bgColor: '#fef2f2', // red-50
+					darkBgColor: '#7f1d1d', // red-900
+				};
+			default:
+				return {
+					color: '#64748b', // gray-500
+					bgColor: '#f1f5f9', // gray-100
+					darkBgColor: '#1e293b', // gray-800
+				};
+		}
+	};
+
+	const priorityStyle = getPriorityStyle(task.priority);
 
 	const canMoveLeft = task.status !== 'backlog';
 	const canMoveRight = task.status !== 'done';
@@ -115,20 +153,12 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 		<ContextMenu>
 			<ContextMenuTrigger asChild>
 				<div
-					className={cn('transition-all duration-200 group', isDragging && 'opacity-50 scale-105')}
-					draggable={!isDone}
-					onDragStart={e => {
-						if (!isDone) {
-							e.dataTransfer.setData('text/plain', task.id.toString());
-							e.dataTransfer.effectAllowed = 'move';
-							onDragStart?.();
-						}
-					}}
-					onDragEnd={() => onDragEnd?.()}
+					className='transition-all duration-200 group'
 					onClick={() => onEdit?.(task)}
 				>
-					<div className={cn('bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer', 'hover:border-border/80 hover:-translate-y-0.5', isDone && 'opacity-70 saturate-50', !isDone && 'hover:cursor-grab active:cursor-grabbing')}>
+					<div className={cn('bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer', 'hover:border-border/80 hover:-translate-y-0.5', isDone && 'opacity-70 saturate-50')}>
 						<div className='relative p-3'>
+							{' '}
 							{/* Top Row: Board/List Information */}
 							<div className='flex items-center gap-2 mb-3'>
 								<div
@@ -136,6 +166,18 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 									style={{ backgroundColor: boardInfo?.color || '#3B82F6' }}
 								/>
 								<span className='text-xs text-muted-foreground font-medium truncate'>{boardInfo?.name}</span>
+
+								{/* Priority Circle */}
+								<div
+									className='flex items-center justify-center w-5 h-5 rounded-full text-xs font-semibold'
+									style={{
+										backgroundColor: priorityStyle.bgColor,
+										color: priorityStyle.color,
+									}}
+									title={`Priority: ${task.priority} (${task.priority === 1 ? 'Low' : task.priority === 2 ? 'Medium' : task.priority === 3 ? 'High' : 'Critical'})`}
+								>
+									{task.priority}
+								</div>
 
 								{/* Move buttons on hover */}
 								<div className='flex gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-all duration-300'>
@@ -168,13 +210,36 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 										</Button>
 									)}
 								</div>
-							</div>
+							</div>{' '}
 							{/* Line 1: Title */}
 							<div className='mb-2'>
 								<h3 className={cn('text-sm font-medium leading-tight transition-all duration-200', isDone && 'line-through text-muted-foreground', !isDone && 'text-card-foreground')}>{task.title}</h3>
 							</div>
 							{/* Line 2: Description */}
 							<div className='mb-2'>{task.description && task.description.trim() !== '' ? <p className={cn('text-xs text-muted-foreground leading-relaxed', isDone && 'text-muted-foreground/60')}>{task.description.length > 80 ? `${task.description.substring(0, 80)}...` : task.description}</p> : <p className='text-xs text-muted-foreground/50 italic'>No description</p>}</div>
+							{/* Line 2.5: Dates (if any) */}
+							{(task.dueDate || task.startDate || task.scheduledDate) && (
+								<div className='mb-2 flex flex-wrap gap-1'>
+									{task.dueDate && (
+										<div className='flex items-center gap-1 px-2 py-1 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300 rounded text-xs'>
+											<Calendar className='h-3 w-3' />
+											<span>Due: {formatDate(task.dueDate)}</span>
+										</div>
+									)}
+									{task.startDate && (
+										<div className='flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 rounded text-xs'>
+											<Calendar className='h-3 w-3' />
+											<span>Start: {formatDate(task.startDate)}</span>
+										</div>
+									)}
+									{task.scheduledDate && !task.startDate && (
+										<div className='flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-300 rounded text-xs'>
+											<Calendar className='h-3 w-3' />
+											<span>Scheduled: {formatDate(task.scheduledDate)}</span>
+										</div>
+									)}
+								</div>
+							)}
 							{/* Line 3: Time estimate + Checkbox + Edit button */}
 							<div className='flex items-center justify-between'>
 								<div className='flex items-center gap-2'>
@@ -218,12 +283,12 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 										onClick={handleEditClick}
 										title='Edit task'
 									>
-										<Edit className='h-3 w-3' />
+										<Edit className='h-3 w-3' />{' '}
 									</Button>
-								</div>{' '}
+								</div>
 							</div>
 							{/* Subtasks List - Only render if not dragging to improve performance */}
-							{!isDragging && <SubtasksContainer taskId={task.id} />}
+							<SubtasksContainer taskId={task.id} />
 						</div>
 					</div>
 				</div>
@@ -280,10 +345,11 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 					onClick={handleDelete}
 					className='text-destructive'
 				>
+					{' '}
 					<Trash2 className='mr-2 h-4 w-4' />
 					Delete Task
 				</ContextMenuItem>
-			</ContextMenuContent>{' '}
+			</ContextMenuContent>
 		</ContextMenu>
 	);
 }

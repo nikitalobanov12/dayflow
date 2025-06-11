@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, User, Palette, Calendar, List, Shield } from 'lucide-react';
+import { ArrowLeft, Save, User, Palette, Calendar, List, CalendarDays } from 'lucide-react';
 import { UserPreferences, Profile } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -19,14 +19,13 @@ interface SettingsPageProps {
 	onSignOut?: () => Promise<{ error: any }>;
 }
 
-type SettingsSection = 'profile' | 'appearance' | 'datetime' | 'tasks' | 'advanced';
+type SettingsSection = 'profile' | 'appearance' | 'datetime' | 'calendar' | 'tasks';
 
 export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpdatePreferences, onUpdateProfile, onSignOut }: SettingsPageProps) {
 	const { setTheme } = useTheme();
 	const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
 	const [isLoading, setIsLoading] = useState(false);
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
 	// Local state for preferences
 	const [localPreferences, setLocalPreferences] = useState<Partial<UserPreferences>>({
 		theme: 'system',
@@ -38,6 +37,8 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 		showCompletedTasks: false,
 		taskSortBy: 'priority',
 		taskSortOrder: 'asc',
+		calendarDefaultZoom: 1,
+		calendarDefaultView: '3-day',
 		...userPreferences,
 	});
 
@@ -103,13 +104,12 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 			setIsLoading(false);
 		}
 	};
-
 	const sections = [
 		{ id: 'profile' as const, name: 'Profile', icon: User },
 		{ id: 'appearance' as const, name: 'Appearance', icon: Palette },
 		{ id: 'datetime' as const, name: 'Date & Time', icon: Calendar },
+		{ id: 'calendar' as const, name: 'Calendar', icon: CalendarDays },
 		{ id: 'tasks' as const, name: 'Tasks', icon: List },
-		{ id: 'advanced' as const, name: 'Advanced', icon: Shield },
 	];
 
 	return (
@@ -185,30 +185,26 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 							isLoading={isLoading}
 						/>
 					)}
-
 					{activeSection === 'appearance' && (
 						<AppearanceSection
 							preferences={localPreferences}
 							onUpdatePreference={updatePreference}
 						/>
-					)}
-
+					)}{' '}
 					{activeSection === 'datetime' && (
 						<DateTimeSection
 							preferences={localPreferences}
 							onUpdatePreference={updatePreference}
 						/>
 					)}
-
-					{activeSection === 'tasks' && (
-						<TasksSection
+					{activeSection === 'calendar' && (
+						<CalendarSection
 							preferences={localPreferences}
 							onUpdatePreference={updatePreference}
 						/>
-					)}
-
-					{activeSection === 'advanced' && (
-						<AdvancedSection
+					)}{' '}
+					{activeSection === 'tasks' && (
+						<TasksSection
 							preferences={localPreferences}
 							onUpdatePreference={updatePreference}
 						/>
@@ -351,12 +347,17 @@ function DateTimeSection({ preferences, onUpdatePreference }: { preferences: Par
 			<div>
 				<h2 className='text-lg font-semibold mb-2'>Date & Time</h2>
 				<p className='text-sm text-muted-foreground'>Configure how dates and times are displayed throughout the app.</p>
+				<div className='mt-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg'>
+					<p className='text-xs text-amber-800 dark:text-amber-200'>
+						<strong>Note:</strong> These settings are partially implemented. Date formatting is available but not used consistently throughout the app yet.
+					</p>
+				</div>
 			</div>
 
 			<Card>
 				<CardHeader>
 					<CardTitle>Date Format</CardTitle>
-					<CardDescription>Choose how dates are displayed</CardDescription>
+					<CardDescription>Choose how dates are displayed (limited implementation)</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<Select
@@ -378,7 +379,7 @@ function DateTimeSection({ preferences, onUpdatePreference }: { preferences: Par
 			<Card>
 				<CardHeader>
 					<CardTitle>Time Format</CardTitle>
-					<CardDescription>Choose 12-hour or 24-hour time display</CardDescription>
+					<CardDescription>Choose 12-hour or 24-hour time display (limited implementation)</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<Select
@@ -399,7 +400,7 @@ function DateTimeSection({ preferences, onUpdatePreference }: { preferences: Par
 			<Card>
 				<CardHeader>
 					<CardTitle>Week Start</CardTitle>
-					<CardDescription>Choose which day your week starts on</CardDescription>
+					<CardDescription>Choose which day your week starts on (used in calendar)</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<Select
@@ -420,6 +421,76 @@ function DateTimeSection({ preferences, onUpdatePreference }: { preferences: Par
 	);
 }
 
+// Calendar Section Component
+function CalendarSection({ preferences, onUpdatePreference }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void }) {
+	const zoomLevels = [
+		{ value: 0, label: 'Compact', description: '1 hour per 60px' },
+		{ value: 1, label: 'Comfortable', description: '1 hour per 80px' },
+		{ value: 2, label: 'Spacious', description: '1 hour per 120px' },
+		{ value: 3, label: 'Detailed', description: '30 min per 80px' },
+	];
+
+	return (
+		<div className='space-y-6'>
+			<div>
+				<h2 className='text-lg font-semibold mb-2'>Calendar Settings</h2>
+				<p className='text-sm text-muted-foreground'>Configure default settings for the calendar view.</p>
+			</div>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Default View Mode</CardTitle>
+					<CardDescription>Choose the default calendar view when opening the calendar</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<Select
+						value={preferences.calendarDefaultView || '3-day'}
+						onValueChange={value => onUpdatePreference('calendarDefaultView', value)}
+					>
+						<SelectTrigger className='w-48'>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value='3-day'>3-Day View</SelectItem>
+							<SelectItem value='week'>Weekly View</SelectItem>
+						</SelectContent>
+					</Select>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Default Zoom Level</CardTitle>
+					<CardDescription>Choose the default zoom level for the calendar timeline</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<Select
+						value={preferences.calendarDefaultZoom?.toString() || '1'}
+						onValueChange={value => onUpdatePreference('calendarDefaultZoom', parseInt(value))}
+					>
+						<SelectTrigger className='w-64'>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{zoomLevels.map(level => (
+								<SelectItem
+									key={level.value}
+									value={level.value.toString()}
+								>
+									<div className='flex flex-col'>
+										<span className='font-medium'>{level.label}</span>
+										<span className='text-xs text-muted-foreground'>{level.description}</span>
+									</div>
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</CardContent>
+			</Card>
+		</div>
+	);
+}
+
 // Tasks Section Component
 function TasksSection({ preferences, onUpdatePreference }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void }) {
 	return (
@@ -427,12 +498,17 @@ function TasksSection({ preferences, onUpdatePreference }: { preferences: Partia
 			<div>
 				<h2 className='text-lg font-semibold mb-2'>Task Management</h2>
 				<p className='text-sm text-muted-foreground'>Configure how tasks are displayed and organized.</p>
+				<div className='mt-2 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg'>
+					<p className='text-xs text-green-800 dark:text-green-200'>
+						<strong>Fully functional:</strong> These settings are actively used in the calendar view for sorting unscheduled tasks and filtering completed tasks.
+					</p>
+				</div>
 			</div>
-
 			<Card>
+				{' '}
 				<CardHeader>
 					<CardTitle>Task Sorting</CardTitle>
-					<CardDescription>Choose how tasks are sorted by default</CardDescription>
+					<CardDescription>Choose how unscheduled tasks are sorted in calendar view</CardDescription>
 				</CardHeader>
 				<CardContent className='space-y-4'>
 					<div>
@@ -470,11 +546,11 @@ function TasksSection({ preferences, onUpdatePreference }: { preferences: Partia
 					</div>
 				</CardContent>
 			</Card>
-
 			<Card>
+				{' '}
 				<CardHeader>
 					<CardTitle>Display Options</CardTitle>
-					<CardDescription>Control what tasks are visible</CardDescription>
+					<CardDescription>Control what tasks are visible in all views</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<div className='flex items-center space-x-2'>
@@ -490,54 +566,9 @@ function TasksSection({ preferences, onUpdatePreference }: { preferences: Partia
 							Show completed tasks
 						</label>
 					</div>
-					<p className='text-xs text-muted-foreground mt-1'>When enabled, completed tasks will remain visible in task lists</p>
+					<p className='text-xs text-muted-foreground mt-1'>When enabled, completed tasks will remain visible in task lists and calendar</p>
 				</CardContent>
-			</Card>
-		</div>
-	);
-}
-
-// Advanced Section Component
-function AdvancedSection({ preferences, onUpdatePreference }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void }) {
-	return (
-		<div className='space-y-6'>
-			<div>
-				<h2 className='text-lg font-semibold mb-2'>Advanced Settings</h2>
-				<p className='text-sm text-muted-foreground'>Configure advanced features and data handling.</p>
-			</div>
-
-			<Card>
-				<CardHeader>
-					<CardTitle>Data Management</CardTitle>
-					<CardDescription>Control how your data is saved and synced</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<div className='flex items-center space-x-2'>
-						<Checkbox
-							id='auto-save'
-							checked={preferences.autoSave !== false}
-							onCheckedChange={checked => onUpdatePreference('autoSave', checked)}
-						/>
-						<label
-							htmlFor='auto-save'
-							className='text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
-						>
-							Auto-save changes
-						</label>
-					</div>
-					<p className='text-xs text-muted-foreground mt-1'>Automatically save changes as you work without manual saving</p>
-				</CardContent>
-			</Card>
-
-			<Card>
-				<CardHeader>
-					<CardTitle>Performance</CardTitle>
-					<CardDescription>Optimize app performance and responsiveness</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<p className='text-sm text-muted-foreground'>Performance optimization settings will be available in future updates.</p>
-				</CardContent>
-			</Card>
+			</Card>{' '}
 		</div>
 	);
 }

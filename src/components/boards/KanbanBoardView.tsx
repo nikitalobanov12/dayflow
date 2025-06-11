@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
-import { TaskCard } from '@/components/kanban/TaskCard';
 import { ViewHeader } from '@/components/ui/view-header';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { Task, Board } from '@/types';
@@ -27,13 +26,12 @@ interface KanbanBoardViewProps {
 	userPreferences?: any; // Add user preferences prop
 }
 
-export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings, userPreferences }: KanbanBoardViewProps) {
+export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings, userPreferences }: KanbanBoardViewProps) {
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
-	const [isDragging, setIsDragging] = useState(false);
+
 	// Apply user preferences for filtering and sorting
 	const { filterTasks, sortTasks } = useUserPreferences(userPreferences);
-
 	// Memoize functions to prevent unnecessary re-renders
 	const getTasksByStatus = useCallback(
 		(status: Task['status']) => {
@@ -43,11 +41,8 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 			// Apply user preferences: filter out completed tasks if disabled
 			const filteredTasks = filterTasks(statusTasks);
 
-			// Apply user sorting preferences
-			const sortedTasks = sortTasks(filteredTasks);
-
-			// Keep position-based sorting within each status for drag & drop consistency
-			return sortedTasks.sort((a, b) => a.position - b.position);
+			// Apply user sorting preferences only - no position-based override
+			return sortTasks(filteredTasks);
 		},
 		[tasks, filterTasks, sortTasks]
 	);
@@ -89,19 +84,12 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 		const taskWithBoard = isAllTasksBoard ? task : { ...task, boardId: board.id };
 		await onAddTask(taskWithBoard);
 	};
-
 	// Helper function to get board information by ID
 	const getBoardInfo = (boardId: number): Board | null => {
 		if (!isAllTasksBoard || !boards) return null;
 		return boards.find(b => b.id === boardId) || null;
 	};
-	const handleDragStart = () => {
-		setIsDragging(true);
-	};
 
-	const handleDragEnd = () => {
-		setIsDragging(false);
-	};
 	return (
 		<div className='h-screen bg-background flex flex-col'>
 			{/* Header */}{' '}
@@ -136,9 +124,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							boards={boards}
 							getBoardInfo={getBoardInfo}
 							currentBoard={board}
-							isDragging={isDragging}
-							onDragStart={handleDragStart}
-							onDragEnd={handleDragEnd}
+							userPreferences={userPreferences}
 						/>{' '}
 						<KanbanColumn
 							title='This Week'
@@ -157,10 +143,8 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							boards={boards}
 							getBoardInfo={getBoardInfo}
 							currentBoard={board}
-							isDragging={isDragging}
-							onDragStart={handleDragStart}
-							onDragEnd={handleDragEnd}
-						/>
+							userPreferences={userPreferences}
+						/>{' '}
 						<KanbanColumn
 							title='Today'
 							status='today'
@@ -180,10 +164,8 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							boards={boards}
 							getBoardInfo={getBoardInfo}
 							currentBoard={board}
-							isDragging={isDragging}
-							onDragStart={handleDragStart}
-							onDragEnd={handleDragEnd}
-						/>
+							userPreferences={userPreferences}
+						/>{' '}
 						<KanbanColumn
 							title='Done'
 							status='done'
@@ -200,9 +182,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							boards={boards}
 							getBoardInfo={getBoardInfo}
 							currentBoard={board}
-							isDragging={isDragging}
-							onDragStart={handleDragStart}
-							onDragEnd={handleDragEnd}
+							userPreferences={userPreferences}
 						/>
 					</div>
 				</div>
@@ -217,6 +197,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 				onDuplicate={onDuplicateTask ? handleEditTaskDuplicate : undefined}
 				isAllTasksBoard={isAllTasksBoard}
 				boards={boards}
+				userPreferences={userPreferences}
 			/>
 		</div>
 	);
