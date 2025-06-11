@@ -1,7 +1,5 @@
 import { Task, Board } from '@/types';
 import { TaskCard } from './TaskCard';
-import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -29,16 +27,38 @@ interface KanbanColumnProps {
 	boards?: Board[]; // Available boards for board selection
 	getBoardInfo?: (boardId: number) => Board | null; // Function to get board info
 	currentBoard?: Board; // Current board information to display when task has no specific board
+	isDragging?: boolean;
+	onDragStart?: () => void;
+	onDragEnd?: () => void;
 }
 
-export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, onDuplicateTask, onDeleteTask, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo, currentBoard }: KanbanColumnProps) {
-	const { isOver, setNodeRef } = useDroppable({
-		id: status,
-	});
+export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, onDuplicateTask, onDeleteTask, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo, currentBoard, isDragging = false, onDragStart, onDragEnd }: KanbanColumnProps) {
+	const [isDragOver, setIsDragOver] = useState(false);
 	const [isAdding, setIsAdding] = useState(false);
 	const [newTaskTitle, setNewTaskTitle] = useState('');
 	const [newTaskTime, setNewTaskTime] = useState('');
-	const [newTaskBoardId, setNewTaskBoardId] = useState<number | null>(null);
+	const [newTaskBoardId, setNewTaskBoardId] = useState<number | null>(null); // Handle drag and drop
+	const handleDragOver = (e: React.DragEvent) => {
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'move';
+		setIsDragOver(true);
+	};
+
+	const handleDragLeave = (e: React.DragEvent) => {
+		// Only remove highlight if we're leaving the column entirely
+		if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+			setIsDragOver(false);
+		}
+	};
+
+	const handleDrop = (e: React.DragEvent) => {
+		e.preventDefault();
+		setIsDragOver(false);
+		const taskId = e.dataTransfer.getData('text/plain');
+		if (taskId) {
+			onMoveTask(parseInt(taskId), status);
+		}
+	};
 
 	// Calculate progress percentage
 	const progressPercentage = showProgress && status === 'today' ? (completedCount / (tasks.length + completedCount)) * 100 || 0 : showProgress && tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
@@ -106,7 +126,8 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 				title: newTaskTitle,
 				description: '',
 				timeEstimate: timeInMinutes,
-				status: status,				position: tasks.length, // Add to end of current column
+				status: status,
+				position: tasks.length, // Add to end of current column
 				boardId: isAllTasksBoard ? newTaskBoardId || undefined : undefined, // Add board selection for All Tasks board
 				// Add required new properties with default values
 				priority: 2, // Medium priority
@@ -234,8 +255,10 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 				)}
 			</div>{' '}
 			<div
-				ref={setNodeRef}
-				className={cn('flex-1 overflow-y-auto kanban-scroll-container p-3 space-y-3 transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent', isOver && 'bg-accent/20 ring-2 ring-primary/20 ring-inset')}
+				className={cn('flex-1 overflow-y-auto kanban-scroll-container p-3 space-y-3 transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent', isDragOver && 'bg-accent/20 ring-2 ring-primary/20 ring-inset', isDragging && 'border-dashed border-primary/30')}
+				onDragOver={handleDragOver}
+				onDragLeave={handleDragLeave}
+				onDrop={handleDrop}
 			>
 				{status === 'done' ? (
 					// Grouped view for done tasks
@@ -249,12 +272,8 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 									<h4 className='text-xs font-semibold text-muted-foreground uppercase tracking-wide'>{formatDateLabel(date)}</h4>
 									<div className='flex-1 h-px bg-border/30'></div>
 									<span className='text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full'>{dateTasks.length}</span>
-								</div>
-								<SortableContext
-									items={dateTasks.map(task => task.id.toString())}
-									strategy={verticalListSortingStrategy}
-								>
-									{' '}
+								</div>{' '}
+								<div className='space-y-3'>
 									{dateTasks.map(task => (
 										<TaskCard
 											key={task.id}
@@ -265,6 +284,9 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 											onDuplicate={onDuplicateTask}
 											onDelete={onDeleteTask}
 											isDone={task.status === 'done'}
+											isDragging={isDragging}
+											onDragStart={onDragStart}
+											onDragEnd={onDragEnd}
 											boardInfo={(() => {
 												// For All Tasks view, try to get task's specific board, otherwise use current board
 												if (isAllTasksBoard && getBoardInfo && task.boardId) {
@@ -276,17 +298,12 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 											})()}
 										/>
 									))}
-								</SortableContext>
+								</div>
 							</div>
 						))}
-					</div>
+					</div> // Regular view for other columns
 				) : (
-					// Regular view for other columns
-					<SortableContext
-						items={tasks.map(task => task.id.toString())}
-						strategy={verticalListSortingStrategy}
-					>
-						{' '}
+					<div className='space-y-3'>
 						{tasks.map(task => (
 							<TaskCard
 								key={task.id}
@@ -297,6 +314,9 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 								onDuplicate={onDuplicateTask}
 								onDelete={onDeleteTask}
 								isDone={task.status === 'done'}
+								isDragging={isDragging}
+								onDragStart={onDragStart}
+								onDragEnd={onDragEnd}
 								boardInfo={(() => {
 									// For All Tasks view, try to get task's specific board, otherwise use current board
 									if (isAllTasksBoard && getBoardInfo && task.boardId) {
@@ -308,7 +328,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 								})()}
 							/>
 						))}
-					</SortableContext>
+					</div>
 				)}
 				{tasks.length === 0 && (
 					<div className='text-center text-muted-foreground py-8 border-2 border-dashed border-border/30 rounded-xl bg-muted/20 hover:bg-muted/30 transition-colors duration-300'>

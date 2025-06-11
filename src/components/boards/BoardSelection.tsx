@@ -108,7 +108,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 						<div
 							className='w-10 h-10 flex items-center justify-center'
 						>
-							<img src="/public/logo.svg" alt="" />
+							<img src="/logo.svg" alt="" />
 						</div>
 						<div>
 							<h1 className='text-xl font-semibold text-foreground'>DayFlow</h1>

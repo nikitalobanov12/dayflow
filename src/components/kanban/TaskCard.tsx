@@ -1,8 +1,6 @@
 import { Task, Board } from '@/types';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Edit, Check, Copy, Trash2, ArrowLeft, ArrowRight, ArrowUp } from 'lucide-react';
 import { useState } from 'react';
@@ -17,20 +15,14 @@ interface TaskCardProps {
 	onDelete?: (taskId: number) => void;
 	isDone?: boolean;
 	boardInfo?: Board | null; // Board information for display
+	isDragging?: boolean;
+	onDragStart?: () => void;
+	onDragEnd?: () => void;
 }
 
-export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplicate, onDelete, isDone = false, boardInfo = null }: TaskCardProps) {
+export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplicate, onDelete, isDone = false, boardInfo = null, isDragging = false, onDragStart, onDragEnd }: TaskCardProps) {
 	const [isEditingTime, setIsEditingTime] = useState(false);
 	const [tempTimeEstimate, setTempTimeEstimate] = useState(task.timeEstimate.toString());
-
-	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-		id: task.id.toString(),
-	});
-
-	const style = {
-		transform: CSS.Transform.toString(transform),
-		transition,
-	};
 
 	const canMoveLeft = task.status !== 'backlog';
 	const canMoveRight = task.status !== 'done';
@@ -123,16 +115,20 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 		<ContextMenu>
 			<ContextMenuTrigger asChild>
 				<div
-					ref={setNodeRef}
-					style={style}
-					{...attributes}
-					{...listeners}
-					className={cn('touch-none transition-all duration-200 group', isDragging && 'opacity-50 scale-105')}
+					className={cn('transition-all duration-200 group', isDragging && 'opacity-50 scale-105')}
+					draggable={!isDone}
+					onDragStart={e => {
+						if (!isDone) {
+							e.dataTransfer.setData('text/plain', task.id.toString());
+							e.dataTransfer.effectAllowed = 'move';
+							onDragStart?.();
+						}
+					}}
+					onDragEnd={() => onDragEnd?.()}
+					onClick={() => onEdit?.(task)}
 				>
-					{' '}
-					<div className={cn('bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-grab active:cursor-grabbing backdrop-blur-sm', 'hover:border-border/80 hover:-translate-y-0.5', isDone && 'opacity-70 saturate-50')}>
+					<div className={cn('bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer', 'hover:border-border/80 hover:-translate-y-0.5', isDone && 'opacity-70 saturate-50', !isDone && 'hover:cursor-grab active:cursor-grabbing')}>
 						<div className='relative p-3'>
-							{' '}
 							{/* Top Row: Board/List Information */}
 							<div className='flex items-center gap-2 mb-3'>
 								<div

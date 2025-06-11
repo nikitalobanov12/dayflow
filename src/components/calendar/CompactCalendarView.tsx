@@ -56,6 +56,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [isCreatingTask, setIsCreatingTask] = useState(false);
 	const [newTaskStart, setNewTaskStart] = useState<Date | null>(null);
+	const [isDragging, setIsDragging] = useState(false);
 	const [newTaskData, setNewTaskData] = useState({
 		title: '',
 		description: '',
@@ -128,12 +129,52 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 				return visibleDates.some(date => isSameDay(event.start, date) || isSameDay(event.end, date) || (event.start <= startOfDay(date) && event.end >= endOfDay(date)));
 			});
 	}, [tasks, filterTasks, visibleDates]);
-
 	// Get unscheduled tasks
 	const unscheduledTasks = useMemo(() => {
 		const allUnscheduledTasks = tasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate && task.status !== 'done');
-		return sortTasks(filterTasks(allUnscheduledTasks));
-	}, [tasks, filterTasks, sortTasks]);
+		const filteredTasks = filterTasks(allUnscheduledTasks);
+
+		// Sort by status priority first (today > this-week > backlog), then apply user preferences
+		const statusPriority = { 'today': 0, 'this-week': 1, 'backlog': 2 };
+
+		return filteredTasks.sort((a, b) => {
+			// First, sort by status priority
+			const statusA = statusPriority[a.status as keyof typeof statusPriority] ?? 2;
+			const statusB = statusPriority[b.status as keyof typeof statusPriority] ?? 2;
+
+			if (statusA !== statusB) {
+				return statusA - statusB;
+			}
+
+			// If same status, apply user's sort preference
+			const sortBy = userPreferences?.taskSortBy || 'priority';
+			const sortOrder = userPreferences?.taskSortOrder || 'asc';
+
+			let comparison = 0;
+			switch (sortBy) {
+				case 'priority':
+					comparison = (b.priority || 2) - (a.priority || 2);
+					break;
+				case 'dueDate':
+					const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+					const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+					comparison = aDate - bDate;
+					break;
+				case 'created':
+					const aCreated = new Date(a.createdAt).getTime();
+					const bCreated = new Date(b.createdAt).getTime();
+					comparison = bCreated - aCreated;
+					break;
+				case 'alphabetical':
+					comparison = a.title.localeCompare(b.title);
+					break;
+				default:
+					comparison = 0;
+			}
+
+			return sortOrder === 'desc' ? -comparison : comparison;
+		});
+	}, [tasks, filterTasks, userPreferences?.taskSortBy, userPreferences?.taskSortOrder]);
 	// Generate time slots for the day
 	const timeSlots = useMemo(() => {
 		const slots = [];
@@ -169,13 +210,62 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 
 		return { top, height };
 	};
-
 	// Handle time slot click for creating new tasks
 	const handleTimeSlotClick = (date: Date, hour: number, minute: number) => {
 		const clickedTime = new Date(date);
 		clickedTime.setHours(hour, minute, 0, 0);
 		setNewTaskStart(clickedTime);
 		setIsCreatingTask(true);
+	};
+
+	// Handle task drop on time slots
+	const handleTaskDrop = async (date: Date, hour: number, minute: number, taskId: string) => {
+		try {
+			const task = tasks.find(t => t.id === parseInt(taskId));
+			if (!task) return;
+
+			const newScheduledDate = new Date(date);
+			newScheduledDate.setHours(hour, minute, 0, 0);
+
+			// Calculate new status based on scheduled date
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			const scheduledDateDay = new Date(newScheduledDate);
+			scheduledDateDay.setHours(0, 0, 0, 0);
+
+			const startOfWeekDate = startOfWeek(today, { weekStartsOn });
+			const endOfWeekDate = endOfWeek(today, { weekStartsOn });
+
+			let newStatus: Task['status'] = 'backlog';
+			if (scheduledDateDay.getTime() === today.getTime()) {
+				newStatus = 'today';
+			} else if (scheduledDateDay >= startOfWeekDate && scheduledDateDay <= endOfWeekDate) {
+				newStatus = 'this-week';
+			}
+
+			// Update task with new schedule
+			await onUpdateTask(task.id, {
+				scheduledDate: newScheduledDate.toISOString(),
+				startDate: newScheduledDate.toISOString(),
+				status: newStatus,
+			});
+		} catch (error) {
+			console.error('Failed to move task:', error);
+		}
+	};
+	// Handle drag over for time slots
+	const handleDragOver = (e: React.DragEvent) => {
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'move';
+		// Add visual feedback
+		const target = e.currentTarget as HTMLElement;
+		target.classList.add('bg-primary/20', 'border-primary/50');
+	};
+
+	// Handle drag leave for time slots
+	const handleDragLeave = (e: React.DragEvent) => {
+		const target = e.currentTarget as HTMLElement;
+		target.classList.remove('bg-primary/20', 'border-primary/50');
 	};
 
 	// Handle task creation
@@ -337,8 +427,11 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 				onDragStart={e => {
 					if (!isCompleted) {
 						e.dataTransfer.setData('text/plain', task.id.toString());
+						e.dataTransfer.effectAllowed = 'move';
+						setIsDragging(true);
 					}
 				}}
+				onDragEnd={() => setIsDragging(false)}
 				onClick={() => {
 					setEditingTask(task);
 					setIsEditingTask(true);
@@ -565,11 +658,13 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 				{/* Unscheduled Tasks Sidebar */}
 				{unscheduledTasks.length > 0 && (
 					<div className='w-80 border-r border-border bg-muted/20 flex flex-col overflow-hidden'>
+						{' '}
 						<div className='flex-shrink-0 p-4 border-b border-border'>
 							<h3 className='text-sm font-semibold flex items-center gap-2'>
 								<CalendarIcon className='h-4 w-4' />
 								Unscheduled Tasks ({unscheduledTasks.length})
 							</h3>
+							{isDragging && <p className='text-xs text-muted-foreground mt-1'>Drop on a time slot to schedule the task</p>}
 						</div>
 						<div className='flex-1 p-4 overflow-y-auto'>
 							<div className='space-y-2'>{unscheduledTasks.map(task => renderTaskCard(task, false))}</div>
@@ -631,13 +726,25 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 									key={dateIndex}
 									className='flex-1 border-r border-border relative'
 								>
+									{' '}
 									{/* Time Slots */}
 									{timeSlots.map((slot, slotIndex) => (
 										<div
 											key={slotIndex}
-											className='border-b border-border hover:bg-muted/20 cursor-pointer'
+											className={`border-b border-border hover:bg-muted/20 cursor-pointer transition-colors ${isDragging ? 'border-dashed border-primary/30 hover:bg-primary/10' : ''}`}
 											style={{ height: `${currentZoom.height}px` }}
 											onClick={() => handleTimeSlotClick(date, slot.hour, slot.minute)}
+											onDragOver={handleDragOver}
+											onDragLeave={handleDragLeave}
+											onDrop={e => {
+												e.preventDefault();
+												const target = e.currentTarget as HTMLElement;
+												target.classList.remove('bg-primary/20', 'border-primary/50');
+												const taskId = e.dataTransfer.getData('text/plain');
+												if (taskId) {
+													handleTaskDrop(date, slot.hour, slot.minute, taskId);
+												}
+											}}
 										>
 											{/* Current time indicator */}
 											{isToday(date) &&
@@ -686,6 +793,15 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 															height: `${position.height}px`,
 															zIndex: 5,
 														}}
+														draggable={event.task.status !== 'done'}
+														onDragStart={e => {
+															if (event.task.status !== 'done') {
+																e.dataTransfer.setData('text/plain', event.task.id.toString());
+																e.dataTransfer.effectAllowed = 'move';
+																setIsDragging(true);
+															}
+														}}
+														onDragEnd={() => setIsDragging(false)}
 														onClick={() => {
 															setEditingTask(event.task);
 															setIsEditingTask(true);

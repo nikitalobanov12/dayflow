@@ -4,7 +4,6 @@ import { TaskCard } from '@/components/kanban/TaskCard';
 import { ViewHeader } from '@/components/ui/view-header';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { Task, Board } from '@/types';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 
 interface KanbanBoardViewProps {
@@ -31,17 +30,9 @@ interface KanbanBoardViewProps {
 export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onReorderTasksInColumn, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings, userPreferences }: KanbanBoardViewProps) {
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
-	const [activeId, setActiveId] = useState<string | null>(null);
+	const [isDragging, setIsDragging] = useState(false);
 	// Apply user preferences for filtering and sorting
 	const { filterTasks, sortTasks } = useUserPreferences(userPreferences);
-
-	const sensors = useSensors(
-		useSensor(PointerSensor, {
-			activationConstraint: {
-				distance: 3, // Reduced from 8 for more responsive dragging
-			},
-		})
-	);
 
 	// Memoize functions to prevent unnecessary re-renders
 	const getTasksByStatus = useCallback(
@@ -104,54 +95,12 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 		if (!isAllTasksBoard || !boards) return null;
 		return boards.find(b => b.id === boardId) || null;
 	};
-
-	const handleDragStart = (event: DragStartEvent) => {
-		setActiveId(event.active.id as string);
+	const handleDragStart = () => {
+		setIsDragging(true);
 	};
 
-	const handleDragEnd = async (event: DragEndEvent) => {
-		const { active, over } = event;
-		setActiveId(null);
-
-		if (!over) return;
-
-		const taskId = parseInt(active.id as string);
-		const draggedTask = tasks.find(task => task.id === taskId);
-		if (!draggedTask) return;
-
-		// Handle column drops
-		if (['backlog', 'this-week', 'today', 'done'].includes(over.id as string)) {
-			const newStatus = over.id as Task['status'];
-			if (draggedTask.status !== newStatus) {
-				await onMoveTask(taskId, newStatus);
-			}
-			return;
-		}
-
-		// Handle task reordering
-		const overId = parseInt(over.id as string);
-		const overTask = tasks.find(task => task.id === overId);
-
-		if (overTask && draggedTask.status === overTask.status) {
-			const columnTasks = tasks.filter(task => task.status === draggedTask.status).sort((a, b) => a.position - b.position);
-			const oldIndex = columnTasks.findIndex(task => task.id === taskId);
-			const newIndex = columnTasks.findIndex(task => task.id === overId);
-
-			if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-				const reorderedTasks = [...columnTasks];
-				const [movedTask] = reorderedTasks.splice(oldIndex, 1);
-				reorderedTasks.splice(newIndex, 0, movedTask);
-				await onReorderTasksInColumn(
-					reorderedTasks.map(task => task.id),
-					draggedTask.status
-				);
-			}
-		}
-	};
-
-	const getActiveTask = () => {
-		if (!activeId) return null;
-		return tasks.find(task => task.id.toString() === activeId);
+	const handleDragEnd = () => {
+		setIsDragging(false);
 	};
 	return (
 		<div className='h-screen bg-background flex flex-col'>
@@ -164,106 +113,99 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 				user={user}
 				onSignOut={onSignOut}
 				onOpenSettings={onOpenSettings}
-			/>
+			/>{' '}
 			{/* Kanban Board */}
 			<div className='flex-1 flex flex-col min-h-0'>
-				<DndContext
-					sensors={sensors}
-					collisionDetection={closestCenter}
-					onDragStart={handleDragStart}
-					onDragEnd={handleDragEnd}
-				>
-					<div className='flex-1 overflow-x-auto overflow-y-hidden kanban-scroll-container'>
-						<div className='flex justify-center gap-8 p-4 min-w-fit h-full'>
-							{' '}
-							<KanbanColumn
-								title='Backlog'
-								status='backlog'
-								tasks={getTasksByStatus('backlog')}
-								onMoveTask={onMoveTask}
-								onEditTask={handleEditTask}
-								onAddTask={handleAddTask}
-								onUpdateTimeEstimate={onUpdateTimeEstimate}
-								onDuplicateTask={onDuplicateTask}
-								onDeleteTask={onDeleteTask}
-								showAddButton={true}
-								showProgress={false}
-								totalTimeEstimate={getTotalTimeForColumn('backlog')}
-								isAllTasksBoard={isAllTasksBoard}
-								boards={boards}
-								getBoardInfo={getBoardInfo}
-								currentBoard={board}
-							/>{' '}
-							<KanbanColumn
-								title='This Week'
-								status='this-week'
-								tasks={getTasksByStatus('this-week')}
-								onMoveTask={onMoveTask}
-								onEditTask={handleEditTask}
-								onAddTask={handleAddTask}
-								onUpdateTimeEstimate={onUpdateTimeEstimate}
-								onDuplicateTask={onDuplicateTask}
-								onDeleteTask={onDeleteTask}
-								showAddButton={true}
-								showProgress={false}
-								totalTimeEstimate={getTotalTimeForColumn('this-week')}
-								isAllTasksBoard={isAllTasksBoard}
-								boards={boards}
-								getBoardInfo={getBoardInfo}
-								currentBoard={board}
-							/>{' '}
-							<KanbanColumn
-								title='Today'
-								status='today'
-								tasks={getTasksByStatus('today')}
-								onMoveTask={onMoveTask}
-								onEditTask={handleEditTask}
-								onAddTask={handleAddTask}
-								onUpdateTimeEstimate={onUpdateTimeEstimate}
-								onDuplicateTask={onDuplicateTask}
-								onDeleteTask={onDeleteTask}
-								showAddButton={true}
-								showProgress={true}
-								completedCount={getTodayCompletedCount()}
-								totalTimeEstimate={getTotalTimeForColumn('today')}
-								onStartSprint={onStartSprint}
-								isAllTasksBoard={isAllTasksBoard}
-								boards={boards}
-								getBoardInfo={getBoardInfo}
-								currentBoard={board}
-							/>{' '}
-							<KanbanColumn
-								title='Done'
-								status='done'
-								tasks={getTasksByStatus('done')}
-								onMoveTask={onMoveTask}
-								onEditTask={handleEditTask}
-								onAddTask={handleAddTask}
-								onUpdateTimeEstimate={onUpdateTimeEstimate}
-								onDuplicateTask={onDuplicateTask}
-								onDeleteTask={onDeleteTask}
-								showAddButton={false}
-								showProgress={false}
-								isAllTasksBoard={isAllTasksBoard}
-								boards={boards}
-								getBoardInfo={getBoardInfo}
-								currentBoard={board}
-							/>
-						</div>
-					</div>{' '}
-					<DragOverlay dropAnimation={null}>
-						{activeId ? (
-							<div className='rotate-2 scale-105 shadow-2xl opacity-95'>
-								<TaskCard
-									task={getActiveTask()!}
-									onMove={() => {}}
-									onEdit={() => {}}
-									boardInfo={getActiveTask()?.boardId ? getBoardInfo(getActiveTask()!.boardId!) : board}
-								/>
-							</div>
-						) : null}
-					</DragOverlay>
-				</DndContext>
+				<div className='flex-1 overflow-x-auto overflow-y-hidden kanban-scroll-container'>
+					<div className='flex justify-center gap-8 p-4 min-w-fit h-full'>
+						{' '}
+						<KanbanColumn
+							title='Backlog'
+							status='backlog'
+							tasks={getTasksByStatus('backlog')}
+							onMoveTask={onMoveTask}
+							onEditTask={handleEditTask}
+							onAddTask={handleAddTask}
+							onUpdateTimeEstimate={onUpdateTimeEstimate}
+							onDuplicateTask={onDuplicateTask}
+							onDeleteTask={onDeleteTask}
+							showAddButton={true}
+							showProgress={false}
+							totalTimeEstimate={getTotalTimeForColumn('backlog')}
+							isAllTasksBoard={isAllTasksBoard}
+							boards={boards}
+							getBoardInfo={getBoardInfo}
+							currentBoard={board}
+							isDragging={isDragging}
+							onDragStart={handleDragStart}
+							onDragEnd={handleDragEnd}
+						/>{' '}
+						<KanbanColumn
+							title='This Week'
+							status='this-week'
+							tasks={getTasksByStatus('this-week')}
+							onMoveTask={onMoveTask}
+							onEditTask={handleEditTask}
+							onAddTask={handleAddTask}
+							onUpdateTimeEstimate={onUpdateTimeEstimate}
+							onDuplicateTask={onDuplicateTask}
+							onDeleteTask={onDeleteTask}
+							showAddButton={true}
+							showProgress={false}
+							totalTimeEstimate={getTotalTimeForColumn('this-week')}
+							isAllTasksBoard={isAllTasksBoard}
+							boards={boards}
+							getBoardInfo={getBoardInfo}
+							currentBoard={board}
+							isDragging={isDragging}
+							onDragStart={handleDragStart}
+							onDragEnd={handleDragEnd}
+						/>
+						<KanbanColumn
+							title='Today'
+							status='today'
+							tasks={getTasksByStatus('today')}
+							onMoveTask={onMoveTask}
+							onEditTask={handleEditTask}
+							onAddTask={handleAddTask}
+							onUpdateTimeEstimate={onUpdateTimeEstimate}
+							onDuplicateTask={onDuplicateTask}
+							onDeleteTask={onDeleteTask}
+							showAddButton={true}
+							showProgress={true}
+							completedCount={getTodayCompletedCount()}
+							totalTimeEstimate={getTotalTimeForColumn('today')}
+							onStartSprint={onStartSprint}
+							isAllTasksBoard={isAllTasksBoard}
+							boards={boards}
+							getBoardInfo={getBoardInfo}
+							currentBoard={board}
+							isDragging={isDragging}
+							onDragStart={handleDragStart}
+							onDragEnd={handleDragEnd}
+						/>
+						<KanbanColumn
+							title='Done'
+							status='done'
+							tasks={getTasksByStatus('done')}
+							onMoveTask={onMoveTask}
+							onEditTask={handleEditTask}
+							onAddTask={handleAddTask}
+							onUpdateTimeEstimate={onUpdateTimeEstimate}
+							onDuplicateTask={onDuplicateTask}
+							onDeleteTask={onDeleteTask}
+							showAddButton={false}
+							showProgress={false}
+							isAllTasksBoard={isAllTasksBoard}
+							boards={boards}
+							getBoardInfo={getBoardInfo}
+							currentBoard={board}
+							isDragging={isDragging}
+							onDragStart={handleDragStart}
+							onDragEnd={handleDragEnd}
+						/>
+					</div>
+				</div>
 			</div>{' '}
 			{/* Edit Task Dialog */}
 			<TaskEditDialog
