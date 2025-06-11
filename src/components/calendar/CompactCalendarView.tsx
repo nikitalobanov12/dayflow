@@ -607,13 +607,14 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 													return null;
 												})()}
 										</div>
-									))}{' '}									{/* Events */}
+									))}{' '}
+									{/* Events */}
 									{events
 										.filter(event => isSameDay(event.start, date))
 										.map(event => {
 											const position = getEventPosition(event, dateIndex);
 											const colorClass = getTaskColor(event.task);
-											
+
 											// Better responsive breakpoints
 											const isVerySmall = position.height < 30;
 											const isSmall = position.height < 50;
@@ -626,9 +627,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 													task={event.task}
 												>
 													<div
-														className={`absolute left-1 right-1 ${colorClass} text-white rounded cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 overflow-hidden ${
-															isVerySmall ? 'hover:scale-105' : 'hover:scale-[1.02]'
-														}`}
+														className={`absolute left-1 right-1 ${colorClass} text-white rounded cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4 overflow-hidden ${isVerySmall ? 'hover:scale-105' : 'hover:scale-[1.02]'}`}
 														style={{
 															top: `${position.top}px`,
 															height: `${position.height}px`,
@@ -642,12 +641,8 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 														{/* Very Small Cards (< 30px) - Just title, minimal padding */}
 														{isVerySmall && (
 															<div className='px-1.5 py-0.5 h-full flex items-center'>
-																<div className='text-xs font-medium truncate leading-none'>
-																	{event.title}
-																</div>
-																{event.task.status === 'done' && (
-																	<CheckCircle className='h-3 w-3 text-green-300 ml-1 flex-shrink-0' />
-																)}
+																<div className='text-xs font-medium truncate leading-none'>{event.title}</div>
+																{event.task.status === 'done' && <CheckCircle className='h-3 w-3 text-green-300 ml-1 flex-shrink-0' />}
 															</div>
 														)}
 
@@ -655,16 +650,10 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 														{isSmall && !isVerySmall && (
 															<div className='p-1.5 h-full flex flex-col justify-center'>
 																<div className='flex items-center justify-between'>
-																	<div className='text-xs font-semibold truncate flex-1 leading-tight'>
-																		{event.title}
-																	</div>
-																	{event.task.status === 'done' && (
-																		<CheckCircle className='h-3 w-3 text-green-300 ml-1 flex-shrink-0' />
-																	)}
+																	<div className='text-xs font-semibold truncate flex-1 leading-tight'>{event.title}</div>
+																	{event.task.status === 'done' && <CheckCircle className='h-3 w-3 text-green-300 ml-1 flex-shrink-0' />}
 																</div>
-																<div className='text-xs opacity-90 leading-none mt-0.5'>
-																	{format(event.start, 'h:mm a')}
-																</div>
+																<div className='text-xs opacity-90 leading-none mt-0.5'>{format(event.start, 'h:mm a')}</div>
 															</div>
 														)}
 
@@ -672,12 +661,8 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 														{isMedium && (
 															<div className='p-2 h-full flex flex-col'>
 																<div className='flex items-start justify-between mb-1'>
-																	<div className='font-semibold text-sm leading-tight truncate flex-1'>
-																		{event.title}
-																	</div>
-																	{event.task.status === 'done' && (
-																		<CheckCircle className='h-4 w-4 text-green-300 ml-1 flex-shrink-0' />
-																	)}
+																	<div className='font-semibold text-sm leading-tight truncate flex-1'>{event.title}</div>
+																	{event.task.status === 'done' && <CheckCircle className='h-4 w-4 text-green-300 ml-1 flex-shrink-0' />}
 																</div>
 																<div className='text-xs opacity-90 mb-1'>
 																	{format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
@@ -697,23 +682,15 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 														{isLarge && (
 															<div className='p-2 h-full flex flex-col'>
 																<div className='flex items-start justify-between mb-1'>
-																	<div className='font-semibold text-sm leading-tight truncate flex-1'>
-																		{event.title}
-																	</div>
-																	{event.task.status === 'done' && (
-																		<CheckCircle className='h-4 w-4 text-green-300 ml-1 flex-shrink-0' />
-																	)}
+																	<div className='font-semibold text-sm leading-tight truncate flex-1'>{event.title}</div>
+																	{event.task.status === 'done' && <CheckCircle className='h-4 w-4 text-green-300 ml-1 flex-shrink-0' />}
 																</div>
 
 																<div className='text-xs opacity-90 mb-2'>
 																	{format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
 																</div>
 
-																{event.task.description && (
-																	<div className='text-xs opacity-85 line-clamp-2 mb-2 leading-relaxed flex-1'>
-																		{event.task.description}
-																	</div>
-																)}
+																{event.task.description && <div className='text-xs opacity-85 line-clamp-2 mb-2 leading-relaxed flex-1'>{event.task.description}</div>}
 
 																<div className='mt-auto flex items-center justify-between text-xs opacity-90'>
 																	<div className='flex items-center gap-1'>
@@ -724,17 +701,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																			</>
 																		)}
 																	</div>
-																	<div className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-																		event.task.status === 'done' 
-																			? 'bg-green-500/20 text-green-100' 
-																			: event.task.status === 'today' 
-																			? 'bg-orange-500/20 text-orange-100'
-																			: event.task.status === 'this-week'
-																			? 'bg-blue-500/20 text-blue-100'
-																			: 'bg-gray-500/20 text-gray-100'
-																	}`}>
-																		{event.task.status === 'this-week' ? 'This Week' : event.task.status}
-																	</div>
+																	<div className={`px-1.5 py-0.5 rounded text-xs font-medium ${event.task.status === 'done' ? 'bg-green-500/20 text-green-100' : event.task.status === 'today' ? 'bg-orange-500/20 text-orange-100' : event.task.status === 'this-week' ? 'bg-blue-500/20 text-blue-100' : 'bg-gray-500/20 text-gray-100'}`}>{event.task.status === 'this-week' ? 'This Week' : event.task.status}</div>
 																</div>
 															</div>
 														)}
