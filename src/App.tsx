@@ -3,8 +3,6 @@ import { CustomTitlebar } from './components/ui/custom-titlebar';
 import { BoardSelection } from '@/components/boards/BoardSelection';
 import { KanbanBoardView } from '@/components/boards/KanbanBoardView';
 import { CalendarView } from '@/components/calendar/CalendarView';
-import { EisenhowerMatrixView } from '@/components/eisenhower/EisenhowerMatrixView';
-import { GanttChartView } from '@/components/gantt/GanttChartView';
 import { SprintMode } from './components/sprint/SprintMode';
 import { SprintConfig, SprintConfiguration } from '@/components/sprint/SprintConfig';
 import { SettingsPage } from '@/components/settings/SettingsPage';
@@ -61,7 +59,7 @@ function App() {
 	const handleSignIn = async (email: string, password: string) => {
 		return await signIn(email, password);
 	};
-	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'calendar' | 'eisenhower' | 'gantt' | 'sprint' | 'settings'>('boards');
+	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'calendar' | 'sprint' | 'settings'>('boards');
 	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
 	const [showSprintConfig, setShowSprintConfig] = useState(false);
 	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null); // Show auth if not logged in
@@ -109,8 +107,7 @@ function App() {
 	const handleOpenSettings = () => {
 		setCurrentView('settings');
 	};
-
-	const handleSelectView = async (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => {
+	const handleSelectView = async (board: Board, viewType: 'kanban' | 'calendar') => {
 		setSelectedBoard(board);
 		setCurrentView(viewType);
 		await loadTasks();
@@ -257,66 +254,7 @@ function App() {
 					/>
 				</div>
 			</div>
-		);
-	}
-
-	// Eisenhower Matrix view
-	if (currentView === 'eisenhower' && selectedBoard) {
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - Eisenhower Matrix`} />
-				<div className='flex-1'>
-					{' '}
-					<EisenhowerMatrixView
-						board={selectedBoard}
-						tasks={tasks}
-						onBack={handleBackToBoards}
-						onMoveTask={handleMoveTask}
-						onAddTask={handleAddTask}
-						onUpdateTask={handleUpdateTask}
-						onDeleteTask={handleDeleteTask}
-						onDuplicateTask={handleDuplicateTask}
-						onUpdateTimeEstimate={handleUpdateTimeEstimate}
-						isAllTasksBoard={selectedBoard.isDefault}
-						boards={boards}
-						user={user}
-						onSignOut={signOut}
-						onViewChange={handleSelectView}
-						onOpenSettings={handleOpenSettings}
-					/>
-				</div>
-			</div>
-		);
-	}
-
-	// Gantt Chart view
-	if (currentView === 'gantt' && selectedBoard) {
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - Gantt Chart`} />
-				<div className='flex-1'>
-					{' '}
-					<GanttChartView
-						board={selectedBoard}
-						tasks={tasks}
-						onBack={handleBackToBoards}
-						onMoveTask={handleMoveTask}
-						onAddTask={handleAddTask}
-						onUpdateTask={handleUpdateTask}
-						onDeleteTask={handleDeleteTask}
-						onDuplicateTask={handleDuplicateTask}
-						onUpdateTimeEstimate={handleUpdateTimeEstimate}
-						isAllTasksBoard={selectedBoard.isDefault}
-						boards={boards}
-						user={user}
-						onSignOut={signOut}
-						onViewChange={handleSelectView}
-						onOpenSettings={handleOpenSettings}
-					/>
-				</div>
-			</div>
-		);
-	}
+		);	}
 
 	// Settings view
 	if (currentView === 'settings') {

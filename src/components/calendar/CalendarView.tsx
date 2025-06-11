@@ -27,7 +27,7 @@ interface CalendarViewProps {
 	boards?: Board[];
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
-	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => Promise<void>;
+	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar') => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: any;
 }

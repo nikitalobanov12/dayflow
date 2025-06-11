@@ -23,7 +23,7 @@ interface KanbanBoardViewProps {
 	boards?: Board[]; // Available boards for board selection
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
-	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => Promise<void>;
+	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar') => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: any; // Add user preferences prop
 }

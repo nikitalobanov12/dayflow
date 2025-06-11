@@ -106,13 +106,10 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 				title: newTaskTitle,
 				description: '',
 				timeEstimate: timeInMinutes,
-				status: status,
-				position: tasks.length, // Add to end of current column
+				status: status,				position: tasks.length, // Add to end of current column
 				boardId: isAllTasksBoard ? newTaskBoardId || undefined : undefined, // Add board selection for All Tasks board
 				// Add required new properties with default values
 				priority: 2, // Medium priority
-				effortEstimate: 2, // Medium effort
-				impactEstimate: 2, // Medium impact
 				progressPercentage: 0,
 				timeSpent: 0,
 				labels: [],

@@ -29,13 +29,10 @@ const convertTaskFromDb = (row: TaskRow): Task => ({
 	completedAt: row.completed_at || undefined,
 	tags: row.tags || [],
 	userId: row.user_id,
-	boardId: row.board_id || undefined,
-	// New properties - use database values if available, otherwise defaults
+	boardId: row.board_id || undefined,	// New properties - use database values if available, otherwise defaults
 	priority: (row as any).priority || 2,
 	dueDate: (row as any).due_date || undefined,
 	startDate: (row as any).start_date || undefined,
-	effortEstimate: (row as any).effort_estimate || 2,
-	impactEstimate: (row as any).impact_estimate || 2,
 	category: (row as any).category || undefined,
 	progressPercentage: (row as any).progress_percentage || 0,
 	timeSpent: (row as any).time_spent || 0,
@@ -54,15 +51,12 @@ const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId
 		position: task.position,
 		scheduled_date: task.scheduledDate || null,
 		tags: task.tags || [],
-		completed_at: task.completedAt || null,
-		user_id: userId,
+		completed_at: task.completedAt || null,		user_id: userId,
 		board_id: task.boardId || null,
 		// Include new fields
 		priority: task.priority || 2,
 		due_date: task.dueDate || null,
 		start_date: task.startDate || null,
-		effort_estimate: task.effortEstimate || 2,
-		impact_estimate: task.impactEstimate || 2,
 		category: task.category || null,
 		progress_percentage: task.progressPercentage || 0,
 		time_spent: task.timeSpent || 0,
@@ -273,14 +267,10 @@ export const useSupabaseDatabase = () => {
 			if (updates.scheduledDate !== undefined) dbUpdates.scheduled_date = updates.scheduledDate || null;
 			if (updates.tags !== undefined) dbUpdates.tags = updates.tags || [];
 			if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt || null;
-			if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId || null;
-
-			// Handle new fields
+			if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId || null;			// Handle new fields
 			if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
 			if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate || null;
 			if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate || null;
-			if (updates.effortEstimate !== undefined) dbUpdates.effort_estimate = updates.effortEstimate;
-			if (updates.impactEstimate !== undefined) dbUpdates.impact_estimate = updates.impactEstimate;
 			if (updates.category !== undefined) dbUpdates.category = updates.category || null;
 			if (updates.progressPercentage !== undefined) dbUpdates.progress_percentage = updates.progressPercentage;
 			if (updates.timeSpent !== undefined) dbUpdates.time_spent = updates.timeSpent;
@@ -341,11 +331,8 @@ export const useSupabaseDatabase = () => {
 				position: 0, // Will be set by addTask
 				scheduledDate: originalTask.scheduledDate,
 				tags: originalTask.tags,
-				boardId: originalTask.boardId,
-				// Include all required new properties
+				boardId: originalTask.boardId,				// Include all required new properties
 				priority: originalTask.priority,
-				effortEstimate: originalTask.effortEstimate,
-				impactEstimate: originalTask.impactEstimate,
 				progressPercentage: 0, // Reset progress for copy
 				timeSpent: 0, // Reset time spent for copy
 				labels: [...(originalTask.labels || [])],

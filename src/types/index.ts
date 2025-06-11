@@ -11,13 +11,10 @@ export interface Task {
 	tags?: string[];
 	userId?: string; // UUID from Supabase auth
 	boardId?: number; // Reference to which board this task belongs to
-
 	// Enhanced properties for advanced views
 	priority: 1 | 2 | 3 | 4; // 1=Low, 2=Medium, 3=High, 4=Critical
 	dueDate?: string; // ISO date string
 	startDate?: string; // ISO date string
-	effortEstimate: 1 | 2 | 3 | 4; // 1=Low, 2=Medium, 3=High, 4=Very High (for Eisenhower Matrix)
-	impactEstimate: 1 | 2 | 3 | 4; // 1=Low, 2=Medium, 3=High, 4=Very High (for Eisenhower Matrix)
 	category?: string; // e.g., 'Development', 'Design', 'Marketing'
 	assigneeId?: string; // UUID for team collaboration
 	parentTaskId?: number; // For task dependencies

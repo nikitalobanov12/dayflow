@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, Layers, BarChart3, Grid } from 'lucide-react';
+import { ArrowLeft, Calendar, Layers } from 'lucide-react';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { Board } from '@/types';
 import { isTauri } from '@/lib/platform';
@@ -7,9 +7,9 @@ import { ThemeToggle } from './theme-toggle';
 
 interface ViewHeaderProps {
 	board: Board;
-	currentView: 'kanban' | 'calendar' | 'eisenhower' | 'gantt';
+	currentView: 'kanban' | 'calendar';
 	onBack: () => void;
-	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'eisenhower' | 'gantt') => Promise<void>;
+	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar') => Promise<void>;
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
 	onOpenSettings?: () => void;
@@ -18,21 +18,17 @@ interface ViewHeaderProps {
 const VIEW_ICONS = {
 	kanban: <Layers className='h-4 w-4' />,
 	calendar: <Calendar className='h-4 w-4' />,
-	eisenhower: <Grid className='h-4 w-4' />,
-	gantt: <BarChart3 className='h-4 w-4' />,
 };
 
 const VIEW_NAMES = {
 	kanban: 'Kanban',
 	calendar: 'Calendar',
-	eisenhower: 'Matrix',
-	gantt: 'Gantt',
 };
 
 export function ViewHeader({ board, currentView, onBack, onViewChange, user, onSignOut, onOpenSettings }: ViewHeaderProps) {
 	return (
 		<div className={`${!isTauri() ? '' : ''} p-4 border-b border-border bg-card relative z-10`}>
-			<div className='flex items-center justify-between container max-w-[1376px] mx-auto'>
+			<div className='flex items-center justify-between container max-w-screen mx-auto'>
 				<div className='flex items-center gap-4'>
 					<Button
 						variant='ghost'
@@ -58,9 +54,8 @@ export function ViewHeader({ board, currentView, onBack, onViewChange, user, onS
 				</div>
 
 				<div className='flex items-center gap-4'>
-					{onViewChange && (
-						<div className='flex items-center gap-2 bg-muted rounded-lg p-1'>
-							{(['kanban', 'calendar', 'eisenhower', 'gantt'] as const).map(view => (
+					{onViewChange && (						<div className='flex items-center gap-2 bg-muted rounded-lg p-1'>
+							{(['kanban', 'calendar'] as const).map(view => (
 								<Button
 									key={view}
 									variant='ghost'

@@ -35,7 +35,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 		if (!originalData || Object.keys(originalData).length === 0) return false;
 
 		// Compare key fields that users typically edit
-		const keysToCompare = ['title', 'description', 'timeEstimate', 'priority', 'status', 'category', 'effortEstimate', 'impactEstimate'];
+		const keysToCompare = ['title', 'description', 'timeEstimate', 'priority', 'status', 'category'];
 
 		for (const key of keysToCompare) {
 			if (formData[key as keyof Task] !== originalData[key as keyof Task]) {
@@ -51,14 +51,11 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 			? {
 					title: task.title,
 					description: task.description || '',
-					timeEstimate: task.timeEstimate,
-					priority: task.priority,
+					timeEstimate: task.timeEstimate,					priority: task.priority,
 					status: task.status,
 					scheduledDate: task.scheduledDate,
 					startDate: task.startDate,
 					dueDate: task.dueDate,
-					effortEstimate: task.effortEstimate,
-					impactEstimate: task.impactEstimate,
 					category: task.category || '',
 					progressPercentage: task.progressPercentage,
 					timeSpent: task.timeSpent,
@@ -71,8 +68,6 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 					timeEstimate: 0,
 					priority: 2 as Task['priority'],
 					status: 'backlog' as Task['status'],
-					effortEstimate: 2 as Task['effortEstimate'],
-					impactEstimate: 2 as Task['impactEstimate'],
 					progressPercentage: 0,
 					timeSpent: 0,
 					category: '',
@@ -410,47 +405,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 										value={formData.dueDate ? moment(formData.dueDate).format('YYYY-MM-DDTHH:mm') : ''}
 										onChange={e => updateFormData('dueDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
 										className='bg-background border-border text-foreground'
-									/>
-								</div>
-							</div>
-
-							{/* Effort & Impact Estimates */}
-							<div className='grid grid-cols-2 gap-4'>
-								<div>
-									<label className='text-sm font-medium text-muted-foreground block mb-3'>Effort</label>
-									<Select
-										value={formData.effortEstimate?.toString() || '2'}
-										onValueChange={value => updateFormData('effortEstimate', parseInt(value) as 1 | 2 | 3 | 4)}
-									>
-										<SelectTrigger>
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value='1'>Low</SelectItem>
-											<SelectItem value='2'>Medium</SelectItem>
-											<SelectItem value='3'>High</SelectItem>
-											<SelectItem value='4'>Very High</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-
-								<div>
-									<label className='text-sm font-medium text-muted-foreground block mb-3'>Impact</label>
-									<Select
-										value={formData.impactEstimate?.toString() || '2'}
-										onValueChange={value => updateFormData('impactEstimate', parseInt(value) as 1 | 2 | 3 | 4)}
-									>
-										<SelectTrigger>
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value='1'>Low</SelectItem>
-											<SelectItem value='2'>Medium</SelectItem>
-											<SelectItem value='3'>High</SelectItem>
-											<SelectItem value='4'>Very High</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
+									/>								</div>
 							</div>
 
 							{/* Progress & Time Tracking */}
