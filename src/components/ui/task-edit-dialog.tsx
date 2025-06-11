@@ -51,7 +51,8 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 			? {
 					title: task.title,
 					description: task.description || '',
-					timeEstimate: task.timeEstimate,					priority: task.priority,
+					timeEstimate: task.timeEstimate,
+					priority: task.priority,
 					status: task.status,
 					scheduledDate: task.scheduledDate,
 					startDate: task.startDate,
@@ -211,7 +212,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 			open={isOpen}
 			onOpenChange={onClose}
 		>
-			<DialogContent className='sm:max-w-5xl max-h-[90vh] overflow-hidden p-0 bg-background'>
+			<DialogContent className='sm:max-w-5xl max-h-[90vh] overflow-hidden p-0 bg-background [&>button]:hidden'>
 				{/* Header */}
 				<div className='flex items-center justify-between p-6 border-b border-border bg-background'>
 					<div className='flex items-center gap-3'>
@@ -233,7 +234,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 								</DialogDescription>
 							)}
 						</div>
-					</div>
+					</div>{' '}
 					<div className='flex gap-2'>
 						<Button
 							onClick={handleSave}
@@ -405,7 +406,8 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 										value={formData.dueDate ? moment(formData.dueDate).format('YYYY-MM-DDTHH:mm') : ''}
 										onChange={e => updateFormData('dueDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
 										className='bg-background border-border text-foreground'
-									/>								</div>
+									/>{' '}
+								</div>
 							</div>
 
 							{/* Progress & Time Tracking */}
