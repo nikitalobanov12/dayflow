@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CustomTitlebar } from './components/ui/custom-titlebar';
 import { BoardSelection } from '@/components/boards/BoardSelection';
 import { KanbanBoardView } from '@/components/boards/KanbanBoardView';
@@ -7,6 +7,7 @@ import { SprintMode } from './components/sprint/SprintMode';
 import { SprintConfig, SprintConfiguration } from '@/components/sprint/SprintConfig';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { Auth } from '@/components/ui/auth';
+import { AuthCallback } from '@/components/auth/AuthCallback';
 
 import { useSupabaseDatabase } from '@/hooks/useSupabaseDatabase';
 import { useUserSettings } from '@/hooks/useUserSettings';
@@ -14,8 +15,27 @@ import { Board, Task } from '@/types';
 import './App.css';
 
 function App() {
-	const { tasks, boards, addTask, deleteTask, duplicateTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, resetPasswordForEmail } = useSupabaseDatabase();
+	const { tasks, boards, addTask, deleteTask, duplicateTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, signInWithGoogle, resetPasswordForEmail } = useSupabaseDatabase();
 	const { userPreferences, userProfile, updateUserPreferences, updateUserProfile } = useUserSettings(user?.id);
+
+	const [isOAuthCallback, setIsOAuthCallback] = useState(false);
+
+	// Check if this is an OAuth callback
+	useEffect(() => {
+		const urlParams = new URLSearchParams(window.location.search);
+		const code = urlParams.get('code');
+		const state = urlParams.get('state');
+
+		if (code && state) {
+			setIsOAuthCallback(true);
+		}
+	}, []);
+
+	const handleAuthComplete = () => {
+		setIsOAuthCallback(false);
+		// Clear URL parameters
+		window.history.replaceState({}, document.title, window.location.pathname);
+	};
 
 	// Wrapper functions to match component signatures
 	const handleAddBoard = async (board: Omit<Board, 'id' | 'createdAt' | 'userId'>) => {
@@ -59,15 +79,27 @@ function App() {
 	const handleSignIn = async (email: string, password: string) => {
 		return await signIn(email, password);
 	};
+
+	const handleGoogleSignIn = async () => {
+		return await signInWithGoogle();
+	};
 	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'calendar' | 'sprint' | 'settings'>('boards');
 	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
 	const [showSprintConfig, setShowSprintConfig] = useState(false);
-	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null); // Show auth if not logged in
+	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null);
+
+	// Handle OAuth callback
+	if (isOAuthCallback) {
+		return <AuthCallback onAuthComplete={handleAuthComplete} />;
+	}
+
+	// Show auth if not logged in
 	if (!user) {
 		return (
 			<Auth
 				onSignUp={handleSignUp}
 				onSignIn={handleSignIn}
+				onGoogleSignIn={handleGoogleSignIn}
 				onResetPassword={resetPasswordForEmail}
 			/>
 		);
@@ -254,7 +286,8 @@ function App() {
 					/>
 				</div>
 			</div>
-		);	}
+		);
+	}
 
 	// Settings view
 	if (currentView === 'settings') {

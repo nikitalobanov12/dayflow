@@ -38,6 +38,7 @@ export const useUnifiedDatabase = () => {
 			updateBoard: async () => false,
 			deleteBoard: async () => false,
 			loadTasks: async () => {},
+			signInWithGoogle: async () => ({ data: null, error: null }),
 		};
 	}
 

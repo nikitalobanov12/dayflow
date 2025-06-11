@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { format, startOfWeek, endOfWeek, addDays, isSameDay, isToday, addMinutes, startOfDay, endOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -451,6 +451,46 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 			</ContextMenuContent>
 		</ContextMenu>
 	);
+	// Scroll to current time function (can be called manually)
+	const scrollToCurrentTime = useCallback(() => {
+		const container = calendarContainerRef.current;
+		if (!container) return;
+
+		const now = new Date();
+		const currentHour = now.getHours();
+		const currentMinute = now.getMinutes();
+
+		// Calculate the position based on current time
+		// Each hour takes up currentZoom.height pixels
+		// Each minute within an hour is a fraction of that
+		const hourPosition = currentHour * currentZoom.height;
+		const minutePosition = (currentMinute / 60) * currentZoom.height;
+		const totalPosition = hourPosition + minutePosition;
+
+		// Scroll to position with some offset to show the current time in the upper portion
+		const containerHeight = container.clientHeight;
+		const targetScroll = Math.max(0, totalPosition - containerHeight / 4);
+
+		console.log('Current time:', `${currentHour}:${currentMinute}`);
+		console.log('Zoom height:', currentZoom.height);
+		console.log('Total position:', totalPosition);
+		console.log('Target scroll:', targetScroll);
+
+		container.scrollTo({
+			top: targetScroll,
+			behavior: 'smooth',
+		});
+	}, [currentZoom.height, currentZoom.timeInterval]);
+
+	// Auto-scroll to current time
+	useEffect(() => {
+		if (!calendarContainerRef.current) return;
+
+		// Add a small delay to ensure the component is fully rendered
+		const timeoutId = setTimeout(() => scrollToCurrentTime(), 100);
+
+		return () => clearTimeout(timeoutId);
+	}, [currentZoom.height, currentZoom.timeInterval, viewMode, currentDate, scrollToCurrentTime]);
 
 	return (
 		<div className='h-screen bg-background flex flex-col overflow-hidden'>
@@ -488,9 +528,22 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 							onClick={handleZoomIn}
 							disabled={zoomLevel === ZOOM_LEVELS.length - 1}
 						>
-							<ZoomIn className='h-4 w-4' />
+							<ZoomIn className='h-4 w-4' />{' '}
 						</Button>
-					</div>{' '}
+					</div>
+
+					{/* Scroll to Now Button */}
+					<Button
+						variant='outline'
+						size='sm'
+						onClick={scrollToCurrentTime}
+						className='mr-2'
+						title='Scroll to current time'
+					>
+						<Clock className='h-4 w-4 mr-1' />
+						Now
+					</Button>
+
 					{/* View Mode Toggle */}
 					<div className='flex gap-1'>
 						{(['3-day', 'week'] as ViewMode[]).map(mode => (

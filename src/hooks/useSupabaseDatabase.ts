@@ -29,7 +29,7 @@ const convertTaskFromDb = (row: TaskRow): Task => ({
 	completedAt: row.completed_at || undefined,
 	tags: row.tags || [],
 	userId: row.user_id,
-	boardId: row.board_id || undefined,	// New properties - use database values if available, otherwise defaults
+	boardId: row.board_id || undefined, // New properties - use database values if available, otherwise defaults
 	priority: (row as any).priority || 2,
 	dueDate: (row as any).due_date || undefined,
 	startDate: (row as any).start_date || undefined,
@@ -51,7 +51,8 @@ const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId
 		position: task.position,
 		scheduled_date: task.scheduledDate || null,
 		tags: task.tags || [],
-		completed_at: task.completedAt || null,		user_id: userId,
+		completed_at: task.completedAt || null,
+		user_id: userId,
 		board_id: task.boardId || null,
 		// Include new fields
 		priority: task.priority || 2,
@@ -267,7 +268,7 @@ export const useSupabaseDatabase = () => {
 			if (updates.scheduledDate !== undefined) dbUpdates.scheduled_date = updates.scheduledDate || null;
 			if (updates.tags !== undefined) dbUpdates.tags = updates.tags || [];
 			if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt || null;
-			if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId || null;			// Handle new fields
+			if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId || null; // Handle new fields
 			if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
 			if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate || null;
 			if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate || null;
@@ -331,7 +332,7 @@ export const useSupabaseDatabase = () => {
 				position: 0, // Will be set by addTask
 				scheduledDate: originalTask.scheduledDate,
 				tags: originalTask.tags,
-				boardId: originalTask.boardId,				// Include all required new properties
+				boardId: originalTask.boardId, // Include all required new properties
 				priority: originalTask.priority,
 				progressPercentage: 0, // Reset progress for copy
 				timeSpent: 0, // Reset time spent for copy
@@ -559,6 +560,31 @@ export const useSupabaseDatabase = () => {
 		});
 		return { data, error };
 	};
+	const signInWithGoogle = async () => {
+		try {
+			const { data, error } = await supabase.auth.signInWithOAuth({
+				provider: 'google',
+				options: {
+					redirectTo: `${window.location.origin}`,
+					queryParams: {
+						access_type: 'offline',
+						prompt: 'consent',
+					},
+				},
+			});
+
+			if (error) {
+				console.error('Google OAuth error:', error);
+				return { data: null, error };
+			}
+
+			return { data, error: null };
+		} catch (error) {
+			console.error('Google OAuth error:', error);
+			return { data: null, error };
+		}
+	};
+
 	const signOut = async () => {
 		const { error } = await supabase.auth.signOut();
 		return { error };
@@ -702,6 +728,7 @@ export const useSupabaseDatabase = () => {
 		// Auth operations
 		signUp,
 		signIn,
+		signInWithGoogle,
 		signOut,
 		resetPasswordForEmail,
 
