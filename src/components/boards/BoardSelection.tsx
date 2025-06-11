@@ -87,25 +87,35 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 	};
 
 	const regularBoards = boards.filter(board => !board.isDefault);
-	const allTasksBoard = boards.find(board => board.isDefault);	return (
+	const allTasksBoard = boards.find(board => board.isDefault);
+	return (
 		<div className='min-h-screen bg-background flex'>
 			{/* Sidebar */}
 			<div className='w-72 bg-card border-r border-border flex flex-col'>
+				<div className='p-4 border-t border-border'>
+					<div className='flex  items-start justify-between'>
+						<ThemeToggle />
+						<ProfileDropdown
+							user={user}
+							onSignOut={onSignOut}
+							onOpenSettings={onOpenSettings}
+						/>
+					</div>
+				</div>
 				{/* Sidebar Header */}
 				<div className='p-6 border-b border-border'>
 					<div className='flex items-center gap-3 mb-4'>
 						<div
-							className='w-10 h-10 rounded-xl flex items-center justify-center'
-							style={{ backgroundColor: '#3B82F6' }}
+							className='w-10 h-10 flex items-center justify-center'
 						>
-							<Layers className='h-5 w-5 text-white' />
+							<img src="/public/logo.svg" alt="" />
 						</div>
 						<div>
 							<h1 className='text-xl font-semibold text-foreground'>DayFlow</h1>
 							<p className='text-sm text-muted-foreground'>Task Management</p>
 						</div>
 					</div>
-					
+
 					<Button
 						onClick={() => setIsCreating(true)}
 						className='w-full gap-2'
@@ -141,16 +151,6 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 				)}
 
 				{/* User Section */}
-				<div className='mt-auto p-4 border-t border-border'>
-					<div className='flex items-center justify-between'>
-						<ProfileDropdown
-							user={user}
-							onSignOut={onSignOut}
-							onOpenSettings={onOpenSettings}
-						/>
-						<ThemeToggle />
-					</div>
-				</div>
 			</div>
 
 			{/* Main Content Area */}
@@ -171,7 +171,9 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 				</div>
 
 				{/* Boards Grid */}
-				<div className='flex-1 p-6'>					{regularBoards.length > 0 ? (
+				<div className='flex-1 p-6'>
+					{' '}
+					{regularBoards.length > 0 ? (
 						<div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4'>
 							{regularBoards.map(board => (
 								<div
@@ -188,9 +190,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 										</div>
 										<div className='flex-1 min-w-0'>
 											<h3 className='text-lg font-semibold text-foreground mb-1 truncate'>{board.name}</h3>
-											{board.description && (
-												<p className='text-sm text-muted-foreground line-clamp-2 mb-3'>{board.description}</p>
-											)}
+											{board.description && <p className='text-sm text-muted-foreground line-clamp-2 mb-3'>{board.description}</p>}
 											<div className='flex items-center text-xs text-muted-foreground'>
 												<span>Board • Click to open</span>
 											</div>
@@ -225,7 +225,8 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 									className='gap-2'
 								>
 									<Plus className='h-5 w-5' />
-									Create Your First Board								</Button>
+									Create Your First Board{' '}
+								</Button>
 							</div>
 						</div>
 					)}
@@ -336,7 +337,8 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 									<Trash2 className='h-4 w-4' />
 								</Button>
 							)}
-						</div>					</div>
+						</div>{' '}
+					</div>
 				</DialogContent>
 			</Dialog>
 		</div>
