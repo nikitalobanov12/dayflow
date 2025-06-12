@@ -120,12 +120,11 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 					<div className='flex items-center gap-4'>
 						<Button
 							variant='ghost'
-							size='sm'
+							size='icon'
 							onClick={onBack}
-							className='gap-2'
+							className='h-8 w-8'
 						>
 							<ArrowLeft className='h-4 w-4' />
-							Back
 						</Button>
 						<div>
 							<h1 className='text-xl font-bold text-foreground'>Settings</h1>
@@ -364,13 +363,13 @@ function DateTimeSection({ preferences, onUpdatePreference }: { preferences: Par
 						value={preferences.dateFormat || 'MM/DD/YYYY'}
 						onValueChange={value => onUpdatePreference('dateFormat', value)}
 					>
-						<SelectTrigger className='w-48'>
+						<SelectTrigger className='w-48 text-left'>
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value='MM/DD/YYYY'>MM/DD/YYYY (12/31/2024)</SelectItem>
-							<SelectItem value='DD/MM/YYYY'>DD/MM/YYYY (31/12/2024)</SelectItem>
-							<SelectItem value='YYYY-MM-DD'>YYYY-MM-DD (2024-12-31)</SelectItem>
+							<SelectItem value='MM/DD/YYYY' className='text-left'>MM/DD/YYYY (12/31/2024)</SelectItem>
+							<SelectItem value='DD/MM/YYYY' className='text-left'>DD/MM/YYYY (31/12/2024)</SelectItem>
+							<SelectItem value='YYYY-MM-DD' className='text-left'>YYYY-MM-DD (2024-12-31)</SelectItem>
 						</SelectContent>
 					</Select>
 				</CardContent>
@@ -468,7 +467,7 @@ function CalendarSection({ preferences, onUpdatePreference }: { preferences: Par
 						value={preferences.calendarDefaultZoom?.toString() || '1'}
 						onValueChange={value => onUpdatePreference('calendarDefaultZoom', parseInt(value))}
 					>
-						<SelectTrigger className='w-64'>
+						<SelectTrigger className='w-64 text-left'>
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
@@ -476,8 +475,9 @@ function CalendarSection({ preferences, onUpdatePreference }: { preferences: Par
 								<SelectItem
 									key={level.value}
 									value={level.value.toString()}
+									className='text-left'
 								>
-									<div className='flex flex-col'>
+									<div className='flex flex-col items-start'>
 										<span className='font-medium'>{level.label}</span>
 										<span className='text-xs text-muted-foreground'>{level.description}</span>
 									</div>
