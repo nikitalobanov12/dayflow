@@ -93,7 +93,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 	return (
 		<SidebarProvider>
 			<div className='min-h-screen flex w-full'>
-				<Sidebar variant='floating'>
+				<Sidebar variant='sidebar'>
 					<SidebarHeader>
 						<div className='flex items-center gap-2 px-2 py-1'>
 							<div className='w-8 h-8 flex items-center justify-center'>
