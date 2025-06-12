@@ -3,11 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Plus, Edit, Trash2, Layers } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger } from '@/components/ui/sidebar';
 
 interface BoardSelectionProps {
 	boards: Board[];
@@ -76,6 +76,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 			console.error('Failed to update board:', error);
 		}
 	};
+
 	const startEditing = (board: Board) => {
 		setIsEditing(board);
 		setNewBoard({
@@ -88,152 +89,194 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 
 	const regularBoards = boards.filter(board => !board.isDefault);
 	const allTasksBoard = boards.find(board => board.isDefault);
+
 	return (
-		<div className='min-h-screen bg-background flex'>
-			{/* Sidebar */}
-			<div className='w-72 bg-card border-r border-border flex flex-col'>
-				<div className='p-4 border-t border-border'>
-					<div className='flex  items-start justify-between'>
-						<ThemeToggle />
-						<ProfileDropdown
-							user={user}
-							onSignOut={onSignOut}
-							onOpenSettings={onOpenSettings}
-						/>
-					</div>
-				</div>
-				{/* Sidebar Header */}
-				<div className='p-6 border-b border-border'>
-					<div className='flex items-center gap-3 mb-4'>
-						<div
-							className='w-10 h-10 flex items-center justify-center'
-						>
-							<img src="/logo.svg" alt="" />
-						</div>
-						<div>
-							<h1 className='text-xl font-semibold text-foreground'>DayFlow</h1>
-							<p className='text-sm text-muted-foreground'>Task Management</p>
-						</div>
-					</div>
-
-					<Button
-						onClick={() => setIsCreating(true)}
-						className='w-full gap-2'
-						size='sm'
-					>
-						<Plus className='h-4 w-4' />
-						New Board
-					</Button>
-				</div>
-
-				{/* Quick Access */}
-				{allTasksBoard && (
-					<div className='p-4 border-b border-border'>
-						<h3 className='text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3'>Quick Access</h3>
-						<div
-							className='bg-accent/50 border border-border rounded-lg p-3 cursor-pointer hover:bg-accent/70 transition-colors group'
-							onClick={() => onSelectBoard(allTasksBoard)}
-						>
-							<div className='flex items-center gap-3'>
-								<div
-									className='w-8 h-8 rounded-lg flex items-center justify-center text-sm'
-									style={{ backgroundColor: allTasksBoard.color || '#3B82F6' }}
-								>
-									{allTasksBoard.icon || '📋'}
-								</div>
-								<div className='flex-1 min-w-0'>
-									<h4 className='text-sm font-medium text-foreground truncate'>{allTasksBoard.name}</h4>
-									<p className='text-xs text-muted-foreground'>All tasks</p>
-								</div>
+		<SidebarProvider>
+			<div className='min-h-screen flex w-full'>
+				<Sidebar variant='floating'>
+					<SidebarHeader>
+						<div className='flex items-center gap-2 px-2 py-1'>
+							<div className='w-8 h-8 flex items-center justify-center'>
+								<img
+									src='/logo.svg'
+									alt=''
+								/>
+							</div>
+							<div>
+								<h1 className='text-lg font-semibold'>DayFlow</h1>
+								<p className='text-xs text-muted-foreground'>Task Management</p>
 							</div>
 						</div>
-					</div>
-				)}
+					</SidebarHeader>
 
-				{/* User Section */}
-			</div>
+					<SidebarContent>
+						{/* Quick Actions */}
+						<SidebarGroup>
+							<SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
+							<SidebarGroupContent>
+								<SidebarMenu>
+									<SidebarMenuItem>
+										<SidebarMenuButton
+											onClick={() => setIsCreating(true)}
+											className='gap-2'
+										>
+											<Plus className='h-4 w-4' />
+											<span>New Board</span>
+										</SidebarMenuButton>
+									</SidebarMenuItem>
+								</SidebarMenu>
+							</SidebarGroupContent>
+						</SidebarGroup>
 
-			{/* Main Content Area */}
-			<div className='flex-1 flex flex-col'>
-				{/* Main Header */}
-				<div className='p-6 border-b border-border bg-background'>
-					<div className='flex items-center justify-between'>
-						<div>
-							<h2 className='text-2xl font-semibold text-foreground'>Your Boards</h2>
-							<p className='text-muted-foreground mt-1'>Organize your projects and workflows</p>
+						{/* All Tasks Board */}
+						{allTasksBoard && (
+							<SidebarGroup>
+								<SidebarGroupLabel>Quick Access</SidebarGroupLabel>
+								<SidebarGroupContent>
+									<SidebarMenu>
+										<SidebarMenuItem>
+											<SidebarMenuButton
+												onClick={() => onSelectBoard(allTasksBoard)}
+												className='gap-2'
+											>
+												<div
+													className='w-4 h-4 rounded flex items-center justify-center text-xs'
+													style={{ backgroundColor: allTasksBoard.color || '#3B82F6' }}
+												>
+													{allTasksBoard.icon || '📋'}
+												</div>
+												<span>{allTasksBoard.name}</span>
+											</SidebarMenuButton>
+										</SidebarMenuItem>
+									</SidebarMenu>
+								</SidebarGroupContent>
+							</SidebarGroup>
+						)}
+
+						{/* Regular Boards */}
+						{regularBoards.length > 0 && (
+							<SidebarGroup>
+								<SidebarGroupLabel>Your Boards</SidebarGroupLabel>
+								<SidebarGroupContent>
+									<SidebarMenu>
+										{regularBoards.map(board => (
+											<SidebarMenuItem key={board.id}>
+												<SidebarMenuButton
+													onClick={() => onSelectBoard(board)}
+													className='gap-2 group'
+												>
+													<div
+														className='w-4 h-4 rounded flex items-center justify-center text-xs'
+														style={{ backgroundColor: board.color }}
+													>
+														{board.icon}
+													</div>
+													<span className='flex-1 truncate'>{board.name}</span>
+													<button
+														onClick={e => {
+															e.stopPropagation();
+															startEditing(board);
+														}}
+														className='opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded'
+													>
+														<Edit className='h-3 w-3' />
+													</button>
+												</SidebarMenuButton>
+											</SidebarMenuItem>
+										))}
+									</SidebarMenu>
+								</SidebarGroupContent>
+							</SidebarGroup>
+						)}
+					</SidebarContent>
+
+					<SidebarFooter>
+						<SidebarMenu></SidebarMenu>
+					</SidebarFooter>
+
+					<SidebarRail />
+				</Sidebar>
+				{/* Main Content */}
+				<main className='flex-1 flex flex-col bg-muted/30'>
+					<header className='flex h-16 shrink-0 items-center gap-2 px-4 border-b bg-background/50 backdrop-blur-sm'>
+						<SidebarTrigger className='-ml-1' />
+						<div className='flex-1'>
+							<h2 className='text-xl font-semibold'>Your Boards</h2>
+							<p className='text-sm text-muted-foreground'>Organize your projects and workflows</p>
 						</div>
 						{regularBoards.length > 0 && (
 							<div className='text-sm text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50'>
 								{regularBoards.length} {regularBoards.length === 1 ? 'board' : 'boards'}
 							</div>
 						)}
-					</div>
-				</div>
-
-				{/* Boards Grid */}
-				<div className='flex-1 p-6'>
-					{' '}
-					{regularBoards.length > 0 ? (
-						<div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4'>
-							{regularBoards.map(board => (
-								<div
-									key={board.id}
-									className='bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer p-4 group relative'
-									onClick={() => onSelectBoard(board)}
-								>
-									<div className='flex items-start gap-4'>
-										<div
-											className='w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm'
-											style={{ backgroundColor: board.color }}
-										>
-											{board.icon}
-										</div>
-										<div className='flex-1 min-w-0'>
-											<h3 className='text-lg font-semibold text-foreground mb-1 truncate'>{board.name}</h3>
-											{board.description && <p className='text-sm text-muted-foreground line-clamp-2 mb-3'>{board.description}</p>}
-											<div className='flex items-center text-xs text-muted-foreground'>
-												<span>Board • Click to open</span>
+						<ProfileDropdown
+							user={user}
+							onSignOut={onSignOut}
+							onOpenSettings={onOpenSettings}
+						/>{' '}
+					</header>
+					<div className='flex-1 p-6 bg-muted/30'>
+						{regularBoards.length > 0 ? (
+							<div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4'>
+								{regularBoards.map(board => (
+									<div
+										key={board.id}
+										className='bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer p-4 group relative'
+										onClick={() => onSelectBoard(board)}
+									>
+										<div className='flex items-start gap-4'>
+											<div
+												className='w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm'
+												style={{ backgroundColor: board.color }}
+											>
+												{board.icon}
+											</div>
+											<div className='flex-1 min-w-0'>
+												<h3 className='text-lg font-semibold text-foreground mb-1 truncate'>{board.name}</h3>
+												{board.description && <p className='text-sm text-muted-foreground line-clamp-2 mb-3'>{board.description}</p>}
+												<div className='flex items-center text-xs text-muted-foreground'>
+													<span>Board • Click to open</span>
+												</div>
 											</div>
 										</div>
+										<div className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300'>
+											<button
+												onClick={e => {
+													e.stopPropagation();
+													startEditing(board);
+												}}
+												className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
+												title='Edit board'
+											>
+												<Edit className='h-4 w-4' />
+											</button>
+										</div>
 									</div>
-									<div className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300'>
-										<button
-											onClick={e => {
-												e.stopPropagation();
-												startEditing(board);
-											}}
-											className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
-											title='Edit board'
-										>
-											<Edit className='h-4 w-4' />
-										</button>
-									</div>
-								</div>
-							))}
-						</div>
-					) : (
-						<div className='flex items-center justify-center h-96'>
-							<div className='text-center max-w-md'>
-								<div className='w-16 h-16 mx-auto rounded-2xl bg-muted/30 flex items-center justify-center mb-4'>
-									<Layers className='h-8 w-8 text-muted-foreground' />
-								</div>
-								<h3 className='text-xl font-semibold text-foreground mb-2'>Create your first board</h3>
-								<p className='text-muted-foreground mb-6'>Boards help you organize tasks into different projects or workflows. Get started by creating your first board.</p>
-								<Button
-									onClick={() => setIsCreating(true)}
-									size='lg'
-									className='gap-2'
-								>
-									<Plus className='h-5 w-5' />
-									Create Your First Board{' '}
-								</Button>
+								))}
 							</div>
-						</div>
-					)}
-				</div>
+						) : (
+							<div className='flex items-center justify-center h-96'>
+								<div className='text-center max-w-md'>
+									<div className='w-16 h-16 mx-auto rounded-2xl bg-muted/30 flex items-center justify-center mb-4'>
+										<Layers className='h-8 w-8 text-muted-foreground' />
+									</div>
+									<h3 className='text-xl font-semibold text-foreground mb-2'>Create your first board</h3>
+									<p className='text-muted-foreground mb-6'>Boards help you organize tasks into different projects or workflows. Get started by creating your first board.</p>
+									<Button
+										onClick={() => setIsCreating(true)}
+										size='lg'
+										className='gap-2'
+									>
+										<Plus className='h-5 w-5' />
+										Create Your First Board
+									</Button>
+								</div>
+							</div>
+						)}
+					</div>{' '}
+				</main>
 			</div>
 
-			{/* Create/Edit Board Dialog */}
 			<Dialog
 				open={isCreating || !!isEditing}
 				onOpenChange={open => {
@@ -337,10 +380,10 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 									<Trash2 className='h-4 w-4' />
 								</Button>
 							)}
-						</div>{' '}
+						</div>
 					</div>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</SidebarProvider>
 	);
 }

@@ -50,7 +50,16 @@ const ZOOM_LEVELS = [
 
 export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, user, onSignOut, onViewChange, onOpenSettings, userPreferences }: CompactCalendarViewProps) {
 	// Apply user preferences
-	const { filterTasks, weekStartsOn, calendarDefaultZoom, calendarDefaultView } = useUserPreferences(userPreferences);
+	const { filterTasks, weekStartsOn, calendarDefaultZoom, calendarDefaultView, formatDate } = useUserPreferences(userPreferences);
+	// Helper function to format time according to user preference
+	const formatTime = (date: Date) => {
+		const timeFormat = userPreferences?.timeFormat || '12h';
+		if (timeFormat === '24h') {
+			return format(date, 'HH:mm');
+		} else {
+			return format(date, 'h:mm a');
+		}
+	};
 
 	// Priority colors and display
 	const getPriorityColor = (priority: Task['priority']) => {
@@ -189,27 +198,42 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 
 			return sortOrder === 'desc' ? -comparison : comparison;
 		});
-	}, [tasks, filterTasks, userPreferences?.taskSortBy, userPreferences?.taskSortOrder]);
-	// Generate time slots for the day
+	}, [tasks, filterTasks, userPreferences?.taskSortBy, userPreferences?.taskSortOrder]); // Generate time slots for the day
 	const timeSlots = useMemo(() => {
 		const slots = [];
 		const startHour = 0; // Start at 12 AM (midnight)
 		const endHour = 23; // End at 11 PM
 		const interval = currentZoom.timeInterval;
+		const timeFormat = userPreferences?.timeFormat || '12h';
 
 		for (let hour = startHour; hour <= endHour; hour++) {
 			if (interval === 30) {
-				slots.push({ hour, minute: 0, label: format(new Date().setHours(hour, 0), 'h:mm a') });
-				if (hour < endHour) {
-					slots.push({ hour, minute: 30, label: format(new Date().setHours(hour, 30), 'h:mm a') });
+				const hourDate = new Date().setHours(hour, 0);
+				const halfHourDate = new Date().setHours(hour, 30);
+
+				if (timeFormat === '24h') {
+					slots.push({ hour, minute: 0, label: format(hourDate, 'HH:mm') });
+					if (hour < endHour) {
+						slots.push({ hour, minute: 30, label: format(halfHourDate, 'HH:mm') });
+					}
+				} else {
+					slots.push({ hour, minute: 0, label: format(hourDate, 'h:mm a') });
+					if (hour < endHour) {
+						slots.push({ hour, minute: 30, label: format(halfHourDate, 'h:mm a') });
+					}
 				}
 			} else {
-				slots.push({ hour, minute: 0, label: format(new Date().setHours(hour, 0), 'h a') });
+				const hourDate = new Date().setHours(hour, 0);
+				if (timeFormat === '24h') {
+					slots.push({ hour, minute: 0, label: format(hourDate, 'HH:mm') });
+				} else {
+					slots.push({ hour, minute: 0, label: format(hourDate, 'h a') });
+				}
 			}
 		}
 
 		return slots;
-	}, [currentZoom.timeInterval]);
+	}, [currentZoom.timeInterval, userPreferences?.timeFormat]);
 	// Calculate event positions
 	const getEventPosition = (event: CalendarEvent, dateIndex: number) => {
 		const dayStart = startOfDay(visibleDates[dateIndex]);
@@ -625,7 +649,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 			{/* Calendar Controls */}
 			<div className='flex-shrink-0 flex items-center justify-between p-4 border-b border-border'>
 				{' '}
-				<h2 className='text-lg font-semibold'>{viewMode === '3-day' ? `${format(currentDate, 'MMM d')} - ${format(addDays(currentDate, 2), 'MMM d, yyyy')}` : `${format(startOfWeek(currentDate, { weekStartsOn }), 'MMM d')} - ${format(endOfWeek(currentDate, { weekStartsOn }), 'MMM d, yyyy')}`}</h2>
+				<h2 className='text-lg font-semibold'>{viewMode === '3-day' ? `${formatDate(currentDate)} - ${formatDate(addDays(currentDate, 2))}` : `${formatDate(startOfWeek(currentDate, { weekStartsOn }))} - ${formatDate(endOfWeek(currentDate, { weekStartsOn }))}`}</h2>
 				<div className='flex items-center gap-2'>
 					{/* Zoom Controls */}
 					<div className='flex items-center gap-1 mr-2'>
@@ -850,7 +874,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																		{event.task.status === 'done' && <CheckCircle className='h-2.5 w-2.5' />}
 																	</button>
 																</div>
-																<div className='text-xs opacity-90 leading-none mt-0.5'>{format(event.start, 'h:mm a')}</div>
+																<div className='text-xs opacity-90 leading-none mt-0.5'>{formatTime(event.start)}</div>
 															</div>
 														)}{' '}
 														{/* Medium Cards (50-80px) - Title, time, basic info */}
@@ -865,9 +889,9 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																	>
 																		{event.task.status === 'done' && <CheckCircle className='h-3 w-3' />}
 																	</button>
-																</div>
+																</div>{' '}
 																<div className='text-xs opacity-90 mb-1'>
-																	{format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
+																	{formatTime(event.start)} - {formatTime(event.end)}
 																</div>
 																<div className='mt-auto flex items-center justify-between text-xs'>
 																	{event.task.timeEstimate && event.task.timeEstimate > 0 && (
@@ -891,14 +915,11 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																	>
 																		{event.task.status === 'done' && <CheckCircle className='h-3 w-3' />}
 																	</button>
-																</div>
-
+																</div>{' '}
 																<div className='text-xs opacity-90 mb-2'>
-																	{format(event.start, 'h:mm a')} - {format(event.end, 'h:mm a')}
+																	{formatTime(event.start)} - {formatTime(event.end)}
 																</div>
-
 																{event.task.description && <div className='text-xs opacity-85 line-clamp-2 mb-2 leading-relaxed flex-1'>{event.task.description}</div>}
-
 																<div className='mt-auto flex items-center justify-between text-xs opacity-90'>
 																	<div className='flex items-center gap-1'>
 																		{event.task.timeEstimate && event.task.timeEstimate > 0 && (
@@ -930,7 +951,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 				<DialogContent className='sm:max-w-md'>
 					<DialogHeader>
 						<DialogTitle>Create New Task</DialogTitle>
-						<DialogDescription>{newTaskStart && `Scheduled for ${format(newTaskStart, 'EEEE, MMMM d, yyyy [at] h:mm a')}`}</DialogDescription>
+						<DialogDescription>{newTaskStart && `Scheduled for ${formatDate(newTaskStart, true)}`}</DialogDescription>
 					</DialogHeader>
 					<div className='space-y-4'>
 						<div>

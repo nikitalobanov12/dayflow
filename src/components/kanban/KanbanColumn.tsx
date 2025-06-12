@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isTauri } from '@/lib/platform';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 
 interface KanbanColumnProps {
 	title: string;
@@ -34,6 +35,9 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 	const [newTaskTitle, setNewTaskTitle] = useState('');
 	const [newTaskTime, setNewTaskTime] = useState('');
 	const [newTaskBoardId, setNewTaskBoardId] = useState<number | null>(null);
+
+	// Apply user preferences for date formatting
+	const { formatDate } = useUserPreferences(userPreferences);
 
 	// Calculate progress percentage
 	const progressPercentage = showProgress && status === 'today' ? (completedCount / (tasks.length + completedCount)) * 100 || 0 : showProgress && tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
@@ -84,11 +88,8 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 		} else if (date.toDateString() === yesterday.toDateString()) {
 			return 'Yesterday';
 		} else {
-			return date.toLocaleDateString('en-US', {
-				weekday: 'short',
-				month: 'short',
-				day: 'numeric',
-			});
+			// Use user's date format preference for older dates
+			return formatDate(dateString);
 		}
 	};
 	const handleAddTask = async () => {

@@ -346,10 +346,10 @@ function DateTimeSection({ preferences, onUpdatePreference }: { preferences: Par
 		<div className='space-y-6'>
 			<div>
 				<h2 className='text-lg font-semibold mb-2'>Date & Time</h2>
-				<p className='text-sm text-muted-foreground'>Configure how dates and times are displayed throughout the app.</p>
-				<div className='mt-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg'>
-					<p className='text-xs text-amber-800 dark:text-amber-200'>
-						<strong>Note:</strong> These settings are partially implemented. Date formatting is available but not used consistently throughout the app yet.
+				<p className='text-sm text-muted-foreground'>Configure how dates and times are displayed throughout the app.</p>{' '}
+				<div className='mt-2 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg'>
+					<p className='text-xs text-green-800 dark:text-green-200'>
+						<strong>Updated:</strong> Date and time formatting is now fully implemented and used throughout the app including calendar events, task cards, and edit dialogs.
 					</p>
 				</div>
 			</div>

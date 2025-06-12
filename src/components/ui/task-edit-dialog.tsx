@@ -35,6 +35,12 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 	// Apply user preferences for date formatting
 	const { formatDate } = useUserPreferences(userPreferences);
 
+	// Helper function to format dates for datetime-local inputs
+	const formatForDateTimeLocal = (dateString: string | undefined) => {
+		if (!dateString) return '';
+		return moment(dateString).format('YYYY-MM-DDTHH:mm');
+	};
+
 	// Check if form has changes - more robust comparison
 	const hasChanges = useMemo(() => {
 		if (!originalData || Object.keys(originalData).length === 0) return false;
@@ -385,29 +391,29 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 									<label className='text-sm font-medium text-muted-foreground block mb-3'>
 										<Calendar className='h-4 w-4 inline mr-1' />
 										Scheduled Date
-									</label>
+									</label>{' '}
 									<Input
 										type='datetime-local'
-										value={formData.scheduledDate ? moment(formData.scheduledDate).format('YYYY-MM-DDTHH:mm') : ''}
+										value={formatForDateTimeLocal(formData.scheduledDate)}
 										onChange={e => updateFormData('scheduledDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
 										className='bg-background border-border text-foreground'
 									/>
 								</div>{' '}
 								<div>
-									<label className='text-sm font-medium text-muted-foreground block mb-3'>Start Date</label>
+									<label className='text-sm font-medium text-muted-foreground block mb-3'>Start Date</label>{' '}
 									<Input
 										type='datetime-local'
-										value={formData.startDate ? moment(formData.startDate).format('YYYY-MM-DDTHH:mm') : ''}
+										value={formatForDateTimeLocal(formData.startDate)}
 										onChange={e => updateFormData('startDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
 										className='bg-background border-border text-foreground'
 									/>
 									{formData.startDate && <p className='text-xs text-muted-foreground mt-1'>Will display as: {formatDate(formData.startDate, true)}</p>}
 								</div>
 								<div>
-									<label className='text-sm font-medium text-muted-foreground block mb-3'>Due Date</label>
+									<label className='text-sm font-medium text-muted-foreground block mb-3'>Due Date</label>{' '}
 									<Input
 										type='datetime-local'
-										value={formData.dueDate ? moment(formData.dueDate).format('YYYY-MM-DDTHH:mm') : ''}
+										value={formatForDateTimeLocal(formData.dueDate)}
 										onChange={e => updateFormData('dueDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
 										className='bg-background border-border text-foreground'
 									/>
