@@ -597,32 +597,36 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 		if (!container) return;
 
 		const now = new Date();
+		
+		// Update current date to today if not already on today
+		if (!isToday(currentDate)) {
+			setCurrentDate(now);
+		}
+
+		// Calculate scroll position based on current time
 		const currentHour = now.getHours();
 		const currentMinute = now.getMinutes();
-
-		// Calculate the position based on current time
+		
+		// Calculate total minutes since midnight
+		const totalMinutes = (currentHour * 60) + currentMinute;
+		
+		// Calculate the scroll position
 		// Each hour takes up currentZoom.height pixels
-		// Each minute within an hour is a fraction of that
-		const hourPosition = currentHour * currentZoom.height;
-		const minutePosition = (currentMinute / 60) * currentZoom.height;
-		const totalPosition = hourPosition + minutePosition;
-
-		// Scroll to position with some offset to show the current time in the upper portion
+		// Each minute is a fraction of that height
+		const minutesPerPixel = currentZoom.timeInterval / currentZoom.height;
+		const scrollPosition = totalMinutes / minutesPerPixel;
+		
+		// Add some offset to show the current time in the upper portion of the view
 		const containerHeight = container.clientHeight;
-		const targetScroll = Math.max(0, totalPosition - containerHeight / 4);
-
-		console.log('Current time:', `${currentHour}:${currentMinute}`);
-		console.log('Zoom height:', currentZoom.height);
-		console.log('Total position:', totalPosition);
-		console.log('Target scroll:', targetScroll);
+		const targetScroll = Math.max(0, scrollPosition - (containerHeight / 3));
 
 		container.scrollTo({
 			top: targetScroll,
 			behavior: 'smooth',
 		});
-	}, [currentZoom.height, currentZoom.timeInterval]);
+	}, [currentDate, currentZoom.height, currentZoom.timeInterval]);
 
-	// Auto-scroll to current time
+	// Auto-scroll to current time only on initial mount
 	useEffect(() => {
 		if (!calendarContainerRef.current) return;
 
@@ -630,7 +634,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 		const timeoutId = setTimeout(() => scrollToCurrentTime(), 100);
 
 		return () => clearTimeout(timeoutId);
-	}, [currentZoom.height, currentZoom.timeInterval, viewMode, currentDate, scrollToCurrentTime]);
+	}, []); // Empty dependency array means this only runs on mount
 
 	return (
 		<div className='h-screen bg-background flex flex-col overflow-hidden'>
@@ -759,8 +763,10 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 								{timeSlots.map((slot, index) => (
 									<div
 										key={index}
-										className='border-b border-border text-xs text-muted-foreground text-center py-1'
+										className='time-slot border-b border-border text-xs text-muted-foreground text-center py-1'
 										style={{ height: `${currentZoom.height}px` }}
+										data-hour={slot.hour}
+										data-minute={slot.minute}
 									>
 										{slot.minute === 0 ? slot.label : ''}
 									</div>

@@ -24,7 +24,6 @@ dist-ssr
 *.sw?
 
 .github/copilot-instructions.md
-
 # Windows-specific files and devices
 nul
 con
@@ -40,3 +39,5 @@ Desktop.ini
 # Tauri build outputs
 src-tauri/target/
 .env
+.cursorrules
+.cursor/rules/cursor-rules.mdc

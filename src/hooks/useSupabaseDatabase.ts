@@ -506,11 +506,9 @@ export const useSupabaseDatabase = () => {
 	const getSubtasks = useCallback(
 		async (parentTaskId: number): Promise<Subtask[]> => {
 			if (!user) {
-				console.log('getSubtasks: No user authenticated');
 				return [];
 			}
 
-			console.log('getSubtasks: Fetching subtasks for task', parentTaskId, 'user', user.id);
 
 			const { data, error } = await supabase.from('subtasks').select('*').eq('parent_task_id', parentTaskId).eq('user_id', user.id).order('position', { ascending: true });
 
@@ -519,9 +517,7 @@ export const useSupabaseDatabase = () => {
 				throw error;
 			}
 
-			console.log('getSubtasks: Raw data from database:', data);
 			const result = data.map(convertSubtaskFromDb);
-			console.log('getSubtasks: Converted subtasks:', result);
 
 			return result;
 		},
