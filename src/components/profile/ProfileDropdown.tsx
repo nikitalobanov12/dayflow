@@ -44,7 +44,7 @@ export function ProfileDropdown({ user, onSignOut, onOpenSettings }: ProfileDrop
 			</Button>
 
 			{isOpen && (
-				<div className='absolute right-0 top-10 w-56 bg-white dark:bg-gray-800 border rounded-md shadow-lg z-50 p-2'>
+				<div className='absolute right-0 top-10 w-56 bg-white dark:bg-gray-800 border rounded-md shadow-lg z-100 p-2'>
 					<div className='px-2 py-1.5 text-sm font-semibold'>
 						<div className='flex flex-col space-y-1'>
 							<p className='text-sm font-medium leading-none'>{user?.email || 'User'}</p>

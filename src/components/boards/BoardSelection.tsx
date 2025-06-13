@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger } from '@/components/ui/sidebar';
+import { Logo } from '@/components/ui/logo';
 
 interface BoardSelectionProps {
 	boards: Board[];
@@ -97,10 +98,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 					<SidebarHeader>
 						<div className='flex items-center gap-2 px-2 py-1'>
 							<div className='w-8 h-8 flex items-center justify-center'>
-								<img
-									src='/logo.svg'
-									alt=''
-								/>
+								<Logo className='w-full h-full' />
 							</div>
 							<div>
 								<h1 className='text-lg font-semibold'>DayFlow</h1>
