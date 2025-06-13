@@ -16,6 +16,91 @@ interface SubtaskRow {
 	user_id: string;
 }
 
+// Field mapping configuration for better maintainability
+const TASK_FIELD_MAPPING = {
+	// Fields that are always defined (never null in database)
+	required: {
+		title: 'title',
+		timeEstimate: 'time_estimate',
+		status: 'status',
+		position: 'position',
+		priority: 'priority',
+		progressPercentage: 'progress_percentage',
+		timeSpent: 'time_spent',
+	},
+	// Fields that can be null/undefined (nullable in database)
+	optional: {
+		description: 'description',
+		scheduledDate: 'scheduled_date',
+		tags: 'tags',
+		completedAt: 'completed_at',
+		boardId: 'board_id',
+		dueDate: 'due_date',
+		startDate: 'start_date',
+		category: 'category',
+		assigneeId: 'assignee_id',
+		parentTaskId: 'parent_task_id',
+	},
+	// Special handling fields
+	special: ['recurring']
+} as const;
+
+/**
+ * Helper function to convert task updates to database format
+ * This centralizes the field mapping logic and makes it easy to add new fields
+ */
+const convertTaskUpdatesToDb = (updates: Partial<Task>): any => {
+	const dbUpdates: any = {};
+	
+	// Handle required fields (never null)
+	Object.entries(TASK_FIELD_MAPPING.required).forEach(([appField, dbField]) => {
+		if (updates[appField as keyof Task] !== undefined) {
+			dbUpdates[dbField] = updates[appField as keyof Task];
+		}
+	});
+	
+	// Handle optional fields (can be null)
+	Object.entries(TASK_FIELD_MAPPING.optional).forEach(([appField, dbField]) => {
+		if (appField in updates) {
+			const value = updates[appField as keyof Task];
+			// Special handling for tags array
+			if (appField === 'tags') {
+				dbUpdates[dbField] = value || [];
+			} else {
+				dbUpdates[dbField] = value || null;
+			}
+		}
+	});
+	
+	// Handle special fields with custom logic
+	if ('recurring' in updates) {
+		if (updates.recurring) {
+			// Ensure the pattern is one of the valid enum values
+			const validPatterns = ['daily', 'weekly', 'monthly', 'yearly'];
+			if (!validPatterns.includes(updates.recurring.pattern)) {
+				throw new Error(`Invalid recurring pattern: ${updates.recurring.pattern}`);
+			}
+			
+			dbUpdates.recurring_pattern = updates.recurring.pattern;
+			dbUpdates.recurring_interval = updates.recurring.interval;
+			dbUpdates.recurring_days_of_week = updates.recurring.daysOfWeek || [];
+			dbUpdates.recurring_days_of_month = updates.recurring.daysOfMonth || [];
+			dbUpdates.recurring_months_of_year = updates.recurring.monthsOfYear || [];
+			dbUpdates.recurring_end_date = updates.recurring.endDate || null;
+		} else {
+			// Clear recurring fields when disabling recurring
+			dbUpdates.recurring_pattern = null;
+			dbUpdates.recurring_interval = null;
+			dbUpdates.recurring_days_of_week = null;
+			dbUpdates.recurring_days_of_month = null;
+			dbUpdates.recurring_months_of_year = null;
+			dbUpdates.recurring_end_date = null;
+		}
+	}
+	
+	return dbUpdates;
+};
+
 // Helper functions to convert between database rows and application types
 const convertTaskFromDb = (row: TaskRow): Task => ({
 	id: row.id,
@@ -72,7 +157,7 @@ const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId
 		time_spent: task.timeSpent || 0,
 		assignee_id: task.assigneeId || null,
 		parent_task_id: task.parentTaskId || null,
-		// Handle recurring fields
+		// Handle recurring fields - explicitly set to null when undefined
 		recurring_pattern: task.recurring?.pattern || null,
 		recurring_interval: task.recurring?.interval || null,
 		recurring_days_of_week: task.recurring?.daysOfWeek || null,
@@ -283,58 +368,15 @@ export const useSupabaseDatabase = () => {
 			// Optimistic update: Update local state immediately
 			setTasks(prevTasks => prevTasks.map(task => (task.id === id ? { ...task, ...updates } : task)));
 
-			// Convert updates to database format
-			const dbUpdates: any = {};
-			if (updates.title !== undefined) dbUpdates.title = updates.title;
-			if (updates.description !== undefined) dbUpdates.description = updates.description || null;
-			if (updates.timeEstimate !== undefined) dbUpdates.time_estimate = updates.timeEstimate;
-			if (updates.status !== undefined) dbUpdates.status = updates.status;
-			if (updates.position !== undefined) dbUpdates.position = updates.position;
-			if (updates.scheduledDate !== undefined) dbUpdates.scheduled_date = updates.scheduledDate || null;
-			if (updates.tags !== undefined) dbUpdates.tags = updates.tags || [];
-			if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt || null;
-			if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId || null;
-			if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
-			if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate || null;
-			if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate || null;
-			if (updates.category !== undefined) dbUpdates.category = updates.category || null;
-			if (updates.progressPercentage !== undefined) dbUpdates.progress_percentage = updates.progressPercentage;
-			if (updates.timeSpent !== undefined) dbUpdates.time_spent = updates.timeSpent;
-			if (updates.assigneeId !== undefined) dbUpdates.assignee_id = updates.assigneeId || null;
-			if (updates.parentTaskId !== undefined) dbUpdates.parent_task_id = updates.parentTaskId || null;
-			
-			// Handle recurring configuration with correct database column names
-			if (updates.recurring !== undefined) {
-				if (updates.recurring) {
-					// Ensure the pattern is one of the valid enum values
-					const validPatterns = ['daily', 'weekly', 'monthly', 'yearly'];
-					if (!validPatterns.includes(updates.recurring.pattern)) {
-						throw new Error(`Invalid recurring pattern: ${updates.recurring.pattern}`);
-					}
-					
-					dbUpdates.recurring_pattern = updates.recurring.pattern;
-					dbUpdates.recurring_interval = updates.recurring.interval;
-					dbUpdates.recurring_days_of_week = updates.recurring.daysOfWeek || [];
-					dbUpdates.recurring_days_of_month = updates.recurring.daysOfMonth || [];
-					dbUpdates.recurring_months_of_year = updates.recurring.monthsOfYear || [];
-					dbUpdates.recurring_end_date = updates.recurring.endDate || null;
-				} else {
-					// Clear recurring fields when disabling recurring
-					dbUpdates.recurring_pattern = null;
-					dbUpdates.recurring_interval = null;
-					dbUpdates.recurring_days_of_week = null;
-					dbUpdates.recurring_days_of_month = null;
-					dbUpdates.recurring_months_of_year = null;
-					dbUpdates.recurring_end_date = null;
-				}
-			}
+			// Convert updates to database format using centralized helper
+			const dbUpdates = convertTaskUpdatesToDb(updates);
 
-			console.log('Updating task with:', dbUpdates); // Debug log
-			console.log('Task ID:', id, 'User ID:', user.id); // Debug log
+			console.log('Updating task with:', dbUpdates);
+			console.log('Task ID:', id, 'User ID:', user.id);
 
 			const { data, error } = await supabase.from('tasks').update(dbUpdates).eq('id', id).eq('user_id', user.id).select();
 
-			console.log('Update result:', { data, error }); // Debug log
+			console.log('Update result:', { data, error });
 
 			if (error) {
 				console.error('Failed to update task:', error);
@@ -343,7 +385,6 @@ export const useSupabaseDatabase = () => {
 				return false;
 			}
 
-			console.log('Task updated successfully:', data); // Debug log
 			return true;
 		} catch (error) {
 			console.error('Failed to update task:', error);

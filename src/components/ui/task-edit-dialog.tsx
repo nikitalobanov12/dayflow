@@ -42,10 +42,27 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 		if (!originalData || Object.keys(originalData).length === 0) return false;
 
 		// Compare key fields that users typically edit
-		const keysToCompare = ['title', 'description', 'timeEstimate', 'priority', 'status', 'category'];
+		const keysToCompare = ['title', 'description', 'timeEstimate', 'priority', 'status', 'category', 'scheduledDate', 'recurring'];
 
 		for (const key of keysToCompare) {
-			if (formData[key as keyof Task] !== originalData[key as keyof Task]) {
+			if (key === 'recurring') {
+				// Special handling for recurring object comparison
+				const formRecurring = formData.recurring;
+				const originalRecurring = originalData.recurring;
+				
+				if (!formRecurring && !originalRecurring) continue;
+				if (!formRecurring || !originalRecurring) return true;
+				
+				// Compare recurring properties
+				if (formRecurring.pattern !== originalRecurring.pattern ||
+					formRecurring.interval !== originalRecurring.interval ||
+					JSON.stringify(formRecurring.daysOfWeek) !== JSON.stringify(originalRecurring.daysOfWeek) ||
+					JSON.stringify(formRecurring.daysOfMonth) !== JSON.stringify(originalRecurring.daysOfMonth) ||
+					JSON.stringify(formRecurring.monthsOfYear) !== JSON.stringify(originalRecurring.monthsOfYear) ||
+					formRecurring.endDate !== originalRecurring.endDate) {
+					return true;
+				}
+			} else if (formData[key as keyof Task] !== originalData[key as keyof Task]) {
 				return true;
 			}
 		}
@@ -84,8 +101,9 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 
 		setFormData(initData);
 		setOriginalData(initData);
+		// Set recurring options visibility based on whether task has recurring data
 		setShowRecurringOptions(!!initData.recurring);
-	}, [task, isOpen, isCreating]); // Added isOpen and isCreating to dependencies
+	}, [task, isOpen, isCreating]);
 
 	// Reset form data when dialog is closed (cleanup)
 	useEffect(() => {
@@ -162,7 +180,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 			const updates: Partial<Task> = { ...formData };
 
 			// Handle recurring configuration
-			if (showRecurringOptions) {
+			if (showRecurringOptions && formData.recurring) {
 				// Preserve the time from the original scheduled date
 				const originalDate = formData.scheduledDate ? new Date(formData.scheduledDate) : new Date();
 				updates.recurring = {
@@ -180,6 +198,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 					updates.scheduledDate = newDate.toISOString();
 				}
 			} else {
+				// Explicitly clear recurring when toggle is off or no recurring data
 				updates.recurring = undefined;
 			}
 
@@ -463,7 +482,23 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 								<label className="text-sm font-medium text-muted-foreground">Recurring Task</label>
 								<Switch
 									checked={showRecurringOptions}
-									onCheckedChange={setShowRecurringOptions}
+									onCheckedChange={(checked) => {
+										setShowRecurringOptions(checked);
+										if (!checked) {
+											// Clear recurring data when toggling off
+											updateFormData('recurring', undefined);
+										} else if (!formData.recurring) {
+											// Initialize with default recurring data when toggling on
+											updateFormData('recurring', {
+												pattern: 'daily' as RecurringPattern,
+												interval: 1,
+												daysOfWeek: [],
+												daysOfMonth: [],
+												monthsOfYear: [],
+												endDate: undefined
+											});
+										}
+									}}
 								/>
 							</div>
 
@@ -705,10 +740,23 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 							{/* Dates */}
 							<div className='space-y-4'>
 								<div>
-									<label className='text-sm font-medium text-muted-foreground block mb-3'>
-										<Calendar className='h-4 w-4 inline mr-1' />
-										Scheduled Date & Time
-									</label>
+									<div className="flex items-center justify-between mb-3">
+										<label className='text-sm font-medium text-muted-foreground'>
+											<Calendar className='h-4 w-4 inline mr-1' />
+											Scheduled Date & Time
+										</label>
+										{formData.scheduledDate && (
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => updateFormData('scheduledDate', undefined)}
+												className="text-xs text-muted-foreground hover:text-destructive"
+											>
+												<X className="h-3 w-3 mr-1" />
+												Clear
+											</Button>
+										)}
+									</div>
 									
 									{/* Calendar */}
 									<div className="space-y-4">
