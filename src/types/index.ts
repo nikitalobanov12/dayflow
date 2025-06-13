@@ -31,6 +31,7 @@ export interface Task {
 	parentTaskId?: number; // For task dependencies
 	progressPercentage: number; // 0-100
 	recurring?: RecurringConfig; // For recurring tasks
+	recurringInstanceId?: string; // Unique identifier for recurring task instances
 	labels: TaskLabel[]; // Color-coded labels
 	attachments: TaskAttachment[]; // File attachments
 	timeSpent: number; // Actual time spent in minutes
@@ -210,4 +211,24 @@ export interface ProfileRow {
 	timezone: string;
 	created_at: string;
 	updated_at: string;
+}
+
+export interface RecurringInstance {
+	id: number;
+	originalTaskId: number;
+	instanceDate: string; // ISO date string (YYYY-MM-DD)
+	completedAt?: string; // ISO timestamp when completed
+	createdAt: string;
+	updatedAt: string;
+	userId: string;
+}
+
+export interface RecurringInstanceRow {
+	id: number;
+	original_task_id: number;
+	instance_date: string;
+	completed_at: string | null;
+	created_at: string;
+	updated_at: string;
+	user_id: string;
 }

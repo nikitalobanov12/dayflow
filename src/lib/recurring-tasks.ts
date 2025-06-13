@@ -1,16 +1,37 @@
 import { Task, RecurringConfig } from '../types';
 import { addDays, addWeeks, addMonths, addYears } from 'date-fns';
+import { recurringInstanceDatabase } from './recurring-instance-database';
 
-export function generateRecurringInstances(
+// Helper function to create a unique identifier for recurring instances
+function createRecurringInstanceId(originalId: number, date: Date): string {
+  return `${originalId}-${date.toISOString().split('T')[0]}`;
+}
+
+// Helper function to parse recurring instance ID
+function parseRecurringInstanceId(instanceId: string): { originalId: number; date: string } | null {
+  const parts = instanceId.split('-');
+  if (parts.length >= 4) {
+    const originalId = parseInt(parts[0]);
+    const date = parts.slice(1).join('-');
+    return { originalId, date };
+  }
+  return null;
+}
+
+export async function generateRecurringInstances(
   task: Task,
   startDate: Date,
-  endDate: Date
-): Task[] {
+  endDate: Date,
+  completedInstances?: Map<string, boolean>
+): Promise<Task[]> {
   if (!task.recurring) return [task];
 
   const instances: Task[] = [];
   const { pattern, interval, endDate: recurringEndDate } = task.recurring;
   const stopDate = recurringEndDate ? new Date(recurringEndDate) : endDate;
+  
+  // Get completion status from database if not provided
+  const completionMap = completedInstances || await recurringInstanceDatabase.getCompletionMap(task.id);
   
   // Start from the original task's scheduled date, not the view start date
   const originalDate = task.scheduledDate ? new Date(task.scheduledDate) : new Date();
@@ -37,7 +58,7 @@ export function generateRecurringInstances(
             instanceDate <= endDate && 
             instanceDate <= stopDate &&
             instanceDate >= originalDate) {
-          const instance = createTaskInstance(task, instanceDate);
+          const instance = createTaskInstance(task, instanceDate, completionMap);
           instances.push(instance);
         }
       }
@@ -60,7 +81,7 @@ export function generateRecurringInstances(
       let tempDate = new Date(originalDate);
       while (tempDate < startDate && tempDate < stopDate) {
         if (tempDate >= startDate && isValidRecurrenceDate(tempDate, task.recurring)) {
-          const instance = createTaskInstance(task, tempDate);
+          const instance = createTaskInstance(task, tempDate, completionMap);
           instances.push(instance);
         }
         
@@ -86,7 +107,7 @@ export function generateRecurringInstances(
     // Generate instances within the visible date range
     while (currentDate <= endDate && currentDate <= stopDate) {
       if (isValidRecurrenceDate(currentDate, task.recurring)) {
-        const instance = createTaskInstance(task, currentDate);
+        const instance = createTaskInstance(task, currentDate, completionMap);
         instances.push(instance);
       }
 
@@ -136,10 +157,16 @@ function isValidRecurrenceDate(date: Date, config: RecurringConfig): boolean {
   return true;
 }
 
-function createTaskInstance(task: Task, date: Date): Task {
+function createTaskInstance(task: Task, date: Date, completedInstances: Map<string, boolean> = new Map()): Task {
   const instance = { ...task };
-  // Keep the original task ID for recurring instances so they can be edited
-  // instance.id = 0; // Will be assigned by the database
+  
+  // Create unique ID for this instance
+  const instanceId = createRecurringInstanceId(task.id, date);
+  
+  // Use the original task ID as the base, but add instance info
+  instance.id = task.id; // Keep original ID for database operations
+  instance.recurringInstanceId = instanceId; // Add instance identifier
+  
   instance.createdAt = date.toISOString();
   
   // Preserve the time from the original task's scheduled date
@@ -148,10 +175,24 @@ function createTaskInstance(task: Task, date: Date): Task {
   newDate.setHours(originalDate.getHours(), originalDate.getMinutes(), originalDate.getSeconds());
   instance.scheduledDate = newDate.toISOString();
   
-  // Reset completion status for new instances
-  instance.completedAt = undefined;
-  instance.progressPercentage = 0;
-  instance.timeSpent = 0;
+  // Check if this specific instance is completed
+  const isCompleted = completedInstances.get(instanceId) || false;
+  
+  // Set completion status for this instance
+  if (isCompleted) {
+    instance.completedAt = new Date().toISOString();
+    instance.status = 'done';
+    instance.progressPercentage = 100;
+  } else {
+    instance.completedAt = undefined;
+    instance.progressPercentage = 0;
+    instance.timeSpent = 0;
+    
+    // Don't override status if it's already 'done' (original task completed)
+    if (instance.status === 'done') {
+      instance.status = 'backlog';
+    }
+  }
 
   return instance;
 }
@@ -232,4 +273,7 @@ export function getRecurringDescription(task: Task): string {
   }
 
   return description;
-} 
+}
+
+// Helper functions to work with recurring instance IDs
+export { createRecurringInstanceId, parseRecurringInstanceId }; 

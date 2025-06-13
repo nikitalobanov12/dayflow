@@ -12,6 +12,7 @@ import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { ViewHeader } from '@/components/ui/view-header';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { generateRecurringInstances } from '@/lib/recurring-tasks';
+import { recurringInstanceDatabase } from '@/lib/recurring-instance-database';
 import { Calendar as CalendarUI } from '@/components/ui/calendar';
 
 interface CompactCalendarViewProps {
@@ -53,6 +54,10 @@ const ZOOM_LEVELS = [
 export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards, user, onSignOut, onViewChange, onOpenSettings, userPreferences }: CompactCalendarViewProps) {
 	// Apply user preferences
 	const { filterTasks, weekStartsOn, calendarDefaultZoom, calendarDefaultView, formatDate } = useUserPreferences(userPreferences);
+	
+	// State to force re-render when recurring instances are updated
+	const [recurringInstancesVersion, setRecurringInstancesVersion] = useState(0);
+	const [events, setEvents] = useState<CalendarEvent[]>([]);
 	// Helper function to format time according to user preference
 	const formatTime = (date: Date) => {
 		const timeFormat = userPreferences?.timeFormat || '12h';
@@ -114,22 +119,25 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 		}
 	}, [currentDate, viewMode, weekStartsOn]);
 
-	// Convert tasks to calendar events
-	const events: CalendarEvent[] = useMemo(() => {
-		// First filter by board if not viewing all tasks
-		const boardFilteredTasks = isAllTasksBoard 
-			? tasks 
-			: tasks.filter(task => task.boardId === board.id);
-		
-		const filteredTasks = filterTasks(boardFilteredTasks);
-		const allEvents: CalendarEvent[] = [];
+	// Generate calendar events
+	useEffect(() => {
+		const generateEvents = async () => {
+			// First filter by board if not viewing all tasks
+			const boardFilteredTasks = isAllTasksBoard 
+				? tasks 
+				: tasks.filter(task => task.boardId === board.id);
+			
+			const filteredTasks = filterTasks(boardFilteredTasks);
+			const allEvents: CalendarEvent[] = [];
 
-		filteredTasks
-			.filter(task => task.scheduledDate || task.startDate || task.dueDate)
-			.forEach(task => {
+			for (const task of filteredTasks.filter(task => task.scheduledDate || task.startDate || task.dueDate)) {
 				// Generate recurring instances if the task is recurring
 				const instances = task.recurring 
-					? generateRecurringInstances(task, startOfDay(visibleDates[0]), endOfDay(visibleDates[visibleDates.length - 1]))
+					? await generateRecurringInstances(
+						task, 
+						startOfDay(visibleDates[0]), 
+						endOfDay(visibleDates[visibleDates.length - 1])
+					)
 					: [task];
 
 				instances.forEach(instance => {
@@ -168,17 +176,25 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 						title: instance.title,
 					});
 				});
+			}
+
+			// Filter events to only show those within visible dates
+			const filteredEvents = allEvents.filter(event => {
+				return visibleDates.some(date => 
+					isSameDay(event.start, date) || 
+					isSameDay(event.end, date) || 
+					(event.start <= startOfDay(date) && event.end >= endOfDay(date))
+				);
 			});
 
-		// Filter events to only show those within visible dates
-		return allEvents.filter(event => {
-			return visibleDates.some(date => 
-				isSameDay(event.start, date) || 
-				isSameDay(event.end, date) || 
-				(event.start <= startOfDay(date) && event.end >= endOfDay(date))
-			);
+			setEvents(filteredEvents);
+		};
+
+		generateEvents().catch(error => {
+			console.error('Error generating calendar events:', error);
+			setEvents([]);
 		});
-	}, [tasks, filterTasks, visibleDates, isAllTasksBoard, board.id]);
+	}, [tasks, filterTasks, visibleDates, isAllTasksBoard, board.id, recurringInstancesVersion]);
 	// Get unscheduled tasks
 	const unscheduledTasks = useMemo(() => {
 		// First filter by board if not viewing all tasks
@@ -449,6 +465,29 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 		await onDeleteTask(taskId);
 	};
 	const handleTaskToggleComplete = async (task: Task) => {
+		// Handle recurring task instances
+		if (task.recurring && task.recurringInstanceId) {
+			const isCurrentlyCompleted = task.status === 'done';
+			const instanceDate = (task.scheduledDate || new Date().toISOString()).split('T')[0]; // Get just the date part
+			
+			try {
+				if (isCurrentlyCompleted) {
+					// Mark this instance as incomplete
+					await recurringInstanceDatabase.markInstanceIncomplete(task.id, instanceDate);
+				} else {
+					// Mark this instance as completed
+					await recurringInstanceDatabase.markInstanceCompleted(task.id, instanceDate);
+				}
+				
+				// Force a re-render by incrementing the version
+				setRecurringInstancesVersion(prev => prev + 1);
+			} catch (error) {
+				console.error('Error updating recurring instance:', error);
+			}
+			return;
+		}
+		
+		// Handle regular tasks
 		const newStatus = task.status === 'done' ? 'today' : 'done';
 		const updates: Partial<Task> = {
 			status: newStatus,
@@ -1103,7 +1142,10 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 														{/* Very Small Cards (< 30px) - Just title, minimal padding */}
 														{isVerySmall && (
 															<div className='px-1.5 py-0.5 h-full flex items-center'>
-																<div className='text-xs font-medium truncate leading-none'>{event.title}</div>
+																<div className='text-xs font-medium truncate leading-none flex items-center gap-1'>
+																	{event.task.recurring && <Repeat className='h-2.5 w-2.5 opacity-60' />}
+																	{event.title}
+																</div>
 																{event.task.status === 'done' && <CheckCircle className='h-3 w-3 text-green-300 ml-1 flex-shrink-0' />}
 															</div>
 														)}
@@ -1112,7 +1154,10 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 														{isSmall && !isVerySmall && (
 															<div className='p-1.5 h-full flex flex-col justify-center'>
 																<div className='flex items-center justify-between'>
-																	<div className='text-xs font-semibold truncate flex-1 leading-tight'>{event.title}</div>
+																	<div className='text-xs font-semibold truncate flex-1 leading-tight flex items-center gap-1'>
+																		{event.task.recurring && <Repeat className='h-2.5 w-2.5 opacity-60' />}
+																		{event.title}
+																	</div>
 																	<button
 																		onClick={e => handleCheckboxClick(e, event.task)}
 																		className={`ml-1 flex-shrink-0 w-3 h-3 rounded-sm border transition-all duration-200 flex items-center justify-center ${event.task.status === 'done' ? 'bg-green-500 border-green-500 text-white' : 'border-white/50 hover:border-white hover:bg-white/10'}`}
@@ -1129,7 +1174,10 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 														{isMedium && (
 															<div className='p-2 h-full flex flex-col'>
 																<div className='flex items-start justify-between mb-1'>
-																	<div className='font-semibold text-sm leading-tight truncate flex-1'>{event.title}</div>
+																	<div className='font-semibold text-sm leading-tight truncate flex-1 flex items-center gap-1'>
+																		{event.task.recurring && <Repeat className='h-3 w-3 opacity-60' />}
+																		{event.title}
+																	</div>
 																	<button
 																		onClick={e => handleCheckboxClick(e, event.task)}
 																		className={`ml-1 flex-shrink-0 w-4 h-4 rounded border transition-all duration-200 flex items-center justify-center ${event.task.status === 'done' ? 'bg-green-500 border-green-500 text-white' : 'border-white/50 hover:border-white hover:bg-white/10'}`}
@@ -1156,7 +1204,10 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 														{isLarge && (
 															<div className='p-2 h-full flex flex-col'>
 																<div className='flex items-start justify-between mb-1'>
-																	<div className='font-semibold text-sm leading-tight truncate flex-1'>{event.title}</div>
+																	<div className='font-semibold text-sm leading-tight truncate flex-1 flex items-center gap-1'>
+																		{event.task.recurring && <Repeat className='h-3 w-3 opacity-60' />}
+																		{event.title}
+																	</div>
 																	<button
 																		onClick={e => handleCheckboxClick(e, event.task)}
 																		className={`ml-1 flex-shrink-0 w-4 h-4 rounded border transition-all duration-200 flex items-center justify-center ${event.task.status === 'done' ? 'bg-green-500 border-green-500 text-white' : 'border-white/50 hover:border-white hover:bg-white/10'}`}
