@@ -650,6 +650,13 @@ export const useSupabaseDatabase = () => {
 		return { data, error };
 	};
 
+	const updatePassword = async (newPassword: string) => {
+		const { data, error } = await supabase.auth.updateUser({
+			password: newPassword,
+		});
+		return { data, error };
+	};
+
 	// Board operations
 	const addBoard = async (board: Omit<Board, 'id' | 'createdAt' | 'userId'>): Promise<number | null> => {
 		if (!user) return null;
@@ -784,6 +791,7 @@ export const useSupabaseDatabase = () => {
 		signInWithGoogle,
 		signOut,
 		resetPasswordForEmail,
+		updatePassword,
 
 		// Utility
 		loadTasks,

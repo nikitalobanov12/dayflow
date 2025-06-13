@@ -15,7 +15,7 @@ import { Board, Task } from '@/types';
 import './App.css';
 
 function App() {
-	const { tasks, boards, addTask, deleteTask, duplicateTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, signInWithGoogle, resetPasswordForEmail } = useSupabaseDatabase();
+	const { tasks, boards, addTask, deleteTask, duplicateTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, signInWithGoogle, resetPasswordForEmail, updatePassword } = useSupabaseDatabase();
 	const { userPreferences, userProfile, updateUserPreferences, updateUserProfile } = useUserSettings(user?.id);
 
 	const [isOAuthCallback, setIsOAuthCallback] = useState(false);
@@ -305,6 +305,7 @@ function App() {
 						onUpdatePreferences={updateUserPreferences}
 						onUpdateProfile={updateUserProfile}
 						onSignOut={signOut}
+						onUpdatePassword={updatePassword}
 					/>
 				</div>
 			</div>

@@ -5,9 +5,30 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, User, Palette, Calendar, List, CalendarDays } from 'lucide-react';
+import { ArrowLeft, Save, User, Palette, Calendar, List, CalendarDays, Shield, Key, Mail, Eye, EyeOff } from 'lucide-react';
 import { UserPreferences, Profile } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
+import {
+	Sidebar,
+	SidebarContent,
+	SidebarGroup,
+	SidebarGroupContent,
+	SidebarGroupLabel,
+	SidebarHeader,
+	SidebarInset,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarProvider,
+	SidebarTrigger,
+} from '@/components/ui/sidebar';
+import {
+	Breadcrumb,
+	BreadcrumbItem,
+	BreadcrumbList,
+	BreadcrumbPage,
+} from '@/components/ui/breadcrumb';
+import { Separator } from '@/components/ui/separator';
 
 interface SettingsPageProps {
 	user: any;
@@ -17,11 +38,69 @@ interface SettingsPageProps {
 	onUpdatePreferences: (preferences: Partial<UserPreferences>) => Promise<void>;
 	onUpdateProfile: (profile: Partial<Profile>) => Promise<void>;
 	onSignOut?: () => Promise<{ error: any }>;
+	onUpdatePassword?: (newPassword: string) => Promise<{ data: any; error: any }>;
 }
 
 type SettingsSection = 'profile' | 'appearance' | 'datetime' | 'calendar' | 'tasks';
 
-export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpdatePreferences, onUpdateProfile, onSignOut }: SettingsPageProps) {
+// Settings Sidebar Component
+function SettingsSidebar({ activeSection, onSectionChange }: { activeSection: SettingsSection; onSectionChange: (section: SettingsSection) => void }) {
+	const sections = [
+		{ id: 'profile' as const, name: 'Profile', icon: User, description: 'Personal information and account' },
+		{ id: 'appearance' as const, name: 'Appearance', icon: Palette, description: 'Theme and visual preferences' },
+		{ id: 'datetime' as const, name: 'Date & Time', icon: Calendar, description: 'Date, time and timezone settings' },
+		{ id: 'calendar' as const, name: 'Calendar', icon: CalendarDays, description: 'Calendar view and behavior' },
+		{ id: 'tasks' as const, name: 'Tasks', icon: List, description: 'Task management preferences' },
+	];
+
+	return (
+		<Sidebar variant="inset">
+			<SidebarHeader>
+				<SidebarMenu>
+					<SidebarMenuItem>
+						<SidebarMenuButton size="lg" asChild>
+							<div className="cursor-default">
+								<div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
+									<User className="size-4" />
+								</div>
+								<div className="grid flex-1 text-left text-sm leading-tight">
+									<span className="truncate font-medium">Settings</span>
+									<span className="truncate text-xs">Customize your experience</span>
+								</div>
+							</div>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+				</SidebarMenu>
+			</SidebarHeader>
+			<SidebarContent>
+				<SidebarGroup>
+					<SidebarGroupLabel>Configuration</SidebarGroupLabel>
+					<SidebarGroupContent>
+						<SidebarMenu>
+							{sections.map((section) => {
+								const Icon = section.icon;
+								return (
+									<SidebarMenuItem key={section.id}>
+										<SidebarMenuButton
+											onClick={() => onSectionChange(section.id)}
+											isActive={activeSection === section.id}
+											tooltip={section.description}
+										>
+											<Icon className="size-4" />
+											<span>{section.name}</span>
+										</SidebarMenuButton>
+									</SidebarMenuItem>
+								);
+							})}
+						</SidebarMenu>
+					</SidebarGroupContent>
+				</SidebarGroup>
+			</SidebarContent>
+		</Sidebar>
+	);
+}
+
+export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpdatePreferences, onUpdateProfile, onSignOut, onUpdatePassword }: SettingsPageProps) {
 	const { setTheme } = useTheme();
 	const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
 	const [isLoading, setIsLoading] = useState(false);
@@ -39,6 +118,7 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 		taskSortOrder: 'asc',
 		calendarDefaultZoom: 1,
 		calendarDefaultView: '3-day',
+		boardDefaultView: 'compact',
 		...userPreferences,
 	});
 
@@ -104,83 +184,60 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 			setIsLoading(false);
 		}
 	};
-	const sections = [
-		{ id: 'profile' as const, name: 'Profile', icon: User },
-		{ id: 'appearance' as const, name: 'Appearance', icon: Palette },
-		{ id: 'datetime' as const, name: 'Date & Time', icon: Calendar },
-		{ id: 'calendar' as const, name: 'Calendar', icon: CalendarDays },
-		{ id: 'tasks' as const, name: 'Tasks', icon: List },
-	];
+
+	const getSectionTitle = () => {
+		const titles = {
+			profile: 'Profile',
+			appearance: 'Appearance',
+			datetime: 'Date & Time',
+			calendar: 'Calendar',
+			tasks: 'Tasks',
+		};
+		return titles[activeSection];
+	};
 
 	return (
-		<div className='h-screen bg-background flex flex-col'>
-			{/* Header */}
-			<div className='p-4 border-b border-border bg-card'>
-				<div className='flex items-center justify-between container max-w-[1376px] mx-auto'>
-					<div className='flex items-center gap-4'>
-						<Button
-							variant='ghost'
-							size='icon'
-							onClick={onBack}
-							className='h-8 w-8'
-						>
-							<ArrowLeft className='h-4 w-4' />
-						</Button>
-						<div>
-							<h1 className='text-xl font-bold text-foreground'>Settings</h1>
-							<p className='text-sm text-muted-foreground'>Customize your DayFlow experience</p>
-						</div>
+		<SidebarProvider>
+			<SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+			<SidebarInset>
+				<header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+					<div className="flex items-center gap-2 px-4">
+						<SidebarTrigger className="-ml-1" />
+						<Separator orientation="vertical" className="mr-2 h-4" />
+						<Breadcrumb>
+							<BreadcrumbList>
+								<BreadcrumbItem>
+									<Button variant="ghost" size="sm" onClick={onBack} className="h-auto p-0 text-muted-foreground hover:text-foreground">
+										<ArrowLeft className="h-4 w-4 mr-1" />
+										Back
+									</Button>
+								</BreadcrumbItem>
+								<BreadcrumbItem>
+									<BreadcrumbPage>{getSectionTitle()}</BreadcrumbPage>
+								</BreadcrumbItem>
+							</BreadcrumbList>
+						</Breadcrumb>
 					</div>
-
-					<div className='flex items-center gap-2'>
+					<div className="ml-auto flex items-center gap-2 px-4">
 						{hasUnsavedChanges && (
-							<Badge
-								variant='outline'
-								className='text-orange-600 border-orange-200'
-							>
+							<Badge variant="outline" className="text-orange-600 border-orange-200">
 								Unsaved changes
 							</Badge>
 						)}
-						<Button
-							onClick={handleSave}
-							disabled={!hasUnsavedChanges || isLoading}
-							className='gap-2'
-						>
-							<Save className='h-4 w-4' />
+						<Button onClick={handleSave} disabled={!hasUnsavedChanges || isLoading} size="sm" className="gap-2">
+							<Save className="h-4 w-4" />
 							{isLoading ? 'Saving...' : 'Save Changes'}
 						</Button>
 					</div>
-				</div>
-			</div>
-
-			<div className='flex-1 flex container max-w-[1376px] mx-auto'>
-				{/* Sidebar */}
-				<div className='w-64 border-r border-border bg-card p-4'>
-					<nav className='space-y-2'>
-						{sections.map(section => {
-							const Icon = section.icon;
-							return (
-								<button
-									key={section.id}
-									onClick={() => setActiveSection(section.id)}
-									className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${activeSection === section.id ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-muted-foreground hover:text-foreground'}`}
-								>
-									<Icon className='h-4 w-4' />
-									{section.name}
-								</button>
-							);
-						})}
-					</nav>
-				</div>
-
-				{/* Content */}
-				<div className='flex-1 p-6 overflow-auto'>
+				</header>
+				<div className="flex flex-1 flex-col gap-4 p-4 pt-0">
 					{activeSection === 'profile' && (
 						<ProfileSection
 							profile={localProfile}
 							user={user}
 							onUpdateProfile={updateProfile}
 							onSignOut={handleSignOut}
+							onUpdatePassword={onUpdatePassword}
 							isLoading={isLoading}
 						/>
 					)}
@@ -189,7 +246,7 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 							preferences={localPreferences}
 							onUpdatePreference={updatePreference}
 						/>
-					)}{' '}
+					)}
 					{activeSection === 'datetime' && (
 						<DateTimeSection
 							preferences={localPreferences}
@@ -201,7 +258,7 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 							preferences={localPreferences}
 							onUpdatePreference={updatePreference}
 						/>
-					)}{' '}
+					)}
 					{activeSection === 'tasks' && (
 						<TasksSection
 							preferences={localPreferences}
@@ -209,15 +266,92 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 						/>
 					)}
 				</div>
-			</div>
-		</div>
+			</SidebarInset>
+		</SidebarProvider>
 	);
 }
 
 // Profile Section Component
-function ProfileSection({ profile, user, onUpdateProfile, onSignOut, isLoading }: { profile: Partial<Profile>; user: any; onUpdateProfile: (key: keyof Profile, value: any) => void; onSignOut: () => void; isLoading: boolean }) {
+function ProfileSection({ profile, user, onUpdateProfile, onSignOut, onUpdatePassword, isLoading }: { profile: Partial<Profile>; user: any; onUpdateProfile: (key: keyof Profile, value: any) => void; onSignOut: () => void; onUpdatePassword?: (newPassword: string) => Promise<{ data: any; error: any }>; isLoading: boolean }) {
 	// Common timezones that users are likely to need
 	const commonTimezones = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai', 'Australia/Sydney', 'UTC'];
+	
+	// Password change state
+	const [showPasswordSection, setShowPasswordSection] = useState(false);
+	const [passwordData, setPasswordData] = useState({
+		currentPassword: '',
+		newPassword: '',
+		confirmPassword: ''
+	});
+	const [showPasswords, setShowPasswords] = useState({
+		current: false,
+		new: false,
+		confirm: false
+	});
+	const [passwordLoading, setPasswordLoading] = useState(false);
+	const [passwordError, setPasswordError] = useState('');
+
+	// Determine authentication method
+	const isGoogleAuth = user?.app_metadata?.provider === 'google' || user?.identities?.some((identity: any) => identity.provider === 'google');
+
+	const handlePasswordChange = async () => {
+		if (!onUpdatePassword) {
+			setPasswordError('Password update function not available');
+			return;
+		}
+
+		if (passwordData.newPassword !== passwordData.confirmPassword) {
+			setPasswordError('New passwords do not match');
+			return;
+		}
+
+		if (passwordData.newPassword.length < 6) {
+			setPasswordError('Password must be at least 6 characters long');
+			return;
+		}
+
+		setPasswordLoading(true);
+		setPasswordError('');
+
+		try {
+			const { error } = await onUpdatePassword(passwordData.newPassword);
+			
+			if (error) {
+				setPasswordError(error.message || 'Failed to change password. Please try again.');
+				return;
+			}
+			
+			// Reset form on success
+			setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+			setShowPasswordSection(false);
+			// You might want to show a success message here
+		} catch (error) {
+			setPasswordError('Failed to change password. Please try again.');
+			console.error('Password change error:', error);
+		} finally {
+			setPasswordLoading(false);
+		}
+	};
+
+	const getAuthProviderInfo = () => {
+		if (isGoogleAuth) {
+			return {
+				provider: 'Google',
+				icon: <Mail className="h-4 w-4" />,
+				description: 'You signed in with your Google account',
+				canChangePassword: false
+			};
+		} else {
+			return {
+				provider: 'Email & Password',
+				icon: <Key className="h-4 w-4" />,
+				description: 'You signed in with email and password',
+				canChangePassword: true
+			};
+		}
+	};
+
+	const authInfo = getAuthProviderInfo();
 
 	return (
 		<div className='space-y-6'>
@@ -269,7 +403,7 @@ function ProfileSection({ profile, user, onUpdateProfile, onSignOut, isLoading }
 						>
 							<SelectTrigger>
 								<SelectValue />
-							</SelectTrigger>{' '}
+							</SelectTrigger>
 							<SelectContent className='max-h-60'>
 								{commonTimezones.map((tz: string) => (
 									<SelectItem
@@ -282,6 +416,149 @@ function ProfileSection({ profile, user, onUpdateProfile, onSignOut, isLoading }
 							</SelectContent>
 						</Select>
 					</div>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle className="flex items-center gap-2">
+						<Shield className="h-5 w-5" />
+						Authentication Method
+					</CardTitle>
+					<CardDescription>How you sign in to your account</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					<div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+						{authInfo.icon}
+						<div className="flex-1">
+							<p className="font-medium text-sm">{authInfo.provider}</p>
+							<p className="text-xs text-muted-foreground">{authInfo.description}</p>
+						</div>
+						{isGoogleAuth && (
+							<Badge variant="secondary" className="text-xs">
+								OAuth
+							</Badge>
+						)}
+					</div>
+
+					{authInfo.canChangePassword && (
+						<div className="space-y-3">
+							{!showPasswordSection ? (
+								<Button
+									variant="outline"
+									onClick={() => setShowPasswordSection(true)}
+									className="gap-2"
+								>
+									<Key className="h-4 w-4" />
+									Change Password
+								</Button>
+							) : (
+								<div className="space-y-4 p-4 border rounded-lg">
+									<div className="flex items-center justify-between">
+										<h4 className="font-medium">Change Password</h4>
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => {
+												setShowPasswordSection(false);
+												setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+												setPasswordError('');
+											}}
+										>
+											Cancel
+										</Button>
+									</div>
+
+									{passwordError && (
+										<div className="text-sm text-red-600 bg-red-50 dark:bg-red-950/20 p-2 rounded">
+											{passwordError}
+										</div>
+									)}
+
+									<div className="space-y-3">
+										{!isGoogleAuth && (
+											<div>
+												<label className="text-sm font-medium mb-2 block">Current Password</label>
+												<div className="relative">
+													<Input
+														type={showPasswords.current ? 'text' : 'password'}
+														value={passwordData.currentPassword}
+														onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+														placeholder="Enter current password"
+													/>
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+														onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+													>
+														{showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+													</Button>
+												</div>
+											</div>
+										)}
+
+										<div>
+											<label className="text-sm font-medium mb-2 block">New Password</label>
+											<div className="relative">
+												<Input
+													type={showPasswords.new ? 'text' : 'password'}
+													value={passwordData.newPassword}
+													onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+													placeholder="Enter new password"
+												/>
+												<Button
+													type="button"
+													variant="ghost"
+													size="sm"
+													className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+													onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+												>
+													{showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+												</Button>
+											</div>
+										</div>
+
+										<div>
+											<label className="text-sm font-medium mb-2 block">Confirm New Password</label>
+											<div className="relative">
+												<Input
+													type={showPasswords.confirm ? 'text' : 'password'}
+													value={passwordData.confirmPassword}
+													onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+													placeholder="Confirm new password"
+												/>
+												<Button
+													type="button"
+													variant="ghost"
+													size="sm"
+													className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+													onClick={() => setShowPasswords(prev => ({ ...prev, confirm: !prev.confirm }))}
+												>
+													{showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+												</Button>
+											</div>
+										</div>
+
+										<Button
+											onClick={handlePasswordChange}
+											disabled={passwordLoading || (!isGoogleAuth && !passwordData.currentPassword) || !passwordData.newPassword || !passwordData.confirmPassword}
+											className="w-full"
+										>
+											{passwordLoading ? 'Changing Password...' : 'Change Password'}
+										</Button>
+									</div>
+								</div>
+							)}
+						</div>
+					)}
+
+					{isGoogleAuth && (
+						<div className="text-xs text-muted-foreground p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+							<p>Since you signed in with Google, your password is managed by Google. You can change it in your Google account settings.</p>
+						</div>
+					)}
 				</CardContent>
 			</Card>
 
@@ -346,11 +623,6 @@ function DateTimeSection({ preferences, onUpdatePreference }: { preferences: Par
 			<div>
 				<h2 className='text-lg font-semibold mb-2'>Date & Time</h2>
 				<p className='text-sm text-muted-foreground'>Configure how dates and times are displayed throughout the app.</p>{' '}
-				<div className='mt-2 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg'>
-					<p className='text-xs text-green-800 dark:text-green-200'>
-						<strong>Updated:</strong> Date and time formatting is now fully implemented and used throughout the app including calendar events, task cards, and edit dialogs.
-					</p>
-				</div>
 			</div>
 
 			<Card>
@@ -493,17 +765,104 @@ function CalendarSection({ preferences, onUpdatePreference }: { preferences: Par
 
 // Tasks Section Component
 function TasksSection({ preferences, onUpdatePreference }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void }) {
+	const boardViewOptions = [
+		{
+			value: 'compact',
+			label: 'Compact Grid',
+			description: 'Square cards in a dense grid layout',
+			preview: (
+				<div className='w-full h-16 bg-muted/30 rounded-md p-2 flex flex-col gap-1'>
+					<div className='flex gap-1'>
+						<div className='w-4 h-4 bg-primary/60 rounded-sm'></div>
+						<div className='w-4 h-4 bg-primary/60 rounded-sm'></div>
+						<div className='w-4 h-4 bg-primary/60 rounded-sm'></div>
+						<div className='w-4 h-4 bg-primary/60 rounded-sm'></div>
+					</div>
+					<div className='flex gap-1'>
+						<div className='w-4 h-4 bg-primary/60 rounded-sm'></div>
+						<div className='w-4 h-4 bg-primary/60 rounded-sm'></div>
+						<div className='w-4 h-4 bg-primary/60 rounded-sm'></div>
+						<div className='w-4 h-4 bg-primary/60 rounded-sm'></div>
+					</div>
+				</div>
+			)
+		},
+		{
+			value: 'grid',
+			label: 'Grid View',
+			description: 'Larger cards with more details',
+			preview: (
+				<div className='w-full h-16 bg-muted/30 rounded-md p-2 flex flex-col gap-1'>
+					<div className='flex gap-1'>
+						<div className='w-8 h-6 bg-primary/60 rounded-sm'></div>
+						<div className='w-8 h-6 bg-primary/60 rounded-sm'></div>
+					</div>
+					<div className='flex gap-1'>
+						<div className='w-8 h-6 bg-primary/60 rounded-sm'></div>
+						<div className='w-8 h-6 bg-primary/60 rounded-sm'></div>
+					</div>
+				</div>
+			)
+		},
+		{
+			value: 'list',
+			label: 'List View',
+			description: 'Horizontal layout for easy scanning',
+			preview: (
+				<div className='w-full h-16 bg-muted/30 rounded-md p-2 flex flex-col gap-1'>
+					<div className='w-full h-2 bg-primary/60 rounded-sm'></div>
+					<div className='w-full h-2 bg-primary/60 rounded-sm'></div>
+					<div className='w-full h-2 bg-primary/60 rounded-sm'></div>
+					<div className='w-full h-2 bg-primary/60 rounded-sm'></div>
+				</div>
+			)
+		}
+	];
+
 	return (
 		<div className='space-y-6'>
 			<div>
 				<h2 className='text-lg font-semibold mb-2'>Task Management</h2>
 				<p className='text-sm text-muted-foreground'>Configure how tasks are displayed and organized.</p>
-				<div className='mt-2 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg'>
-					<p className='text-xs text-green-800 dark:text-green-200'>
-						<strong>Fully functional:</strong> These settings are actively used in the calendar view for sorting unscheduled tasks and filtering completed tasks.
-					</p>
-				</div>
 			</div>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Board View Layout</CardTitle>
+					<CardDescription>Choose your preferred layout for the board selection screen</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+						{boardViewOptions.map((option) => (
+							<div
+								key={option.value}
+								className={`relative cursor-pointer rounded-lg border-2 p-4 transition-all hover:shadow-md ${
+									preferences.boardDefaultView === option.value
+										? 'border-primary bg-primary/5 shadow-sm'
+										: 'border-border hover:border-primary/50'
+								}`}
+								onClick={() => onUpdatePreference('boardDefaultView', option.value)}
+							>
+								<div className='space-y-3'>
+									<div className='flex items-center justify-between'>
+										<h4 className='font-medium text-sm'>{option.label}</h4>
+										{preferences.boardDefaultView === option.value && (
+											<div className='w-2 h-2 bg-primary rounded-full'></div>
+										)}
+									</div>
+									
+									{option.preview}
+									
+									<p className='text-xs text-muted-foreground leading-relaxed'>
+										{option.description}
+									</p>
+								</div>
+							</div>
+						))}
+					</div>
+				</CardContent>
+			</Card>
+
 			<Card>
 				{' '}
 				<CardHeader>
