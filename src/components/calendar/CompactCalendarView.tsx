@@ -1,17 +1,18 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { format, startOfWeek, endOfWeek, addDays, isSameDay, isToday, addMinutes, startOfDay, endOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Task, Board } from '@/types';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, ZoomIn, ZoomOut, Edit, Copy, Trash2, ArrowLeft, ArrowRight, ArrowUp, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, ZoomIn, ZoomOut, Edit, Copy, Trash2, ArrowLeft, ArrowRight, ArrowUp, Check, AlertTriangle, X, Repeat } from 'lucide-react';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { ViewHeader } from '@/components/ui/view-header';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { generateRecurringInstances } from '@/lib/recurring-tasks';
+import { Calendar as CalendarUI } from '@/components/ui/calendar';
 
 interface CompactCalendarViewProps {
 	board: Board;
@@ -95,6 +96,10 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 		status: 'backlog' as Task['status'],
 	});
 	const calendarContainerRef = useRef<HTMLDivElement>(null);
+
+	// Date picker state
+	const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
+	const [selectedTaskForDatePicker, setSelectedTaskForDatePicker] = useState<Task | null>(null);
 
 	// Get current zoom configuration
 	const currentZoom = ZOOM_LEVELS[zoomLevel];
@@ -553,70 +558,272 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 		}
 	};
 
-	// Context Menu Component
-	const TaskContextMenu = ({ task, children }: { task: Task; children: React.ReactNode }) => (
-		<ContextMenu>
-			<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-			<ContextMenuContent className='w-64'>
-				<ContextMenuItem onClick={() => handleTaskEdit(task)}>
-					<Edit className='mr-2 h-4 w-4' />
-					Edit Task
-				</ContextMenuItem>
-				{onDuplicateTask && (
-					<ContextMenuItem onClick={() => handleTaskDuplicate(task)}>
-						<Copy className='mr-2 h-4 w-4' />
-						Duplicate Task
+	// Enhanced Context Menu Component with quick actions
+	const TaskContextMenu = ({ task, children }: { task: Task; children: React.ReactNode }) => {
+		// Quick action handlers
+		const handleQuickPriority = async (priority: 1 | 2 | 3 | 4) => {
+			await onUpdateTask(task.id, { priority });
+		};
+
+		const handleQuickTime = async (minutes: number) => {
+			await onUpdateTask(task.id, { timeEstimate: minutes });
+		};
+
+		const handleSetRecurringPattern = async (pattern: 'daily' | 'weekly' | 'monthly' | 'yearly') => {
+			const newRecurring = {
+				pattern,
+				interval: 1,
+				daysOfWeek: [],
+				daysOfMonth: [],
+				monthsOfYear: [],
+			};
+			await onUpdateTask(task.id, { recurring: newRecurring });
+		};
+
+		const handleClearRecurring = async () => {
+			await onUpdateTask(task.id, { recurring: undefined });
+		};
+
+		const handleScheduleToday = async () => {
+			const today = new Date();
+			today.setHours(9, 0, 0, 0); // Default to 9 AM
+			await onUpdateTask(task.id, { 
+				scheduledDate: today.toISOString(),
+				status: 'today'
+			});
+		};
+
+		const handleScheduleTomorrow = async () => {
+			const tomorrow = new Date();
+			tomorrow.setDate(tomorrow.getDate() + 1);
+			tomorrow.setHours(9, 0, 0, 0); // Default to 9 AM
+			await onUpdateTask(task.id, { 
+				scheduledDate: tomorrow.toISOString(),
+				status: 'this-week'
+			});
+		};
+
+		const handleScheduleThisWeekend = async () => {
+			const now = new Date();
+			const saturday = new Date(now);
+			const daysUntilSaturday = (6 - now.getDay()) % 7;
+			saturday.setDate(now.getDate() + (daysUntilSaturday === 0 ? 7 : daysUntilSaturday));
+			saturday.setHours(10, 0, 0, 0); // Default to 10 AM on Saturday
+			await onUpdateTask(task.id, { 
+				scheduledDate: saturday.toISOString(),
+				status: 'this-week'
+			});
+		};
+
+		const handleClearSchedule = async () => {
+			await onUpdateTask(task.id, { 
+				scheduledDate: undefined,
+				startDate: undefined,
+				dueDate: undefined
+			});
+		};
+
+		const handleSelectDate = async (date: Date | undefined) => {
+			if (!date) return;
+			
+			setIsDateDialogOpen(false);
+			// Set time to 9 AM by default
+			const scheduledDate = new Date(date);
+			scheduledDate.setHours(9, 0, 0, 0);
+			
+			// Determine status based on date
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			const selectedDay = new Date(date);
+			selectedDay.setHours(0, 0, 0, 0);
+			
+			let newStatus: Task['status'] = 'backlog';
+			if (selectedDay.getTime() === today.getTime()) {
+				newStatus = 'today';
+			} else if (selectedDay > today && selectedDay <= new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+				newStatus = 'this-week';
+			}
+			
+			await onUpdateTask(task.id, { 
+				scheduledDate: scheduledDate.toISOString(),
+				status: newStatus
+			});
+		};
+
+		return (
+			<ContextMenu>
+				<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+				<ContextMenuContent className='w-64'>
+					<ContextMenuItem onClick={() => handleTaskEdit(task)}>
+						<Edit className='mr-2 h-4 w-4' />
+						Edit Task
 					</ContextMenuItem>
-				)}
-				<ContextMenuSeparator />
-				<ContextMenuItem onClick={() => handleTaskToggleComplete(task)}>
-					<Check className='mr-2 h-4 w-4' />
-					{task.status === 'done' ? 'Mark as Incomplete' : 'Mark as Complete'}
-				</ContextMenuItem>
-				<ContextMenuSeparator />
-				<ContextMenuSub>
-					<ContextMenuSubTrigger>
-						<ArrowRight className='mr-2 h-4 w-4' />
-						Move to...
-					</ContextMenuSubTrigger>
-					<ContextMenuSubContent>
-						{task.status !== 'backlog' && (
-							<ContextMenuItem onClick={() => handleTaskMove(task, 'backlog')}>
-								<ArrowLeft className='mr-2 h-4 w-4' />
-								Backlog
+					{onDuplicateTask && (
+						<ContextMenuItem onClick={() => handleTaskDuplicate(task)}>
+							<Copy className='mr-2 h-4 w-4' />
+							Duplicate Task
+						</ContextMenuItem>
+					)}
+					<ContextMenuSeparator />
+					<ContextMenuItem onClick={() => handleTaskToggleComplete(task)}>
+						<Check className='mr-2 h-4 w-4' />
+						{task.status === 'done' ? 'Mark as Incomplete' : 'Mark as Complete'}
+					</ContextMenuItem>
+					<ContextMenuSeparator />
+					
+					{/* Priority submenu */}
+					<ContextMenuSub>
+						<ContextMenuSubTrigger>
+							<AlertTriangle className='mr-2 h-4 w-4' />
+							Priority
+						</ContextMenuSubTrigger>
+						<ContextMenuSubContent>
+							<ContextMenuItem onClick={() => handleQuickPriority(4)}>
+								<div className='flex items-center gap-2'>
+									<div className='w-3 h-3 rounded-full bg-red-500'></div>
+									Critical (4)
+								</div>
 							</ContextMenuItem>
-						)}
-						{task.status !== 'this-week' && (
-							<ContextMenuItem onClick={() => handleTaskMove(task, 'this-week')}>
-								<ArrowUp className='mr-2 h-4 w-4' />
-								This Week
+							<ContextMenuItem onClick={() => handleQuickPriority(3)}>
+								<div className='flex items-center gap-2'>
+									<div className='w-3 h-3 rounded-full bg-orange-500'></div>
+									High (3)
+								</div>
 							</ContextMenuItem>
-						)}
-						{task.status !== 'today' && (
-							<ContextMenuItem onClick={() => handleTaskMove(task, 'today')}>
-								<ArrowUp className='mr-2 h-4 w-4' />
-								Today
+							<ContextMenuItem onClick={() => handleQuickPriority(2)}>
+								<div className='flex items-center gap-2'>
+									<div className='w-3 h-3 rounded-full bg-yellow-500'></div>
+									Medium (2)
+								</div>
 							</ContextMenuItem>
-						)}
-						{task.status !== 'done' && (
-							<ContextMenuItem onClick={() => handleTaskMove(task, 'done')}>
-								<Check className='mr-2 h-4 w-4' />
-								Done
+							<ContextMenuItem onClick={() => handleQuickPriority(1)}>
+								<div className='flex items-center gap-2'>
+									<div className='w-3 h-3 rounded-full bg-green-500'></div>
+									Low (1)
+								</div>
 							</ContextMenuItem>
-						)}
-					</ContextMenuSubContent>
-				</ContextMenuSub>
-				<ContextMenuSeparator />
-				<ContextMenuItem
-					onClick={() => handleTaskDelete(task.id)}
-					className='text-destructive'
-				>
-					<Trash2 className='mr-2 h-4 w-4' />
-					Delete Task
-				</ContextMenuItem>
-			</ContextMenuContent>
-		</ContextMenu>
-	);
+						</ContextMenuSubContent>
+					</ContextMenuSub>
+
+					{/* Time Estimate submenu */}
+					<ContextMenuSub>
+						<ContextMenuSubTrigger>
+							<Clock className='mr-2 h-4 w-4' />
+							Time Estimate
+						</ContextMenuSubTrigger>
+						<ContextMenuSubContent>
+							<ContextMenuItem onClick={() => handleQuickTime(15)}>15 minutes</ContextMenuItem>
+							<ContextMenuItem onClick={() => handleQuickTime(30)}>30 minutes</ContextMenuItem>
+							<ContextMenuItem onClick={() => handleQuickTime(60)}>1 hour</ContextMenuItem>
+							<ContextMenuItem onClick={() => handleQuickTime(120)}>2 hours</ContextMenuItem>
+							<ContextMenuItem onClick={() => handleQuickTime(240)}>4 hours</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={() => handleQuickTime(0)}>Clear</ContextMenuItem>
+						</ContextMenuSubContent>
+					</ContextMenuSub>
+
+					{/* Schedule submenu with date picker */}
+					<ContextMenuSub>
+						<ContextMenuSubTrigger>
+							<CalendarIcon className='mr-2 h-4 w-4' />
+							Schedule
+						</ContextMenuSubTrigger>
+						<ContextMenuSubContent>
+							<ContextMenuItem
+								onSelect={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									setSelectedTaskForDatePicker(task);
+									setIsDateDialogOpen(true);
+								}}
+							>
+								<CalendarIcon className='mr-2 h-4 w-4' />
+								Pick a date...
+							</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={handleScheduleToday}>
+								<CalendarIcon className='mr-2 h-4 w-4' />
+								Today (9 AM)
+							</ContextMenuItem>
+							<ContextMenuItem onClick={handleScheduleTomorrow}>
+								<CalendarIcon className='mr-2 h-4 w-4' />
+								Tomorrow (9 AM)
+							</ContextMenuItem>
+							<ContextMenuItem onClick={handleScheduleThisWeekend}>
+								<CalendarIcon className='mr-2 h-4 w-4' />
+								This Weekend (10 AM)
+							</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={handleClearSchedule}>
+								<X className='mr-2 h-4 w-4' />
+								Clear Schedule
+							</ContextMenuItem>
+						</ContextMenuSubContent>
+					</ContextMenuSub>
+
+					{/* Recurring pattern submenu */}
+					<ContextMenuSub>
+						<ContextMenuSubTrigger>
+							<Repeat className='mr-2 h-4 w-4' />
+							Recurring
+						</ContextMenuSubTrigger>
+						<ContextMenuSubContent>
+							<ContextMenuItem onClick={() => handleSetRecurringPattern('daily')}>Daily</ContextMenuItem>
+							<ContextMenuItem onClick={() => handleSetRecurringPattern('weekly')}>Weekly</ContextMenuItem>
+							<ContextMenuItem onClick={() => handleSetRecurringPattern('monthly')}>Monthly</ContextMenuItem>
+							<ContextMenuItem onClick={() => handleSetRecurringPattern('yearly')}>Yearly</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={handleClearRecurring}>Clear Recurring</ContextMenuItem>
+						</ContextMenuSubContent>
+					</ContextMenuSub>
+
+					<ContextMenuSeparator />
+
+					{/* Move to submenu */}
+					<ContextMenuSub>
+						<ContextMenuSubTrigger>
+							<ArrowRight className='mr-2 h-4 w-4' />
+							Move to...
+						</ContextMenuSubTrigger>
+						<ContextMenuSubContent>
+							{task.status !== 'backlog' && (
+								<ContextMenuItem onClick={() => handleTaskMove(task, 'backlog')}>
+									<ArrowLeft className='mr-2 h-4 w-4' />
+									Backlog
+								</ContextMenuItem>
+							)}
+							{task.status !== 'this-week' && (
+								<ContextMenuItem onClick={() => handleTaskMove(task, 'this-week')}>
+									<ArrowUp className='mr-2 h-4 w-4' />
+									This Week
+								</ContextMenuItem>
+							)}
+							{task.status !== 'today' && (
+								<ContextMenuItem onClick={() => handleTaskMove(task, 'today')}>
+									<ArrowUp className='mr-2 h-4 w-4' />
+									Today
+								</ContextMenuItem>
+							)}
+							{task.status !== 'done' && (
+								<ContextMenuItem onClick={() => handleTaskMove(task, 'done')}>
+									<Check className='mr-2 h-4 w-4' />
+									Done
+								</ContextMenuItem>
+							)}
+						</ContextMenuSubContent>
+					</ContextMenuSub>
+					<ContextMenuSeparator />
+					<ContextMenuItem
+						onClick={() => handleTaskDelete(task.id)}
+						className='text-destructive'
+					>
+						<Trash2 className='mr-2 h-4 w-4' />
+						Delete Task
+					</ContextMenuItem>
+				</ContextMenuContent>
+			</ContextMenu>
+		);
+	};
 	// Scroll to current time function (can be called manually)
 	const scrollToCurrentTime = useCallback(() => {
 		const container = calendarContainerRef.current;
@@ -1099,6 +1306,54 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 				isCreating={true}
 				userPreferences={userPreferences}
 			/>
+
+			{/* Date Picker Dialog */}
+			<Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
+				<DialogContent className="p-0 max-w-xs">
+					<DialogHeader>
+						<DialogTitle>Pick a Date</DialogTitle>
+					</DialogHeader>
+					<CalendarUI
+						mode="single"
+						selected={selectedTaskForDatePicker?.scheduledDate ? new Date(selectedTaskForDatePicker.scheduledDate) : undefined}
+						onSelect={(date) => {
+							if (selectedTaskForDatePicker) {
+								// Use the handleSelectDate function from the TaskContextMenu
+								const handleSelectDate = async (date: Date | undefined) => {
+									if (!date) return;
+									
+									setIsDateDialogOpen(false);
+									// Set time to 9 AM by default
+									const scheduledDate = new Date(date);
+									scheduledDate.setHours(9, 0, 0, 0);
+									
+									// Determine status based on date
+									const today = new Date();
+									today.setHours(0, 0, 0, 0);
+									const selectedDay = new Date(date);
+									selectedDay.setHours(0, 0, 0, 0);
+									
+									let newStatus: Task['status'] = 'backlog';
+									if (selectedDay.getTime() === today.getTime()) {
+										newStatus = 'today';
+									} else if (selectedDay > today && selectedDay <= new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+										newStatus = 'this-week';
+									}
+									
+									await onUpdateTask(selectedTaskForDatePicker.id, { 
+										scheduledDate: scheduledDate.toISOString(),
+										status: newStatus
+									});
+								};
+								handleSelectDate(date);
+							}
+						}}
+					/>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setIsDateDialogOpen(false)}>Cancel</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

@@ -154,6 +154,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							onUpdateTimeEstimate={onUpdateTimeEstimate}
 							onDuplicateTask={onDuplicateTask}
 							onDeleteTask={onDeleteTask}
+							onUpdateTask={onUpdateTask}
 							showAddButton={true}
 							showProgress={false}
 							totalTimeEstimate={getTotalTimeForColumn('backlog')}
@@ -173,6 +174,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							onUpdateTimeEstimate={onUpdateTimeEstimate}
 							onDuplicateTask={onDuplicateTask}
 							onDeleteTask={onDeleteTask}
+							onUpdateTask={onUpdateTask}
 							showAddButton={true}
 							showProgress={false}
 							totalTimeEstimate={getTotalTimeForColumn('this-week')}
@@ -192,6 +194,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							onUpdateTimeEstimate={onUpdateTimeEstimate}
 							onDuplicateTask={onDuplicateTask}
 							onDeleteTask={onDeleteTask}
+							onUpdateTask={onUpdateTask}
 							showAddButton={true}
 							showProgress={true}
 							completedCount={getTodayCompletedCount()}
@@ -213,6 +216,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							onUpdateTimeEstimate={onUpdateTimeEstimate}
 							onDuplicateTask={onDuplicateTask}
 							onDeleteTask={onDeleteTask}
+							onUpdateTask={onUpdateTask}
 							showAddButton={false}
 							showProgress={false}
 							isAllTasksBoard={isAllTasksBoard}

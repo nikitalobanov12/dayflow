@@ -2,11 +2,12 @@ import { Task, Board } from '@/types';
 import { TaskCard } from './TaskCard';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isTauri } from '@/lib/platform';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
+import { cn } from '@/lib/utils';
 
 interface KanbanColumnProps {
 	title: string;
@@ -18,6 +19,7 @@ interface KanbanColumnProps {
 	onUpdateTimeEstimate?: (taskId: number, timeEstimate: number) => void;
 	onDuplicateTask?: (task: Task) => Promise<void>;
 	onDeleteTask?: (taskId: number) => Promise<void>;
+	onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void>; // Add this for granular updates
 	showAddButton?: boolean;
 	showProgress?: boolean;
 	completedCount?: number; // For progress calculation
@@ -30,14 +32,28 @@ interface KanbanColumnProps {
 	userPreferences?: any; // User preferences for date formatting
 }
 
-export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, onDuplicateTask, onDeleteTask, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo, currentBoard, userPreferences }: KanbanColumnProps) {
+export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, onDuplicateTask, onDeleteTask, onUpdateTask, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo, currentBoard, userPreferences }: KanbanColumnProps) {
 	const [isAdding, setIsAdding] = useState(false);
 	const [newTaskTitle, setNewTaskTitle] = useState('');
 	const [newTaskTime, setNewTaskTime] = useState('');
 	const [newTaskBoardId, setNewTaskBoardId] = useState<number | null>(null);
+	const [isDragOver, setIsDragOver] = useState(false);
 
 	// Apply user preferences for date formatting
 	const { formatDate } = useUserPreferences(userPreferences);
+
+	// Reset drag state when drag ends anywhere on the page
+	useEffect(() => {
+		const handleGlobalDragEnd = () => {
+			setIsDragOver(false);
+		};
+
+		// Listen for drag end events globally
+		document.addEventListener('dragend', handleGlobalDragEnd);
+		return () => {
+			document.removeEventListener('dragend', handleGlobalDragEnd);
+		};
+	}, []);
 
 	// Calculate progress percentage
 	const progressPercentage = showProgress && status === 'today' ? (completedCount / (tasks.length + completedCount)) * 100 || 0 : showProgress && tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
@@ -120,10 +136,48 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 			console.error('Failed to add task:', error);
 		}
 	};
+
+	// Handle task drop
+	const handleDrop = async (e: React.DragEvent) => {
+		e.preventDefault();
+		setIsDragOver(false);
+		
+		const taskId = e.dataTransfer.getData('text/plain');
+		if (taskId) {
+			const taskIdNum = parseInt(taskId);
+			await onMoveTask(taskIdNum, status);
+		}
+	};
+
+	// Handle drag over
+	const handleDragOver = (e: React.DragEvent) => {
+		e.preventDefault();
+		e.dataTransfer.dropEffect = 'move';
+		setIsDragOver(true);
+	};
+
+	// Handle drag leave - simplified and more reliable
+	const handleDragLeave = (e: React.DragEvent) => {
+		// Check if we're leaving the column container by examining the related target
+		const relatedTarget = e.relatedTarget as Element;
+		const currentTarget = e.currentTarget as Element;
+		
+		// If the related target is not a child of the current target, we're leaving the column
+		if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+			setIsDragOver(false);
+		}
+	};
+
 	return (
 		<div
-			className=' flex-none rounded-xl w-80 bg-card border border-border shadow-sm hover:shadow-md transition-all duration-300 flex flex-col backdrop-blur-sm'
+			className={cn(
+				'flex-none  w-80 bg-card border border-border shadow-sm hover:shadow-md transition-all duration-300 flex flex-col backdrop-blur-sm',
+				isDragOver && 'border-primary/50 bg-primary/5 shadow-lg'
+			)}
 			style={{ height: 'calc(100vh - 120px)' }}
+			onDrop={handleDrop}
+			onDragOver={handleDragOver}
+			onDragLeave={handleDragLeave}
 		>
 			<div className='p-4 border-b border-border/50 flex-shrink-0'>
 				<div className='flex justify-between items-center mb-2'>
@@ -231,7 +285,10 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 					</div>
 				)}
 			</div>{' '}
-			<div className='flex-1 overflow-y-auto kanban-scroll-container p-3 space-y-3 transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent'>
+			<div className={cn(
+				'flex-1 overflow-y-auto kanban-scroll-container p-3 space-y-3 transition-all duration-300 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent',
+				isDragOver && 'bg-primary/5'
+			)}>
 				{status === 'done' ? (
 					// Grouped view for done tasks
 					<div className='space-y-4'>
@@ -256,6 +313,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 											onUpdateTimeEstimate={onUpdateTimeEstimate}
 											onDuplicate={onDuplicateTask}
 											onDelete={onDeleteTask}
+											onUpdateTask={onUpdateTask}
 											isDone={task.status === 'done'}
 											userPreferences={userPreferences}
 											boardInfo={(() => {
@@ -275,7 +333,13 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 					</div> // Regular view for other columns
 				) : (
 					<div className='space-y-3'>
-						{' '}
+						{/* Drag indicator when dragging over column with tasks */}
+						{isDragOver && tasks.length > 0 && (
+							<div className='h-2 bg-primary/20 border-2 border-dashed border-primary/50 rounded-lg mx-1 transition-all duration-200'>
+								<div className='h-full bg-primary/10 rounded'></div>
+							</div>
+						)}
+						
 						{tasks.map(task => (
 							<TaskCard
 								key={task.id}
@@ -285,6 +349,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 								onUpdateTimeEstimate={onUpdateTimeEstimate}
 								onDuplicate={onDuplicateTask}
 								onDelete={onDeleteTask}
+								onUpdateTask={onUpdateTask}
 								isDone={task.status === 'done'}
 								userPreferences={userPreferences}
 								boardInfo={(() => {
@@ -301,9 +366,16 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 					</div>
 				)}
 				{tasks.length === 0 && (
-					<div className='text-center text-muted-foreground py-8 border-2 border-dashed border-border/30 rounded-xl bg-muted/20 hover:bg-muted/30 transition-colors duration-300'>
-						<p className='text-sm font-medium'>No tasks</p>
-						<p className='text-xs mt-1 opacity-70'>Drag tasks here or add new ones</p>
+					<div className={cn(
+						'text-center text-muted-foreground py-8 border-2 border-dashed border-border/30 rounded-xl bg-muted/20 hover:bg-muted/30 transition-colors duration-300',
+						isDragOver && 'border-primary/50 bg-primary/10 text-primary'
+					)}>
+						<p className='text-sm font-medium'>
+							{isDragOver ? 'Drop task here' : 'No tasks'}
+						</p>
+						<p className='text-xs mt-1 opacity-70'>
+							{isDragOver ? `Move to ${title}` : 'Drag tasks here or add new ones'}
+						</p>
 					</div>
 				)}{' '}
 				{/* Sprint button - only show on desktop (Tauri) app */}
