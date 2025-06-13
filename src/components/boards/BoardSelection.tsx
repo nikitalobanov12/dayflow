@@ -1,10 +1,10 @@
-import { Board } from '@/types';
+import { Board, UserPreferences } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Edit, Trash2, Layers } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Edit, Trash2, Layers, Grid3X3, List, LayoutGrid } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger } from '@/components/ui/sidebar';
@@ -19,6 +19,8 @@ interface BoardSelectionProps {
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
 	onOpenSettings?: () => void;
+	userPreferences?: UserPreferences | null;
+	onUpdateUserPreferences?: (updates: Partial<UserPreferences>) => Promise<void>;
 }
 
 const BOARD_COLORS = [
@@ -36,9 +38,12 @@ const BOARD_COLORS = [
 
 const BOARD_ICONS = ['📋', '📊', '📅', '📝', '💼', '🎯', '📈', '🚀', '⭐', '🔥', '💡', '🎨', '⚡', '🌟', '🏆', '📌', '🎪', '🎭', '🎵', '🎮', '🌈', '🦄', '🍕', '☕', '🌱', '🔮', '🎊', '🎉', '💎', '🗂️'];
 
-export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, user, onSignOut, onOpenSettings }: BoardSelectionProps) {
+type ViewMode = 'grid' | 'compact' | 'list';
+
+export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, user, onSignOut, onOpenSettings, userPreferences, onUpdateUserPreferences }: BoardSelectionProps) {
 	const [isCreating, setIsCreating] = useState(false);
 	const [isEditing, setIsEditing] = useState<Board | null>(null);
+	const [viewMode, setViewMode] = useState<ViewMode>('compact');
 	const [newBoard, setNewBoard] = useState({
 		name: '',
 		description: '',
@@ -90,6 +95,155 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 
 	const regularBoards = boards.filter(board => !board.isDefault);
 	const allTasksBoard = boards.find(board => board.isDefault);
+
+	const getGridClasses = () => {
+		switch (viewMode) {
+			case 'grid':
+				return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6';
+			case 'compact':
+				return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4';
+			case 'list':
+				return 'flex flex-col gap-3';
+			default:
+				return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4';
+		}
+	};
+
+	const renderBoardCard = (board: Board) => {
+		const baseClasses = 'bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer group relative overflow-hidden';
+		
+		switch (viewMode) {
+			case 'grid':
+				return (
+					<div
+						key={board.id}
+						className={cn(baseClasses, 'p-6 h-32')}
+						onClick={() => onSelectBoard(board)}
+					>
+						<div className='flex items-start gap-4 h-full'>
+							<div
+								className='w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm flex-shrink-0'
+								style={{ backgroundColor: board.color }}
+							>
+								{board.icon}
+							</div>
+							<div className='flex-1 min-w-0 flex flex-col justify-between h-full'>
+								<div>
+									<h3 className='text-lg font-semibold text-foreground mb-1 truncate'>{board.name}</h3>
+									{board.description && (
+										<p className='text-sm text-muted-foreground line-clamp-2'>{board.description}</p>
+									)}
+								</div>
+								<div className='flex items-center text-xs text-muted-foreground mt-2'>
+									<span>Board • Click to open</span>
+								</div>
+							</div>
+						</div>
+						<div className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300'>
+							<button
+								onClick={e => {
+									e.stopPropagation();
+									startEditing(board);
+								}}
+								className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
+								title='Edit board'
+							>
+								<Edit className='h-4 w-4' />
+							</button>
+						</div>
+					</div>
+				);
+
+			case 'compact':
+				return (
+					<div
+						key={board.id}
+						className={cn(baseClasses, 'p-4 aspect-square flex flex-col items-center justify-center text-center')}
+						onClick={() => onSelectBoard(board)}
+					>
+						<div
+							className='w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center text-lg sm:text-xl shadow-sm mb-3'
+							style={{ backgroundColor: board.color }}
+						>
+							{board.icon}
+						</div>
+						<h3 className='text-sm sm:text-base font-semibold text-foreground mb-1 truncate w-full px-1'>{board.name}</h3>
+						{board.description && (
+							<p className='text-xs text-muted-foreground line-clamp-2 hidden sm:block'>{board.description}</p>
+						)}
+						<div className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300'>
+							<button
+								onClick={e => {
+									e.stopPropagation();
+									startEditing(board);
+								}}
+								className='text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-accent/50'
+								title='Edit board'
+							>
+								<Edit className='h-3 w-3' />
+							</button>
+						</div>
+					</div>
+				);
+
+			case 'list':
+				return (
+					<div
+						key={board.id}
+						className={cn(baseClasses, 'p-4 flex items-center gap-4')}
+						onClick={() => onSelectBoard(board)}
+					>
+						<div
+							className='w-10 h-10 rounded-lg flex items-center justify-center text-lg shadow-sm flex-shrink-0'
+							style={{ backgroundColor: board.color }}
+						>
+							{board.icon}
+						</div>
+						<div className='flex-1 min-w-0'>
+							<h3 className='text-base font-semibold text-foreground mb-1 truncate'>{board.name}</h3>
+							{board.description && (
+								<p className='text-sm text-muted-foreground truncate'>{board.description}</p>
+							)}
+						</div>
+						<div className='flex items-center gap-2 text-xs text-muted-foreground'>
+							<span className='hidden sm:inline'>Board</span>
+						</div>
+						<div className='opacity-0 group-hover:opacity-100 transition-all duration-300'>
+							<button
+								onClick={e => {
+									e.stopPropagation();
+									startEditing(board);
+								}}
+								className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
+								title='Edit board'
+							>
+								<Edit className='h-4 w-4' />
+							</button>
+						</div>
+					</div>
+				);
+
+			default:
+				return null;
+		}
+	};
+
+	useEffect(() => {
+		if (userPreferences && userPreferences.boardDefaultView) {
+			setViewMode(userPreferences.boardDefaultView);
+		}
+	}, [userPreferences]);
+
+	const handleViewModeChange = async (newViewMode: ViewMode) => {
+		setViewMode(newViewMode);
+		if (userPreferences && onUpdateUserPreferences) {
+			try {
+				await onUpdateUserPreferences({ boardDefaultView: newViewMode });
+			} catch (error) {
+				console.error('Failed to update board view preference:', error);
+			}
+		}
+	};
 
 	return (
 		<SidebarProvider>
@@ -203,6 +357,40 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 							<h2 className='text-xl font-semibold'>Your Boards</h2>
 							<p className='text-sm text-muted-foreground'>Organize your projects and workflows</p>
 						</div>
+						
+						{/* View Mode Toggle */}
+						{regularBoards.length > 0 && (
+							<div className='flex items-center gap-1 bg-muted/30 p-1 rounded-lg border border-border/50'>
+								<Button
+									variant={viewMode === 'compact' ? 'default' : 'ghost'}
+									size='sm'
+									onClick={() => handleViewModeChange('compact')}
+									className='h-7 w-7 p-0'
+									title='Compact grid view'
+								>
+									<LayoutGrid className='h-3.5 w-3.5' />
+								</Button>
+								<Button
+									variant={viewMode === 'grid' ? 'default' : 'ghost'}
+									size='sm'
+									onClick={() => handleViewModeChange('grid')}
+									className='h-7 w-7 p-0'
+									title='Grid view'
+								>
+									<Grid3X3 className='h-3.5 w-3.5' />
+								</Button>
+								<Button
+									variant={viewMode === 'list' ? 'default' : 'ghost'}
+									size='sm'
+									onClick={() => handleViewModeChange('list')}
+									className='h-7 w-7 p-0'
+									title='List view'
+								>
+									<List className='h-3.5 w-3.5' />
+								</Button>
+							</div>
+						)}
+						
 						{regularBoards.length > 0 && (
 							<div className='text-sm text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50'>
 								{regularBoards.length} {regularBoards.length === 1 ? 'board' : 'boards'}
@@ -214,44 +402,10 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 							onOpenSettings={onOpenSettings}
 						/>{' '}
 					</header>
-					<div className='flex-1 p-6 bg-muted/30'>
+					<div className='flex-1 p-4 sm:p-6 bg-muted/30'>
 						{regularBoards.length > 0 ? (
-							<div className='grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4'>
-								{regularBoards.map(board => (
-									<div
-										key={board.id}
-										className='bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer p-4 group relative'
-										onClick={() => onSelectBoard(board)}
-									>
-										<div className='flex items-start gap-4'>
-											<div
-												className='w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm'
-												style={{ backgroundColor: board.color }}
-											>
-												{board.icon}
-											</div>
-											<div className='flex-1 min-w-0'>
-												<h3 className='text-lg font-semibold text-foreground mb-1 truncate'>{board.name}</h3>
-												{board.description && <p className='text-sm text-muted-foreground line-clamp-2 mb-3'>{board.description}</p>}
-												<div className='flex items-center text-xs text-muted-foreground'>
-													<span>Board • Click to open</span>
-												</div>
-											</div>
-										</div>
-										<div className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300'>
-											<button
-												onClick={e => {
-													e.stopPropagation();
-													startEditing(board);
-												}}
-												className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
-												title='Edit board'
-											>
-												<Edit className='h-4 w-4' />
-											</button>
-										</div>
-									</div>
-								))}
+							<div className={getGridClasses()}>
+								{regularBoards.map(renderBoardCard)}
 							</div>
 						) : (
 							<div className='flex items-center justify-center h-96'>

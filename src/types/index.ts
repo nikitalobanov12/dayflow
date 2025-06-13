@@ -171,6 +171,7 @@ export interface UserPreferences {
 	taskSortOrder: 'asc' | 'desc';
 	calendarDefaultZoom: number; // 0-3 for zoom levels
 	calendarDefaultView: '3-day' | 'week';
+	boardDefaultView: 'grid' | 'compact' | 'list';
 	createdAt: string;
 	updatedAt: string;
 }
@@ -199,6 +200,7 @@ export interface UserPreferencesRow {
 	task_sort_order: string;
 	calendar_default_zoom: number;
 	calendar_default_view: string;
+	board_default_view: string;
 	created_at: string;
 	updated_at: string;
 }

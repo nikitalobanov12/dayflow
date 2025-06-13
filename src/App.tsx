@@ -216,6 +216,8 @@ function App() {
 						user={user}
 						onSignOut={signOut}
 						onOpenSettings={handleOpenSettings}
+						userPreferences={userPreferences}
+						onUpdateUserPreferences={updateUserPreferences}
 					/>
 				</div>
 			</div>
@@ -322,6 +324,8 @@ function App() {
 					user={user}
 					onSignOut={signOut}
 					onOpenSettings={handleOpenSettings}
+					userPreferences={userPreferences}
+					onUpdateUserPreferences={updateUserPreferences}
 				/>
 			</div>
 		</div>

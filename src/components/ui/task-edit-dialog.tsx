@@ -52,7 +52,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 		return false;
 	}, [formData, originalData]);
 
-	// Initialize form data when task changes
+	// Initialize form data when task changes OR when dialog opens for creating new tasks
 	useEffect(() => {
 		const initData = task
 			? {
@@ -71,7 +71,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 					recurring: task.recurring,
 			  }
 			: {
-					// Default values for new task
+					// Default values for new task - always reset when creating
 					title: '',
 					description: '',
 					timeEstimate: 0,
@@ -85,10 +85,34 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 		setFormData(initData);
 		setOriginalData(initData);
 		setShowRecurringOptions(!!initData.recurring);
-	}, [task]);
+	}, [task, isOpen, isCreating]); // Added isOpen and isCreating to dependencies
+
+	// Reset form data when dialog is closed (cleanup)
+	useEffect(() => {
+		if (!isOpen && isCreating) {
+			// Reset form data for creating new tasks when dialog closes
+			const defaultData = {
+				title: '',
+				description: '',
+				timeEstimate: 0,
+				priority: 2 as Task['priority'],
+				status: 'backlog' as Task['status'],
+				progressPercentage: 0,
+				timeSpent: 0,
+				category: '',
+			};
+			setFormData(defaultData);
+			setOriginalData(defaultData);
+			setShowRecurringOptions(false);
+		}
+	}, [isOpen, isCreating]);
+
 	// Handle keyboard shortcuts
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
+			// Prevent saving if already loading to avoid double creation
+			if (isLoading) return;
+
 			// Save on Ctrl+Enter or Cmd+Enter
 			if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && hasChanges) {
 				e.preventDefault();
@@ -116,10 +140,13 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 			document.addEventListener('keydown', handleKeyDown);
 			return () => document.removeEventListener('keydown', handleKeyDown);
 		}
-	}, [isOpen, hasChanges, formData.title]);
+	}, [isOpen, hasChanges, formData.title, isLoading]); // Added isLoading to dependencies
 
 	// Handle Enter key for specific input fields
 	const handleInputKeyDown = (e: React.KeyboardEvent) => {
+		// Prevent saving if already loading to avoid double creation
+		if (isLoading) return;
+		
 		if (e.key === 'Enter' && !e.shiftKey && formData.title?.trim()) {
 			e.preventDefault();
 			handleSave();
@@ -127,7 +154,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 	};
 
 	const handleSave = async () => {
-		if (!formData.title?.trim()) return;
+		if (!formData.title?.trim() || isLoading) return; // Prevent multiple saves
 
 		setIsLoading(true);
 		try {

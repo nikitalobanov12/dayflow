@@ -16,6 +16,7 @@ const transformUserPreferences = (row: UserPreferencesRow): UserPreferences => (
 	taskSortOrder: row.task_sort_order as 'asc' | 'desc',
 	calendarDefaultZoom: row.calendar_default_zoom || 1,
 	calendarDefaultView: (row.calendar_default_view as '3-day' | 'week') || '3-day',
+	boardDefaultView: (row.board_default_view as 'grid' | 'compact' | 'list') || 'compact',
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 });
@@ -45,6 +46,7 @@ const transformUserPreferencesToRow = (preferences: Partial<UserPreferences>): P
 	...(preferences.taskSortOrder && { task_sort_order: preferences.taskSortOrder }),
 	...(preferences.calendarDefaultZoom !== undefined && { calendar_default_zoom: preferences.calendarDefaultZoom }),
 	...(preferences.calendarDefaultView && { calendar_default_view: preferences.calendarDefaultView }),
+	...(preferences.boardDefaultView && { board_default_view: preferences.boardDefaultView }),
 	updated_at: new Date().toISOString(),
 });
 
@@ -112,6 +114,7 @@ export function useUserSettings(userId?: string) {
 			task_sort_order: 'asc',
 			calendar_default_zoom: 1,
 			calendar_default_view: '3-day',
+			board_default_view: 'compact',
 		};
 
 		const { data, error } = await supabase.from('user_preferences').insert(defaultPreferences).select().single();
