@@ -2,7 +2,7 @@ import { Task, Board } from '@/types';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, Edit, Check, Copy, Trash2, ArrowLeft, ArrowRight, ArrowUp, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit, Check, Copy, Trash2, ArrowLeft, ArrowRight, ArrowUp, Calendar, Repeat } from 'lucide-react';
 import { useState } from 'react';
 import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -149,6 +149,53 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 	const handleMoveToDone = () => {
 		onMove(task.id, 'done');
 	};
+
+	const getRecurringText = (task: Task) => {
+		if (!task.recurring) return null;
+
+		const { pattern, interval } = task.recurring;
+		let text = '';
+
+		switch (pattern) {
+			case 'daily':
+				text = interval === 1 ? 'Daily' : `Every ${interval} days`;
+				break;
+			case 'weekly':
+				text = interval === 1 ? 'Weekly' : `Every ${interval} weeks`;
+				if (task.recurring.daysOfWeek?.length) {
+					const days = task.recurring.daysOfWeek
+						.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d])
+						.join(', ');
+					text += ` on ${days}`;
+				}
+				break;
+			case 'monthly':
+				text = interval === 1 ? 'Monthly' : `Every ${interval} months`;
+				if (task.recurring.daysOfMonth?.length) {
+					const days = task.recurring.daysOfMonth
+						.map(d => d + (d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'))
+						.join(', ');
+					text += ` on the ${days}`;
+				}
+				break;
+			case 'yearly':
+				text = interval === 1 ? 'Yearly' : `Every ${interval} years`;
+				if (task.recurring.monthsOfYear?.length) {
+					const months = task.recurring.monthsOfYear
+						.map(m => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1])
+						.join(', ');
+					text += ` in ${months}`;
+				}
+				break;
+		}
+
+		if (task.recurring.endDate) {
+			text += ` until ${formatDate(task.recurring.endDate)}`;
+		}
+
+		return text;
+	};
+
 	return (
 		<ContextMenu>
 			<ContextMenuTrigger asChild>
@@ -246,6 +293,7 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 									{/* Time estimate */}
 									{isEditingTime ? (
 										<input
+										placeholder='--'
 											type='number'
 											value={tempTimeEstimate}
 											onChange={e => setTempTimeEstimate(e.target.value)}
@@ -289,6 +337,14 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 							</div>
 							{/* Subtasks List - Only render if not dragging to improve performance */}
 							<SubtasksContainer taskId={task.id} />
+
+							{/* Add recurring indicator */}
+							{task.recurring && (
+								<div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+									<Repeat className="h-3 w-3" />
+									<span>{getRecurringText(task)}</span>
+								</div>
+							)}
 						</div>
 					</div>
 				</div>

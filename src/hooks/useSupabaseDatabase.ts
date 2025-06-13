@@ -40,6 +40,15 @@ const convertTaskFromDb = (row: TaskRow): Task => ({
 	parentTaskId: (row as any).parent_task_id || undefined,
 	labels: [],
 	attachments: [],
+	// Map recurring fields
+	recurring: (row as any).recurring_pattern ? {
+		pattern: (row as any).recurring_pattern,
+		interval: (row as any).recurring_interval || 1,
+		daysOfWeek: (row as any).recurring_days_of_week || [],
+		daysOfMonth: (row as any).recurring_days_of_month || [],
+		monthsOfYear: (row as any).recurring_months_of_year || [],
+		endDate: (row as any).recurring_end_date || undefined
+	} : undefined
 });
 
 const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId: string): Omit<TaskRow, 'id' | 'created_at'> =>
@@ -63,6 +72,13 @@ const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId
 		time_spent: task.timeSpent || 0,
 		assignee_id: task.assigneeId || null,
 		parent_task_id: task.parentTaskId || null,
+		// Handle recurring fields
+		recurring_pattern: task.recurring?.pattern || null,
+		recurring_interval: task.recurring?.interval || null,
+		recurring_days_of_week: task.recurring?.daysOfWeek || null,
+		recurring_days_of_month: task.recurring?.daysOfMonth || null,
+		recurring_months_of_year: task.recurring?.monthsOfYear || null,
+		recurring_end_date: task.recurring?.endDate || null,
 	} as any);
 
 const convertBoardFromDb = (row: BoardRow): Board => ({
@@ -256,9 +272,18 @@ export const useSupabaseDatabase = () => {
 	const updateTask = async (id: number, updates: Partial<Task>): Promise<boolean> => {
 		if (!user) return false;
 
+		// If ID is 0, this is a new task, so use addTask instead
+		if (id === 0) {
+			console.log('Creating new task instead of updating:', updates);
+			const newTaskId = await addTask(updates as Omit<Task, 'id' | 'createdAt' | 'userId'>);
+			return newTaskId !== null;
+		}
+
 		try {
 			// Optimistic update: Update local state immediately
-			setTasks(prevTasks => prevTasks.map(task => (task.id === id ? { ...task, ...updates } : task))); // Convert updates to database format
+			setTasks(prevTasks => prevTasks.map(task => (task.id === id ? { ...task, ...updates } : task)));
+
+			// Convert updates to database format
 			const dbUpdates: any = {};
 			if (updates.title !== undefined) dbUpdates.title = updates.title;
 			if (updates.description !== undefined) dbUpdates.description = updates.description || null;
@@ -268,7 +293,7 @@ export const useSupabaseDatabase = () => {
 			if (updates.scheduledDate !== undefined) dbUpdates.scheduled_date = updates.scheduledDate || null;
 			if (updates.tags !== undefined) dbUpdates.tags = updates.tags || [];
 			if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt || null;
-			if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId || null; // Handle new fields
+			if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId || null;
 			if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
 			if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate || null;
 			if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate || null;
@@ -277,8 +302,39 @@ export const useSupabaseDatabase = () => {
 			if (updates.timeSpent !== undefined) dbUpdates.time_spent = updates.timeSpent;
 			if (updates.assigneeId !== undefined) dbUpdates.assignee_id = updates.assigneeId || null;
 			if (updates.parentTaskId !== undefined) dbUpdates.parent_task_id = updates.parentTaskId || null;
+			
+			// Handle recurring configuration with correct database column names
+			if (updates.recurring !== undefined) {
+				if (updates.recurring) {
+					// Ensure the pattern is one of the valid enum values
+					const validPatterns = ['daily', 'weekly', 'monthly', 'yearly'];
+					if (!validPatterns.includes(updates.recurring.pattern)) {
+						throw new Error(`Invalid recurring pattern: ${updates.recurring.pattern}`);
+					}
+					
+					dbUpdates.recurring_pattern = updates.recurring.pattern;
+					dbUpdates.recurring_interval = updates.recurring.interval;
+					dbUpdates.recurring_days_of_week = updates.recurring.daysOfWeek || [];
+					dbUpdates.recurring_days_of_month = updates.recurring.daysOfMonth || [];
+					dbUpdates.recurring_months_of_year = updates.recurring.monthsOfYear || [];
+					dbUpdates.recurring_end_date = updates.recurring.endDate || null;
+				} else {
+					// Clear recurring fields when disabling recurring
+					dbUpdates.recurring_pattern = null;
+					dbUpdates.recurring_interval = null;
+					dbUpdates.recurring_days_of_week = null;
+					dbUpdates.recurring_days_of_month = null;
+					dbUpdates.recurring_months_of_year = null;
+					dbUpdates.recurring_end_date = null;
+				}
+			}
 
-			const { error } = await supabase.from('tasks').update(dbUpdates).eq('id', id).eq('user_id', user.id);
+			console.log('Updating task with:', dbUpdates); // Debug log
+			console.log('Task ID:', id, 'User ID:', user.id); // Debug log
+
+			const { data, error } = await supabase.from('tasks').update(dbUpdates).eq('id', id).eq('user_id', user.id).select();
+
+			console.log('Update result:', { data, error }); // Debug log
 
 			if (error) {
 				console.error('Failed to update task:', error);
@@ -287,6 +343,7 @@ export const useSupabaseDatabase = () => {
 				return false;
 			}
 
+			console.log('Task updated successfully:', data); // Debug log
 			return true;
 		} catch (error) {
 			console.error('Failed to update task:', error);

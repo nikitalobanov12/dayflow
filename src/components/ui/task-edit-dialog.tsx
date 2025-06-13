@@ -5,11 +5,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Task, Board } from '@/types';
-import { Clock, Calendar, X, CheckCircle, Circle } from 'lucide-react';
+import { Task, Board, RecurringPattern } from '@/types';
+import { Clock, Calendar, X, CheckCircle, Circle, Plus, Minus, Trash2 } from 'lucide-react';
 import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
-import { useUserPreferences } from '@/hooks/useUserPreferences';
 import moment from 'moment';
+import { Switch } from '@/components/ui/switch';
 
 interface TaskEditDialogProps {
 	task: Task | null;
@@ -25,15 +25,13 @@ interface TaskEditDialogProps {
 	userPreferences?: any; // User preferences for date formatting
 }
 
-export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard = false, boards = [], isCreating = false, userPreferences }: TaskEditDialogProps) {
+export function TaskEditDialog({ task, isOpen, onClose, onSave, onDelete, isAllTasksBoard = false, boards = [], isCreating = false }: TaskEditDialogProps) {
 	const [formData, setFormData] = useState<Partial<Task>>({});
 	const [originalData, setOriginalData] = useState<Partial<Task>>({});
 	const [isLoading, setIsLoading] = useState(false);
-	const [tempTimeEstimate, setTempTimeEstimate] = useState('');
-	const [isEditingTime, setIsEditingTime] = useState(false);
+	const [showRecurringOptions, setShowRecurringOptions] = useState(false);
 
 	// Apply user preferences for date formatting
-	const { formatDate } = useUserPreferences(userPreferences);
 
 	// Helper function to format dates for datetime-local inputs
 	const formatForDateTimeLocal = (dateString: string | undefined) => {
@@ -72,6 +70,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 					progressPercentage: task.progressPercentage,
 					timeSpent: task.timeSpent,
 					boardId: task.boardId,
+					recurring: task.recurring,
 			  }
 			: {
 					// Default values for new task
@@ -87,20 +86,31 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 
 		setFormData(initData);
 		setOriginalData(initData);
-
-		// Initialize temporary time estimate
-		if (task) {
-			setTempTimeEstimate(task.timeEstimate?.toString() || '0');
-		} else {
-			setTempTimeEstimate('0');
-		}
+		setShowRecurringOptions(!!initData.recurring);
 	}, [task]);
 	// Handle keyboard shortcuts
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
+			// Save on Ctrl+Enter or Cmd+Enter
 			if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && hasChanges) {
 				e.preventDefault();
 				handleSave();
+			}
+			// Save on Enter key (but not in textarea or when no changes)
+			else if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+				const target = e.target as HTMLElement;
+				// Don't save on Enter if we're in a textarea (allow line breaks)
+				// Don't save if we're in a button (let button handle it)
+				// Don't save if we're in a select dropdown
+				if (target.tagName !== 'TEXTAREA' && 
+				    target.tagName !== 'BUTTON' && 
+				    !target.closest('[role="combobox"]') &&
+				    !target.closest('[role="listbox"]') &&
+				    formData.title?.trim() && 
+				    hasChanges) {
+					e.preventDefault();
+					handleSave();
+				}
 			}
 		};
 
@@ -108,22 +118,55 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 			document.addEventListener('keydown', handleKeyDown);
 			return () => document.removeEventListener('keydown', handleKeyDown);
 		}
-	}, [isOpen, hasChanges]);
+	}, [isOpen, hasChanges, formData.title]);
+
+	// Handle Enter key for specific input fields
+	const handleInputKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === 'Enter' && !e.shiftKey && formData.title?.trim()) {
+			e.preventDefault();
+			handleSave();
+		}
+	};
 
 	const handleSave = async () => {
 		if (!formData.title?.trim()) return;
 
 		setIsLoading(true);
 		try {
+			// Prepare the updates
+			const updates: Partial<Task> = { ...formData };
+
+			// Handle recurring configuration
+			if (showRecurringOptions) {
+				// Preserve the time from the original scheduled date
+				const originalDate = formData.scheduledDate ? new Date(formData.scheduledDate) : new Date();
+				updates.recurring = {
+					pattern: formData.recurring?.pattern || 'daily',
+					interval: formData.recurring?.interval || 1,
+					daysOfWeek: formData.recurring?.daysOfWeek || [],
+					daysOfMonth: formData.recurring?.daysOfMonth || [],
+					monthsOfYear: formData.recurring?.monthsOfYear || [],
+					endDate: formData.recurring?.endDate
+				};
+				// Ensure the scheduled date has the correct time
+				if (updates.scheduledDate) {
+					const newDate = new Date(updates.scheduledDate);
+					newDate.setHours(originalDate.getHours(), originalDate.getMinutes(), originalDate.getSeconds());
+					updates.scheduledDate = newDate.toISOString();
+				}
+			} else {
+				updates.recurring = undefined;
+			}
+
 			if (task) {
 				// Editing existing task
-				await onSave(task.id, formData);
+				await onSave(task.id, updates);
 			} else {
 				// Creating new task - use a dummy ID since onSave expects an ID
-				await onSave(0, formData);
+				await onSave(0, updates);
 			}
 			// Update original data to reflect saved state
-			setOriginalData({ ...formData });
+			setOriginalData({ ...updates });
 			onClose();
 		} catch (error) {
 			console.error('Failed to save task:', error);
@@ -132,8 +175,19 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 		}
 	};
 
-	// Remove unused handlers since they're not in the UI
-	// const handleDelete and handleDuplicate removed for cleaner code
+	const handleDelete = async () => {
+		if (!task) return;
+		
+		setIsLoading(true);
+		try {
+			await onDelete(task.id);
+			onClose();
+		} catch (error) {
+			console.error('Failed to delete task:', error);
+		} finally {
+			setIsLoading(false);
+		}
+	};
 
 	const updateFormData = (field: keyof Task, value: any) => {
 		setFormData(prev => ({ ...prev, [field]: value }));
@@ -169,25 +223,6 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 		}
 	};
 
-	const handleTimeEstimateClick = () => {
-		setIsEditingTime(true);
-	};
-
-	const handleTimeEstimateSubmit = () => {
-		const newEstimate = parseInt(tempTimeEstimate) || 0;
-		updateFormData('timeEstimate', newEstimate);
-		setIsEditingTime(false);
-	};
-
-	const handleTimeEstimateKeyDown = (e: React.KeyboardEvent) => {
-		if (e.key === 'Enter') {
-			handleTimeEstimateSubmit();
-		} else if (e.key === 'Escape') {
-			setTempTimeEstimate(formData.timeEstimate?.toString() || '0');
-			setIsEditingTime(false);
-		}
-	};
-
 	const getStatusColor = (status: Task['status']) => {
 		switch (status) {
 			case 'backlog':
@@ -216,6 +251,78 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 			default:
 				return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200';
 		}
+	};
+
+	// Custom NumberInput component
+	const NumberInput = ({ 
+		value, 
+		onChange, 
+		min = 0, 
+		max = 999, 
+		step = 1, 
+		placeholder = "0",
+		className = "",
+		onKeyDown
+	}: {
+		value: number;
+		onChange: (value: number) => void;
+		min?: number;
+		max?: number;
+		step?: number;
+		placeholder?: string;
+		className?: string;
+		onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+	}) => {
+		const increment = () => {
+			const newValue = Math.min(value + step, max);
+			onChange(newValue);
+		};
+
+		const decrement = () => {
+			const newValue = Math.max(value - step, min);
+			onChange(newValue);
+		};
+
+		const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+			const newValue = parseInt(e.target.value) || min;
+			const clampedValue = Math.min(Math.max(newValue, min), max);
+			onChange(clampedValue);
+		};
+
+		return (
+			<div className={`flex items-center ${className}`}>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					className="h-9 w-9 p-0 rounded-r-none border-r-0 shrink-0"
+					onClick={decrement}
+					disabled={value <= min}
+				>
+					<Minus className="h-4 w-4" />
+				</Button>
+				<Input
+					type="number"
+					value={value}
+					onChange={handleInputChange}
+					onKeyDown={onKeyDown}
+					placeholder={placeholder}
+					className="h-9 rounded-none border-x-0 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+					min={min}
+					max={max}
+				/>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					className="h-9 w-9 p-0 rounded-l-none border-l-0 shrink-0"
+					onClick={increment}
+					disabled={value >= max}
+				>
+					<Plus className="h-4 w-4" />
+				</Button>
+			</div>
+		);
 	};
 
 	return (
@@ -254,6 +361,16 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 						>
 							{isLoading ? 'Saving...' : isCreating ? 'Create Task' : 'Save Changes'}
 						</Button>
+						{task && !isCreating && (
+							<Button
+								variant='destructive'
+								size='sm'
+								onClick={handleDelete}
+								disabled={isLoading}
+							>
+								<Trash2 className='h-4 w-4' />
+							</Button>
+						)}
 						<Button
 							variant='ghost'
 							size='sm'
@@ -275,6 +392,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 								onChange={e => updateFormData('title', e.target.value)}
 								placeholder='Enter task title...'
 								className='text-2xl font-semibold border-none shadow-none p-4 h-auto focus-visible:ring-0 bg-transparent text-foreground placeholder:text-muted-foreground'
+								onKeyDown={handleInputKeyDown}
 							/>
 						</div>
 
@@ -286,6 +404,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 								onChange={e => updateFormData('description', e.target.value)}
 								placeholder='Add a description for this task...'
 								className='min-h-[140px] border-none shadow-none p-4 resize-none focus-visible:ring-0 bg-transparent text-base text-foreground placeholder:text-muted-foreground'
+								onKeyDown={handleInputKeyDown}
 							/>
 						</div>
 
@@ -307,7 +426,188 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 								onChange={e => updateFormData('category', e.target.value)}
 								placeholder='e.g., Work, Personal, Health'
 								className='bg-muted/50 border-border text-foreground'
+								onKeyDown={handleInputKeyDown}
 							/>
+						</div>
+
+						{/* Recurring Task Section */}
+						<div className="mt-6 space-y-4">
+							<div className="flex items-center justify-between">
+								<label className="text-sm font-medium text-muted-foreground">Recurring Task</label>
+								<Switch
+									checked={showRecurringOptions}
+									onCheckedChange={setShowRecurringOptions}
+								/>
+							</div>
+
+							{showRecurringOptions && (
+								<div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+									<div className="grid grid-cols-2 gap-4">
+										<div>
+											<label className="text-sm font-medium text-muted-foreground block mb-2">
+												Pattern
+											</label>
+											<Select
+												value={formData.recurring?.pattern || 'daily'}
+												onValueChange={(value) =>
+													updateFormData('recurring', {
+														...formData.recurring,
+														pattern: value as RecurringPattern,
+													})
+												}
+											>
+												<SelectTrigger>
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="daily">Daily</SelectItem>
+													<SelectItem value="weekly">Weekly</SelectItem>
+													<SelectItem value="monthly">Monthly</SelectItem>
+													<SelectItem value="yearly">Yearly</SelectItem>
+												</SelectContent>
+											</Select>
+										</div>
+
+										<div>
+											<label className="text-sm font-medium text-muted-foreground block mb-2">
+												Every X {formData.recurring?.pattern === 'daily' ? 'days' : 
+												        formData.recurring?.pattern === 'weekly' ? 'weeks' :
+												        formData.recurring?.pattern === 'monthly' ? 'months' :
+												        formData.recurring?.pattern === 'yearly' ? 'years' : 'days'}
+											</label>
+											<NumberInput
+												value={formData.recurring?.interval || 1}
+												onChange={(value) =>
+													updateFormData('recurring', {
+														...formData.recurring,
+														interval: value,
+													})
+												}
+												onKeyDown={handleInputKeyDown}
+											/>
+										</div>
+									</div>
+
+									{formData.recurring?.pattern === 'weekly' && (
+										<div>
+											<label className="text-sm font-medium text-muted-foreground block mb-2">
+												Days of Week
+											</label>
+											<div className="flex flex-wrap gap-2">
+												{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+													<Button
+														key={day}
+														variant={
+															formData.recurring?.daysOfWeek?.includes(index)
+																? 'default'
+																: 'outline'
+														}
+														size="sm"
+														onClick={() => {
+															const days = formData.recurring?.daysOfWeek || [];
+															const newDays = days.includes(index)
+																? days.filter((d) => d !== index)
+																: [...days, index];
+															updateFormData('recurring', {
+																...formData.recurring,
+																daysOfWeek: newDays,
+															});
+														}}
+													>
+														{day}
+													</Button>
+												))}
+											</div>
+										</div>
+									)}
+
+									{formData.recurring?.pattern === 'monthly' && (
+										<div>
+											<label className="text-sm font-medium text-muted-foreground block mb-2">
+												Days of Month
+											</label>
+											<div className="flex flex-wrap gap-2">
+												{Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+													<Button
+														key={day}
+														variant={
+															formData.recurring?.daysOfMonth?.includes(day)
+																? 'default'
+																: 'outline'
+														}
+														size="sm"
+														onClick={() => {
+															const days = formData.recurring?.daysOfMonth || [];
+															const newDays = days.includes(day)
+																? days.filter((d) => d !== day)
+																: [...days, day];
+															updateFormData('recurring', {
+																...formData.recurring,
+																daysOfMonth: newDays,
+															});
+														}}
+													>
+														{day}
+													</Button>
+												))}
+											</div>
+										</div>
+									)}
+
+									{formData.recurring?.pattern === 'yearly' && (
+										<div>
+											<label className="text-sm font-medium text-muted-foreground block mb-2">
+												Months of Year
+											</label>
+											<div className="flex flex-wrap gap-2">
+												{[
+													'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+													'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+												].map((month, index) => (
+													<Button
+														key={month}
+														variant={
+															formData.recurring?.monthsOfYear?.includes(index + 1)
+																? 'default'
+																: 'outline'
+														}
+														size="sm"
+														onClick={() => {
+															const months = formData.recurring?.monthsOfYear || [];
+															const monthNum = index + 1;
+															const newMonths = months.includes(monthNum)
+																? months.filter((m) => m !== monthNum)
+																: [...months, monthNum];
+															updateFormData('recurring', {
+																...formData.recurring,
+																monthsOfYear: newMonths,
+															});
+														}}
+													>
+														{month}
+													</Button>
+												))}
+											</div>
+										</div>
+									)}
+
+									<div>
+										<label className="text-sm font-medium text-muted-foreground block mb-2">
+											End Date (Optional)
+										</label>
+										<Input
+											type="date"
+											value={formData.recurring?.endDate?.split('T')[0] || ''}
+											onChange={(e) =>
+												updateFormData('recurring', {
+													...formData.recurring,
+													endDate: e.target.value ? `${e.target.value}T00:00:00Z` : undefined,
+												})
+											}
+										/>
+									</div>
+								</div>
+							)}
 						</div>
 					</div>
 
@@ -360,29 +660,19 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 									<Clock className='h-4 w-4 inline mr-1' />
 									Time Estimate
 								</label>
-								{isEditingTime ? (
-									<div className='flex gap-2'>
-										<Input
-											type='number'
-											value={tempTimeEstimate}
-											onChange={e => setTempTimeEstimate(e.target.value)}
-											onKeyDown={handleTimeEstimateKeyDown}
-											onBlur={handleTimeEstimateSubmit}
-											placeholder='Minutes'
-											className='flex-1'
-											autoFocus
-										/>
-										<span className='self-center text-sm text-muted-foreground'>min</span>
-									</div>
-								) : (
-									<div
-										onClick={handleTimeEstimateClick}
-										className='flex items-center gap-2 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-background'
-									>
-										<Clock className='h-4 w-4 text-muted-foreground' />
-										<span className='text-foreground'>{formData.timeEstimate || 0} minutes</span>
-									</div>
-								)}
+								<div className='flex gap-2'>
+									<NumberInput
+										value={formData.timeEstimate || 0}
+										onChange={(value) => updateFormData('timeEstimate', value)}
+										min={0}
+										max={1440}
+										step={15}
+										placeholder="0"
+										className="flex-1"
+										onKeyDown={handleInputKeyDown}
+									/>
+									<span className='self-center text-sm text-muted-foreground'>min</span>
+								</div>
 							</div>
 
 							{/* Dates */}
@@ -397,57 +687,14 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, isAllTasksBoard 
 										value={formatForDateTimeLocal(formData.scheduledDate)}
 										onChange={e => updateFormData('scheduledDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
 										className='bg-background border-border text-foreground'
+										onKeyDown={handleInputKeyDown}
 									/>
 								</div>{' '}
-								<div>
-									<label className='text-sm font-medium text-muted-foreground block mb-3'>Start Date</label>{' '}
-									<Input
-										type='datetime-local'
-										value={formatForDateTimeLocal(formData.startDate)}
-										onChange={e => updateFormData('startDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
-										className='bg-background border-border text-foreground'
-									/>
-									{formData.startDate && <p className='text-xs text-muted-foreground mt-1'>Will display as: {formatDate(formData.startDate, true)}</p>}
-								</div>
-								<div>
-									<label className='text-sm font-medium text-muted-foreground block mb-3'>Due Date</label>{' '}
-									<Input
-										type='datetime-local'
-										value={formatForDateTimeLocal(formData.dueDate)}
-										onChange={e => updateFormData('dueDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
-										className='bg-background border-border text-foreground'
-									/>
-									{formData.dueDate && <p className='text-xs text-muted-foreground mt-1'>Will display as: {formatDate(formData.dueDate, true)}</p>}
-								</div>
+								
 							</div>
 
-							{/* Progress & Time Tracking */}
-							<div className='space-y-4'>
-								<div>
-									<label className='text-sm font-medium text-muted-foreground block mb-3'>Progress (%)</label>
-									<Input
-										type='number'
-										value={formData.progressPercentage || 0}
-										onChange={e => updateFormData('progressPercentage', parseInt(e.target.value) || 0)}
-										min='0'
-										max='100'
-										className='bg-background border-border text-foreground'
-									/>
-								</div>
+						
 
-								<div>
-									<label className='text-sm font-medium text-muted-foreground block mb-3'>Time Spent (min)</label>
-									<Input
-										type='number'
-										value={formData.timeSpent || 0}
-										onChange={e => updateFormData('timeSpent', parseInt(e.target.value) || 0)}
-										min='0'
-										className='bg-background border-border text-foreground'
-									/>
-								</div>
-							</div>
-
-							{/* Board Selection for All Tasks board */}
 							{isAllTasksBoard && boards && boards.length > 0 && (
 								<div>
 									<label className='text-sm font-medium text-muted-foreground block mb-3'>Board</label>

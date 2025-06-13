@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { ViewHeader } from '@/components/ui/view-header';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
+import { generateRecurringInstances } from '@/lib/recurring-tasks';
 
 interface CompactCalendarViewProps {
 	board: Board;
@@ -110,48 +111,62 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 	// Convert tasks to calendar events
 	const events: CalendarEvent[] = useMemo(() => {
 		const filteredTasks = filterTasks(tasks);
-		return filteredTasks
+		const allEvents: CalendarEvent[] = [];
+
+		filteredTasks
 			.filter(task => task.scheduledDate || task.startDate || task.dueDate)
-			.map(task => {
-				let start: Date;
-				let end: Date;
+			.forEach(task => {
+				// Generate recurring instances if the task is recurring
+				const instances = task.recurring 
+					? generateRecurringInstances(task, startOfDay(visibleDates[0]), endOfDay(visibleDates[visibleDates.length - 1]))
+					: [task];
 
-				if (task.scheduledDate) {
-					start = new Date(task.scheduledDate);
-				} else if (task.startDate) {
-					start = new Date(task.startDate);
-				} else if (task.dueDate) {
-					start = new Date(task.dueDate);
-				} else {
-					start = new Date();
-				}
+				instances.forEach(instance => {
+					let start: Date;
+					let end: Date;
 
-				// Calculate end time based on time estimate
-				end = new Date(start);
-				if (task.timeEstimate && task.timeEstimate > 0) {
-					end = addMinutes(start, task.timeEstimate);
-				} else {
-					end = addMinutes(start, 60); // Default 1 hour
-				}
+					if (instance.scheduledDate) {
+						start = new Date(instance.scheduledDate);
+					} else if (instance.startDate) {
+						start = new Date(instance.startDate);
+					} else if (instance.dueDate) {
+						start = new Date(instance.dueDate);
+					} else {
+						start = new Date();
+					}
 
-				// If task has both start and due date, use them
-				if (task.startDate && task.dueDate) {
-					start = new Date(task.startDate);
-					end = new Date(task.dueDate);
-				}
+					// Calculate end time based on time estimate
+					end = new Date(start);
+					if (instance.timeEstimate && instance.timeEstimate > 0) {
+						end = addMinutes(start, instance.timeEstimate);
+					} else {
+						end = addMinutes(start, 60); // Default 1 hour
+					}
 
-				return {
-					id: task.id,
-					task,
-					start,
-					end,
-					title: task.title,
-				};
-			})
-			.filter(event => {
-				// Only show events that fall within visible dates
-				return visibleDates.some(date => isSameDay(event.start, date) || isSameDay(event.end, date) || (event.start <= startOfDay(date) && event.end >= endOfDay(date)));
+					// If task has both start and due date, use them
+					if (instance.startDate && instance.dueDate) {
+						start = new Date(instance.startDate);
+						end = new Date(instance.dueDate);
+					}
+
+					allEvents.push({
+						id: instance.id,
+						task: instance,
+						start,
+						end,
+						title: instance.title,
+					});
+				});
 			});
+
+		// Filter events to only show those within visible dates
+		return allEvents.filter(event => {
+			return visibleDates.some(date => 
+				isSameDay(event.start, date) || 
+				isSameDay(event.end, date) || 
+				(event.start <= startOfDay(date) && event.end >= endOfDay(date))
+			);
+		});
 	}, [tasks, filterTasks, visibleDates]);
 	// Get unscheduled tasks
 	const unscheduledTasks = useMemo(() => {

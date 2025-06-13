@@ -173,6 +173,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 													</div>
 													<span className='flex-1 truncate'>{board.name}</span>
 													<button
+															title='edit button'
 														onClick={e => {
 															e.stopPropagation();
 															startEditing(board);
@@ -316,6 +317,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 							<div className='grid grid-cols-5 gap-2'>
 								{BOARD_COLORS.map(color => (
 									<button
+									title='board colors selection'
 										key={color}
 										type='button'
 										className={cn('w-10 h-10 rounded-lg border-2 transition-all hover:scale-105', newBoard.color === color ? 'border-foreground ring-2 ring-primary/20' : 'border-border hover:border-muted-foreground')}

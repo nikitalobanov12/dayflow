@@ -41,3 +41,4 @@ src-tauri/target/
 .env
 .cursorrules
 .cursor/rules/cursor-rules.mdc
+supabase/migrations/20240320000000_add_recurring_tasks.sql

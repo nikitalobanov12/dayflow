@@ -52,6 +52,13 @@ CREATE TABLE public.subtasks (
   CONSTRAINT subtasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT subtasks_parent_task_id_fkey FOREIGN KEY (parent_task_id) REFERENCES public.tasks(id)
 );
+CREATE TYPE public.recurring_pattern AS ENUM (
+  'daily',
+  'weekly',
+  'monthly',
+  'yearly'
+);
+
 CREATE TABLE public.tasks (
   priority integer DEFAULT 2 CHECK (priority >= 1 AND priority <= 4),
   due_date timestamp with time zone,
@@ -75,11 +82,18 @@ CREATE TABLE public.tasks (
   tags jsonb DEFAULT '[]'::jsonb,
   created_at timestamp with time zone DEFAULT now(),
   board_id bigint,
+  recurring_pattern recurring_pattern,
+  recurring_interval integer DEFAULT 1,
+  recurring_end_date timestamp with time zone,
+  recurring_days_of_week integer[] DEFAULT '{}'::integer[],
+  recurring_days_of_month integer[] DEFAULT '{}'::integer[],
+  recurring_months_of_year integer[] DEFAULT '{}'::integer[],
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
   CONSTRAINT tasks_parent_task_id_fkey FOREIGN KEY (parent_task_id) REFERENCES public.tasks(id),
   CONSTRAINT tasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT tasks_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES auth.users(id),
-  CONSTRAINT tasks_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id)
+  CONSTRAINT tasks_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id),
+  CONSTRAINT tasks_recurring_interval_check CHECK (recurring_interval >= 1)
 );
 CREATE TABLE public.user_preferences (
   id uuid NOT NULL,

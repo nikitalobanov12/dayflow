@@ -1,3 +1,14 @@
+export type RecurringPattern = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export interface RecurringConfig {
+	pattern: RecurringPattern;
+	interval: number;
+	endDate?: string;
+	daysOfWeek?: number[]; // 0-6 for Sunday-Saturday
+	daysOfMonth?: number[]; // 1-31
+	monthsOfYear?: number[]; // 1-12
+}
+
 export interface Task {
 	id: number;
 	title: string;
@@ -19,7 +30,7 @@ export interface Task {
 	assigneeId?: string; // UUID for team collaboration
 	parentTaskId?: number; // For task dependencies
 	progressPercentage: number; // 0-100
-	recurringPattern?: RecurringPattern; // For recurring tasks
+	recurring?: RecurringConfig; // For recurring tasks
 	labels: TaskLabel[]; // Color-coded labels
 	attachments: TaskAttachment[]; // File attachments
 	timeSpent: number; // Actual time spent in minutes
@@ -63,15 +74,6 @@ export interface TaskAttachment {
 	type: 'image' | 'document' | 'link' | 'other';
 	size?: number; // File size in bytes
 	uploadedAt: string;
-}
-
-export interface RecurringPattern {
-	frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
-	interval: number; // Every X days/weeks/months/years
-	daysOfWeek?: number[]; // For weekly recurrence (0=Sunday, 1=Monday, etc.)
-	dayOfMonth?: number; // For monthly recurrence
-	endDate?: string; // When to stop recurring
-	occurrences?: number; // How many times to repeat
 }
 
 export interface TimeEntry {
