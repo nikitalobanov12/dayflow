@@ -4,6 +4,7 @@ import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { Board } from '@/types';
 import { isTauri } from '@/lib/platform';
 import { ThemeToggle } from './theme-toggle';
+import { renderIcon } from '@/constants/board-constants';
 
 interface ViewHeaderProps {
 	board: Board;
@@ -42,10 +43,10 @@ export function ViewHeader({ board, currentView, onBack, onViewChange, onCreateD
 
 					<div className='flex items-center gap-3'>
 						<div
-							className='w-8 h-8 rounded-lg flex items-center justify-center text-xl'
+							className='w-8 h-8 rounded-lg flex items-center justify-center text-white'
 							style={{ backgroundColor: board.color || '#3B82F6' }}
 						>
-							{board.icon || '📋'}
+							{renderIcon(board.icon, 'h-5 w-5')}
 						</div>
 						<div>
 							<h1 className='text-xl font-bold text-foreground'>{board.name}</h1>
