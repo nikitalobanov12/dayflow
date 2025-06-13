@@ -2,24 +2,40 @@
 <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 476.2 458.2">
   <defs>
     <style>
+      /* Default styles for light mode */
       .cls-1 {
-        fill: var(--logo-primary, currentColor);
+        fill: #141414;
       }
-
       .cls-2 {
-        fill: var(--logo-secondary, #c2c7c4);
+        fill: #6b7280;
       }
-
       .cls-3 {
-        fill: var(--logo-accent, #334155);
+        fill: #374151;
       }
-
       .cls-4 {
-        fill: var(--logo-muted, #4e5657);
+        fill: #4b5563;
+      }
+      .cls-5 {
+        fill: #141414;
       }
 
-      .cls-5 {
-        fill: var(--logo-main, currentColor);
+      /* Dark mode styles */
+      @media (prefers-color-scheme: dark) {
+        .cls-1 {
+          fill: #ffffff;
+        }
+        .cls-2 {
+          fill: #d1d5db;
+        }
+        .cls-3 {
+          fill: #9ca3af;
+        }
+        .cls-4 {
+          fill: #d1d5db;
+        }
+        .cls-5 {
+          fill: #ffffff;
+        }
       }
     </style>
   </defs>
@@ -41,4 +57,4 @@
   <path class="cls-2" d="M338.8,291.8c-.3.2-.7.2-1.5.3.2-.1.8-.3,1.5-.3Z"/>
   <path class="cls-3" d="M322.9,292.2c-6,.3-12.5-.3-19.1-2.2,6.1-.4,12.4.4,19.1,2.2Z"/>
   <path class="cls-3" d="M354.5,289.6c-5.8,1.9-12.1,2.9-19,2.8,5.8-2,12.1-2.8,19-2.8Z"/>
-</svg>
+</svg> 

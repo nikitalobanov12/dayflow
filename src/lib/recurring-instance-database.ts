@@ -13,12 +13,12 @@ const convertRecurringInstanceFromDb = (row: RecurringInstanceRow): RecurringIns
 });
 
 // Helper function to convert application type to database row
-const convertRecurringInstanceToDb = (instance: Omit<RecurringInstance, 'id' | 'createdAt' | 'updatedAt'>): Omit<RecurringInstanceRow, 'id' | 'created_at' | 'updated_at'> => ({
+/* const convertRecurringInstanceToDb = (instance: Omit<RecurringInstance, 'id' | 'createdAt' | 'updatedAt'>): Omit<RecurringInstanceRow, 'id' | 'created_at' | 'updated_at'> => ({
   original_task_id: instance.originalTaskId,
   instance_date: instance.instanceDate,
   completed_at: instance.completedAt || null,
   user_id: instance.userId,
-});
+}); */
 
 class RecurringInstanceDatabase {
   private async getCurrentUser() {
