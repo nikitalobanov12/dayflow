@@ -523,7 +523,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 						</div>
 						{task.description && <p className={`text-xs mt-1 line-clamp-2 ${isCompleted ? 'text-muted-foreground' : 'text-muted-foreground'}`}>{task.description}</p>}
 						<div className='flex items-center gap-2 mt-2 text-xs text-muted-foreground'>
-							<span className={`px-2 py-1 rounded-full text-xs font-medium ${task.status === 'done' ? 'bg-green-100 text-green-800' : task.status === 'today' ? 'bg-red-100 text-red-800' : task.status === 'this-week' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>{task.status.replace('-', ' ')}</span>
+							<span className={`px-2 py-1 rounded-full text-xs font-medium ${task.status === 'done' ? 'bg-green-100 text-green-800' : task.status === 'today' ? 'bg-red-100 text-red-800' : task.status === 'this-week' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>{task.status.replace(/-/g, ' ')}</span>
 							{task.timeEstimate && task.timeEstimate > 0 && (
 								<span className='flex items-center gap-1'>
 									<Clock className='h-3 w-3' />

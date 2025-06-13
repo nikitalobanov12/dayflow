@@ -631,7 +631,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 										<SelectItem value='done'>Done</SelectItem>
 									</SelectContent>
 								</Select>
-								<Badge className={getStatusColor(formData.status || 'backlog')}>{formData.status?.replace('-', ' ').toUpperCase() || 'BACKLOG'}</Badge>
+								<Badge className={getStatusColor(formData.status || 'backlog')}>{formData.status?.replace(/-/g, ' ').toUpperCase() || 'BACKLOG'}</Badge>
 							</div>
 
 							{/* Priority */}
