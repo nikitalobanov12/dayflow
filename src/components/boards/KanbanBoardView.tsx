@@ -29,6 +29,7 @@ interface KanbanBoardViewProps {
 export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings, userPreferences }: KanbanBoardViewProps) {
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
+	const [isCreatingDetailedTask, setIsCreatingDetailedTask] = useState(false);
 
 	// Apply user preferences for filtering and sorting
 	const { filterTasks, sortTasks } = useUserPreferences(userPreferences);
@@ -89,6 +90,37 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 		const taskWithBoard = isAllTasksBoard ? task : { ...task, boardId: board.id };
 		await onAddTask(taskWithBoard);
 	};
+
+	// Handler for creating detailed task from header
+	const handleCreateDetailedTaskFromHeader = () => {
+		setIsCreatingDetailedTask(true);
+	};
+
+	// Handler for saving detailed task creation
+	const handleCreateDetailedTaskSave = async (updates: Partial<Task>) => {
+		const newTask: Omit<Task, 'id' | 'createdAt'> = {
+			title: updates.title || '',
+			description: updates.description || '',
+			timeEstimate: updates.timeEstimate || 0,
+			priority: updates.priority || 2,
+			status: updates.status || 'backlog', // Default to backlog when created from header
+			position: tasks.filter(t => t.status === (updates.status || 'backlog')).length,
+			boardId: isAllTasksBoard ? updates.boardId : board.id,
+			progressPercentage: updates.progressPercentage || 0,
+			timeSpent: updates.timeSpent || 0,
+			labels: updates.labels || [],
+			attachments: updates.attachments || [],
+			category: updates.category || '',
+			scheduledDate: updates.scheduledDate,
+			startDate: updates.startDate,
+			dueDate: updates.dueDate,
+			recurring: updates.recurring,
+		};
+		
+		await onAddTask(newTask);
+		setIsCreatingDetailedTask(false);
+	};
+
 	// Helper function to get board information by ID
 	const getBoardInfo = (boardId: number): Board | null => {
 		if (!isAllTasksBoard || !boards) return null;
@@ -97,21 +129,21 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 
 	return (
 		<div className='h-screen bg-background flex flex-col'>
-			{/* Header */}{' '}
+			{/* Header */}
 			<ViewHeader
 				board={board}
 				currentView='kanban'
 				onBack={onBack}
 				onViewChange={onViewChange}
+				onCreateDetailedTask={handleCreateDetailedTaskFromHeader}
 				user={user}
 				onSignOut={onSignOut}
 				onOpenSettings={onOpenSettings}
-			/>{' '}
+			/>
 			{/* Kanban Board */}
 			<div className='flex-1 flex flex-col min-h-0'>
 				<div className='flex-1 overflow-x-auto overflow-y-hidden kanban-scroll-container'>
 					<div className='flex justify-center gap-8 p-4 min-w-fit h-full'>
-						{' '}
 						<KanbanColumn
 							title='Backlog'
 							status='backlog'
@@ -130,7 +162,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							getBoardInfo={getBoardInfo}
 							currentBoard={board}
 							userPreferences={userPreferences}
-						/>{' '}
+						/>
 						<KanbanColumn
 							title='This Week'
 							status='this-week'
@@ -149,7 +181,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							getBoardInfo={getBoardInfo}
 							currentBoard={board}
 							userPreferences={userPreferences}
-						/>{' '}
+						/>
 						<KanbanColumn
 							title='Today'
 							status='today'
@@ -170,7 +202,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 							getBoardInfo={getBoardInfo}
 							currentBoard={board}
 							userPreferences={userPreferences}
-						/>{' '}
+						/>
 						<KanbanColumn
 							title='Done'
 							status='done'
@@ -191,7 +223,8 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 						/>
 					</div>
 				</div>
-			</div>{' '}
+			</div>
+			
 			{/* Edit Task Dialog */}
 			<TaskEditDialog
 				task={editingTask}
@@ -202,6 +235,19 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 				onDuplicate={onDuplicateTask ? handleEditTaskDuplicate : undefined}
 				isAllTasksBoard={isAllTasksBoard}
 				boards={boards}
+				userPreferences={userPreferences}
+			/>
+			
+			{/* Create Detailed Task Dialog */}
+			<TaskEditDialog
+				task={null}
+				isOpen={isCreatingDetailedTask}
+				onClose={() => setIsCreatingDetailedTask(false)}
+				onCreate={handleCreateDetailedTaskSave}
+				onDelete={async () => {}} // Not needed for creation
+				isAllTasksBoard={isAllTasksBoard}
+				boards={boards}
+				isCreating={true}
 				userPreferences={userPreferences}
 			/>
 		</div>

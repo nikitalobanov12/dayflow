@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, Layers } from 'lucide-react';
+import { ArrowLeft, Calendar, Layers, PlusCircle } from 'lucide-react';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { Board } from '@/types';
 import { isTauri } from '@/lib/platform';
@@ -10,6 +10,7 @@ interface ViewHeaderProps {
 	currentView: 'kanban' | 'calendar';
 	onBack: () => void;
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar') => Promise<void>;
+	onCreateDetailedTask?: () => void;
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
 	onOpenSettings?: () => void;
@@ -25,7 +26,7 @@ const VIEW_NAMES = {
 	calendar: 'Calendar',
 };
 
-export function ViewHeader({ board, currentView, onBack, onViewChange, user, onSignOut, onOpenSettings }: ViewHeaderProps) {
+export function ViewHeader({ board, currentView, onBack, onViewChange, onCreateDetailedTask, user, onSignOut, onOpenSettings }: ViewHeaderProps) {
 	return (
 		<div className={`${!isTauri() ? '' : ''} p-4 border-b border-border bg-card relative z-10`}>
 			<div className='flex items-center justify-between container max-w-screen mx-auto'>
@@ -54,7 +55,20 @@ export function ViewHeader({ board, currentView, onBack, onViewChange, user, onS
 				</div>
 
 				<div className='flex items-center gap-4'>
-					{onViewChange && (						<div className='flex items-center gap-2 bg-muted rounded-lg p-1'>
+					{onCreateDetailedTask && (
+						<Button
+							variant='default'
+							size='sm'
+							onClick={onCreateDetailedTask}
+							className='gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm'
+						>
+							<PlusCircle className='h-4 w-4' />
+							New Task
+						</Button>
+					)}
+
+					{onViewChange && (
+						<div className='flex items-center gap-2 bg-muted rounded-lg p-1'>
 							{(['kanban', 'calendar'] as const).map(view => (
 								<Button
 									key={view}
@@ -69,7 +83,7 @@ export function ViewHeader({ board, currentView, onBack, onViewChange, user, onS
 							))}
 						</div>
 					)}
-					<ThemeToggle />{' '}
+					<ThemeToggle />
 					<ProfileDropdown
 						user={user}
 						onSignOut={onSignOut}

@@ -49,7 +49,7 @@ const ZOOM_LEVELS = [
 	{ label: 'Detailed', height: 160, timeInterval: 30 }, // 30 min per 80px (160px per hour)
 ];
 
-export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, user, onSignOut, onViewChange, onOpenSettings, userPreferences }: CompactCalendarViewProps) {
+export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards, user, onSignOut, onViewChange, onOpenSettings, userPreferences }: CompactCalendarViewProps) {
 	// Apply user preferences
 	const { filterTasks, weekStartsOn, calendarDefaultZoom, calendarDefaultView, formatDate } = useUserPreferences(userPreferences);
 	// Helper function to format time according to user preference
@@ -81,11 +81,12 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 	const [currentDate, setCurrentDate] = useState(new Date());
 	const [viewMode, setViewMode] = useState<ViewMode>(calendarDefaultView);
 	const [zoomLevel, setZoomLevel] = useState(calendarDefaultZoom);
-	const [isEditingTask, setIsEditingTask] = useState(false);
-	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [isCreatingTask, setIsCreatingTask] = useState(false);
-	const [newTaskStart, setNewTaskStart] = useState<Date | null>(null);
+	const [newTaskDate, setNewTaskDate] = useState<Date | null>(null);
+	const [editingTask, setEditingTask] = useState<Task | null>(null);
+	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [isDragging, setIsDragging] = useState(false);
+	const [isCreatingDetailedTask, setIsCreatingDetailedTask] = useState(false);
 	const [newTaskData, setNewTaskData] = useState({
 		title: '',
 		description: '',
@@ -278,7 +279,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 	const handleTimeSlotClick = (date: Date, hour: number, minute: number) => {
 		const clickedTime = new Date(date);
 		clickedTime.setHours(hour, minute, 0, 0);
-		setNewTaskStart(clickedTime);
+		setNewTaskDate(clickedTime);
 		setIsCreatingTask(true);
 	};
 
@@ -334,13 +335,13 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 
 	// Handle task creation
 	const handleCreateTask = async () => {
-		if (!newTaskData.title.trim() || !newTaskStart) return;
+		if (!newTaskData.title.trim() || !newTaskDate) return;
 
 		try {
 			const today = new Date();
 			today.setHours(0, 0, 0, 0);
 
-			const scheduledDate = new Date(newTaskStart);
+			const scheduledDate = new Date(newTaskDate);
 			scheduledDate.setHours(0, 0, 0, 0);
 
 			const startOfWeekDate = startOfWeek(today, { weekStartsOn });
@@ -357,8 +358,8 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 			const taskToCreate = {
 				...newTaskData,
 				status: taskStatus,
-				scheduledDate: newTaskStart.toISOString(),
-				startDate: newTaskStart.toISOString(),
+				scheduledDate: newTaskDate.toISOString(),
+				startDate: newTaskDate.toISOString(),
 				position: tasks.length,
 				progressPercentage: 0,
 				effortEstimate: 2 as 1 | 2 | 3 | 4,
@@ -378,7 +379,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 				priority: 2,
 				status: 'backlog',
 			});
-			setNewTaskStart(null);
+			setNewTaskDate(null);
 		} catch (error) {
 			console.error('Failed to create task:', error);
 		}
@@ -661,6 +662,36 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 		return () => clearTimeout(timeoutId);
 	}, []); // Empty dependency array means this only runs on mount
 
+	// Handler for creating detailed task from header
+	const handleCreateDetailedTaskFromHeader = () => {
+		setIsCreatingDetailedTask(true);
+	};
+
+	// Handler for saving detailed task creation
+	const handleCreateDetailedTaskSave = async (updates: Partial<Task>) => {
+		const newTask: Omit<Task, 'id' | 'createdAt'> = {
+			title: updates.title || '',
+			description: updates.description || '',
+			timeEstimate: updates.timeEstimate || 0,
+			priority: updates.priority || 2,
+			status: updates.status || 'backlog',
+			position: tasks.filter(t => t.status === (updates.status || 'backlog')).length,
+			boardId: isAllTasksBoard ? updates.boardId : board.id,
+			progressPercentage: updates.progressPercentage || 0,
+			timeSpent: updates.timeSpent || 0,
+			labels: updates.labels || [],
+			attachments: updates.attachments || [],
+			category: updates.category || '',
+			scheduledDate: updates.scheduledDate,
+			startDate: updates.startDate,
+			dueDate: updates.dueDate,
+			recurring: updates.recurring,
+		};
+		
+		await onAddTask(newTask);
+		setIsCreatingDetailedTask(false);
+	};
+
 	return (
 		<div className='h-screen bg-background flex flex-col overflow-hidden'>
 			{/* Header */}
@@ -670,6 +701,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 					currentView='calendar'
 					onBack={onBack}
 					onViewChange={onViewChange}
+					onCreateDetailedTask={handleCreateDetailedTaskFromHeader}
 					user={user}
 					onSignOut={onSignOut}
 					onOpenSettings={onOpenSettings}
@@ -982,7 +1014,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 				<DialogContent className='sm:max-w-md'>
 					<DialogHeader>
 						<DialogTitle>Create New Task</DialogTitle>
-						<DialogDescription>{newTaskStart && `Scheduled for ${formatDate(newTaskStart, true)}`}</DialogDescription>
+						<DialogDescription>{newTaskDate && `Scheduled for ${formatDate(newTaskDate, true)}`}</DialogDescription>
 					</DialogHeader>
 					<div className='space-y-4'>
 						<div>
@@ -1053,6 +1085,19 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 				}}
 				onSave={handleEditTaskSave}
 				onDelete={handleEditTaskDelete}
+			/>
+			
+			{/* Create Detailed Task Dialog */}
+			<TaskEditDialog
+				task={null}
+				isOpen={isCreatingDetailedTask}
+				onClose={() => setIsCreatingDetailedTask(false)}
+				onCreate={handleCreateDetailedTaskSave}
+				onDelete={async () => {}} // Not needed for creation
+				isAllTasksBoard={isAllTasksBoard}
+				boards={boards}
+				isCreating={true}
+				userPreferences={userPreferences}
 			/>
 		</div>
 	);

@@ -15,7 +15,8 @@ interface TaskEditDialogProps {
 	task: Task | null;
 	isOpen: boolean;
 	onClose: () => void;
-	onSave: (id: number, updates: Partial<Task>) => Promise<void>;
+	onSave?: (id: number, updates: Partial<Task>) => Promise<void>; // For editing existing tasks
+	onCreate?: (updates: Partial<Task>) => Promise<void>; // For creating new tasks
 	onDelete: (id: number) => Promise<void>;
 	onDuplicate?: (task: Task) => Promise<void>;
 	// Optional props for enhanced functionality
@@ -25,7 +26,7 @@ interface TaskEditDialogProps {
 	userPreferences?: any; // User preferences for date formatting
 }
 
-export function TaskEditDialog({ task, isOpen, onClose, onSave, onDelete, isAllTasksBoard = false, boards = [], isCreating = false }: TaskEditDialogProps) {
+export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDelete, isAllTasksBoard = false, boards = [], isCreating = false }: TaskEditDialogProps) {
 	const [formData, setFormData] = useState<Partial<Task>>({});
 	const [originalData, setOriginalData] = useState<Partial<Task>>({});
 	const [isLoading, setIsLoading] = useState(false);
@@ -158,12 +159,12 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onDelete, isAllT
 				updates.recurring = undefined;
 			}
 
-			if (task) {
+			if (task && !isCreating && onSave) {
 				// Editing existing task
 				await onSave(task.id, updates);
-			} else {
-				// Creating new task - use a dummy ID since onSave expects an ID
-				await onSave(0, updates);
+			} else if (isCreating && onCreate) {
+				// Creating new task
+				await onCreate(updates);
 			}
 			// Update original data to reflect saved state
 			setOriginalData({ ...updates });
@@ -212,7 +213,9 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onDelete, isAllT
 		// Save to database
 		setIsLoading(true);
 		try {
-			await onSave(task.id, updates);
+			if (onSave) {
+				await onSave(task.id, updates);
+			}
 		} catch (error) {
 			console.error('Failed to toggle task completion:', error);
 			// Revert on error

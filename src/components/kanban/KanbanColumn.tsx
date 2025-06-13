@@ -136,6 +136,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 							variant='ghost'
 							onClick={() => setIsAdding(!isAdding)}
 							className='h-8 w-8 p-0 hover:bg-accent/80 rounded-full transition-all duration-200 hover:scale-105'
+							title='Quick add task'
 						>
 							<Plus className='h-4 w-4' />
 						</Button>
