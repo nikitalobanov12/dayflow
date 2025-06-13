@@ -7,7 +7,8 @@ import { useState } from 'react';
 import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { Calendar as CalendarUI } from '@/components/ui/calendar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 interface TaskCardProps {
 	task: Task;
@@ -232,34 +233,7 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 		}
 	};
 
-	const handleSelectDate = async (date: Date | undefined) => {
-		if (!date) return;
-		
-		setIsDateDialogOpen(false);
-		if (onUpdateTask) {
-			// Set time to 9 AM by default
-			const scheduledDate = new Date(date);
-			scheduledDate.setHours(9, 0, 0, 0);
-			
-			// Determine status based on date
-			const today = new Date();
-			today.setHours(0, 0, 0, 0);
-			const selectedDay = new Date(date);
-			selectedDay.setHours(0, 0, 0, 0);
-			
-			let newStatus: Task['status'] = 'backlog';
-			if (selectedDay.getTime() === today.getTime()) {
-				newStatus = 'today';
-			} else if (selectedDay > today && selectedDay <= new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)) {
-				newStatus = 'this-week';
-			}
-			
-			await onUpdateTask(task.id, { 
-				scheduledDate: scheduledDate.toISOString(),
-				status: newStatus
-			});
-		}
-	};
+
 
 	const handleScheduleToday = async () => {
 		if (onUpdateTask) {
@@ -654,20 +628,134 @@ export function TaskCard({ task, onMove, onEdit, onUpdateTimeEstimate, onDuplica
 				</ContextMenuContent>
 			</ContextMenu>
 			<Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
-				<DialogContent className="p-0 max-w-xs">
+				<DialogContent className="max-w-md">
 					<DialogHeader>
-						<DialogTitle>Pick a Date</DialogTitle>
+						<DialogTitle>Schedule Task</DialogTitle>
+						<DialogDescription>
+							Set date and time for "{task.title}"
+						</DialogDescription>
 					</DialogHeader>
-					<CalendarUI
-						mode="single"
-						selected={task.scheduledDate ? new Date(task.scheduledDate) : undefined}
-						onSelect={(date) => {
-							handleSelectDate(date);
-							setIsDateDialogOpen(false);
-						}}
-					/>
+					<div className="space-y-4">
+						{/* Calendar */}
+						<div>
+							<label className="text-sm font-medium mb-2 block">Select Date</label>
+							<div className="border rounded-md p-3 bg-background">
+								<CalendarUI
+									mode="single"
+									selected={task.scheduledDate ? new Date(task.scheduledDate) : undefined}
+									onSelect={(date) => {
+										if (date) {
+											// Update the task's date while preserving existing time or setting default
+											const existingDate = task.scheduledDate ? new Date(task.scheduledDate) : new Date();
+											const newDate = new Date(date);
+											newDate.setHours(existingDate.getHours() || 9, existingDate.getMinutes() || 0, 0, 0);
+											
+											// Update task immediately for UI feedback
+											if (onUpdateTask) {
+												onUpdateTask(task.id, { scheduledDate: newDate.toISOString() });
+											}
+										}
+									}}
+									className="w-full"
+								/>
+							</div>
+						</div>
+
+						{/* Time Selection */}
+						<div>
+							<label className="text-sm font-medium mb-2 block">Select Time</label>
+							<Input
+								type="time"
+								value={task.scheduledDate ? 
+									(() => {
+										const date = new Date(task.scheduledDate);
+										return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+									})() : 
+									"09:00"
+								}
+								onChange={(e) => {
+									if (e.target.value && onUpdateTask) {
+										const [hours, minutes] = e.target.value.split(':').map(Number);
+										const currentDate = task.scheduledDate ? 
+											new Date(task.scheduledDate) : 
+											new Date();
+										currentDate.setHours(hours, minutes, 0, 0);
+										onUpdateTask(task.id, { scheduledDate: currentDate.toISOString() });
+									}
+								}}
+								className="bg-background"
+							/>
+						</div>
+
+						{/* Quick Time Presets */}
+						<div>
+							<label className="text-sm font-medium mb-2 block">Quick Times</label>
+							<div className="grid grid-cols-3 gap-2">
+								{[
+									{ label: '9:00 AM', hour: 9, minute: 0 },
+									{ label: '12:00 PM', hour: 12, minute: 0 },
+									{ label: '2:00 PM', hour: 14, minute: 0 },
+									{ label: '5:00 PM', hour: 17, minute: 0 },
+									{ label: '7:00 PM', hour: 19, minute: 0 },
+									{ label: '9:00 PM', hour: 21, minute: 0 },
+								].map((preset) => (
+									<Button
+										key={preset.label}
+										variant="outline"
+										size="sm"
+										onClick={() => {
+											const currentDate = task.scheduledDate ? 
+												new Date(task.scheduledDate) : 
+												new Date();
+											currentDate.setHours(preset.hour, preset.minute, 0, 0);
+											if (onUpdateTask) {
+												onUpdateTask(task.id, { scheduledDate: currentDate.toISOString() });
+											}
+										}}
+										className="text-xs"
+									>
+										{preset.label}
+									</Button>
+								))}
+							</div>
+						</div>
+					</div>
 					<DialogFooter>
-						<Button variant="outline" onClick={() => setIsDateDialogOpen(false)}>Cancel</Button>
+						<Button 
+							variant="outline" 
+							onClick={() => setIsDateDialogOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button 
+							onClick={() => {
+								if (task.scheduledDate && onUpdateTask) {
+									const scheduledDate = new Date(task.scheduledDate);
+									
+									// Determine status based on date
+									const today = new Date();
+									today.setHours(0, 0, 0, 0);
+									const selectedDay = new Date(scheduledDate);
+									selectedDay.setHours(0, 0, 0, 0);
+									
+									let newStatus: Task['status'] = 'backlog';
+									if (selectedDay.getTime() === today.getTime()) {
+										newStatus = 'today';
+									} else if (selectedDay > today && selectedDay <= new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+										newStatus = 'this-week';
+									}
+									
+									onUpdateTask(task.id, { 
+										scheduledDate: scheduledDate.toISOString(),
+										status: newStatus
+									});
+								}
+								setIsDateDialogOpen(false);
+							}}
+							disabled={!task.scheduledDate}
+						>
+							Schedule Task
+						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>

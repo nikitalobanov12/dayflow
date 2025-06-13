@@ -10,6 +10,7 @@ import { Clock, Calendar, X, CheckCircle, Circle, Plus, Minus, Trash2 } from 'lu
 import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
 import moment from 'moment';
 import { Switch } from '@/components/ui/switch';
+import { Calendar as CalendarUI } from '@/components/ui/calendar';
 
 interface TaskEditDialogProps {
 	task: Task | null;
@@ -34,11 +35,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 
 	// Apply user preferences for date formatting
 
-	// Helper function to format dates for datetime-local inputs
-	const formatForDateTimeLocal = (dateString: string | undefined) => {
-		if (!dateString) return '';
-		return moment(dateString).format('YYYY-MM-DDTHH:mm');
-	};
+
 
 	// Check if form has changes - more robust comparison
 	const hasChanges = useMemo(() => {
@@ -683,20 +680,97 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 								<div>
 									<label className='text-sm font-medium text-muted-foreground block mb-3'>
 										<Calendar className='h-4 w-4 inline mr-1' />
-										Scheduled Date
-									</label>{' '}
-									<Input
-										type='datetime-local'
-										value={formatForDateTimeLocal(formData.scheduledDate)}
-										onChange={e => updateFormData('scheduledDate', e.target.value ? new Date(e.target.value).toISOString() : undefined)}
-										className='bg-background border-border text-foreground'
-										onKeyDown={handleInputKeyDown}
-									/>
-								</div>{' '}
-								
-							</div>
+										Scheduled Date & Time
+									</label>
+									
+									{/* Calendar */}
+									<div className="space-y-4">
+										<div>
+											<label className="text-sm font-medium mb-2 block">Select Date</label>
+											<div className="border rounded-md p-3 bg-background">
+												<CalendarUI
+													mode="single"
+													selected={formData.scheduledDate ? new Date(formData.scheduledDate) : undefined}
+													onSelect={(date: Date | undefined) => {
+														if (date) {
+															// Preserve existing time or set default to 9:00 AM
+															const existingDate = formData.scheduledDate ? new Date(formData.scheduledDate) : new Date();
+															const newDate = new Date(date);
+															newDate.setHours(
+																existingDate.getHours() || 9, 
+																existingDate.getMinutes() || 0, 
+																0, 
+																0
+															);
+															updateFormData('scheduledDate', newDate.toISOString());
+														} else {
+															updateFormData('scheduledDate', undefined);
+														}
+													}}
+													className="w-full"
+												/>
+											</div>
+										</div>
 
-						
+										{/* Time Selection - only show when date is selected */}
+										{formData.scheduledDate && (
+											<div>
+												<label className="text-sm font-medium mb-2 block">Select Time</label>
+												<Input
+													type="time"
+													value={(() => {
+														const date = new Date(formData.scheduledDate);
+														return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+													})()}
+													onChange={e => {
+														if (e.target.value && formData.scheduledDate) {
+															const [hours, minutes] = e.target.value.split(':').map(Number);
+															const currentDate = new Date(formData.scheduledDate);
+															currentDate.setHours(hours, minutes, 0, 0);
+															updateFormData('scheduledDate', currentDate.toISOString());
+														}
+													}}
+													className="bg-background"
+													onKeyDown={handleInputKeyDown}
+												/>
+											</div>
+										)}
+
+										{/* Quick Time Presets - only show when date is selected */}
+										{formData.scheduledDate && (
+											<div>
+												<label className="text-sm font-medium mb-2 block">Quick Times</label>
+												<div className="grid grid-cols-3 gap-2">
+													{[
+														{ label: '9:00 AM', hour: 9, minute: 0 },
+														{ label: '12:00 PM', hour: 12, minute: 0 },
+														{ label: '2:00 PM', hour: 14, minute: 0 },
+														{ label: '5:00 PM', hour: 17, minute: 0 },
+														{ label: '7:00 PM', hour: 19, minute: 0 },
+														{ label: '9:00 PM', hour: 21, minute: 0 },
+													].map((preset) => (
+														<Button
+															key={preset.label}
+															variant="outline"
+															size="sm"
+															onClick={() => {
+																if (formData.scheduledDate) {
+																	const currentDate = new Date(formData.scheduledDate);
+																	currentDate.setHours(preset.hour, preset.minute, 0, 0);
+																	updateFormData('scheduledDate', currentDate.toISOString());
+																}
+															}}
+															className="text-xs"
+														>
+															{preset.label}
+														</Button>
+													))}
+												</div>
+											</div>
+										)}
+									</div>
+								</div>
+							</div>
 
 							{isAllTasksBoard && boards && boards.length > 0 && (
 								<div>

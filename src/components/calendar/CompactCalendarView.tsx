@@ -623,32 +623,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 			});
 		};
 
-		const handleSelectDate = async (date: Date | undefined) => {
-			if (!date) return;
-			
-			setIsDateDialogOpen(false);
-			// Set time to 9 AM by default
-			const scheduledDate = new Date(date);
-			scheduledDate.setHours(9, 0, 0, 0);
-			
-			// Determine status based on date
-			const today = new Date();
-			today.setHours(0, 0, 0, 0);
-			const selectedDay = new Date(date);
-			selectedDay.setHours(0, 0, 0, 0);
-			
-			let newStatus: Task['status'] = 'backlog';
-			if (selectedDay.getTime() === today.getTime()) {
-				newStatus = 'today';
-			} else if (selectedDay > today && selectedDay <= new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)) {
-				newStatus = 'this-week';
-			}
-			
-			await onUpdateTask(task.id, { 
-				scheduledDate: scheduledDate.toISOString(),
-				status: newStatus
-			});
-		};
+
 
 		return (
 			<ContextMenu>
@@ -1084,7 +1059,8 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 													return null;
 												})()}
 										</div>
-									))}{' '}
+									))}
+
 									{/* Events */}
 									{events
 										.filter(event => isSameDay(event.start, date))
@@ -1130,7 +1106,8 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																<div className='text-xs font-medium truncate leading-none'>{event.title}</div>
 																{event.task.status === 'done' && <CheckCircle className='h-3 w-3 text-green-300 ml-1 flex-shrink-0' />}
 															</div>
-														)}{' '}
+														)}
+
 														{/* Small Cards (30-50px) - Title + time on same line */}
 														{isSmall && !isVerySmall && (
 															<div className='p-1.5 h-full flex flex-col justify-center'>
@@ -1146,7 +1123,8 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																</div>
 																<div className='text-xs opacity-90 leading-none mt-0.5'>{formatTime(event.start)}</div>
 															</div>
-														)}{' '}
+														)}
+
 														{/* Medium Cards (50-80px) - Title, time, basic info */}
 														{isMedium && (
 															<div className='p-2 h-full flex flex-col'>
@@ -1159,7 +1137,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																	>
 																		{event.task.status === 'done' && <CheckCircle className='h-3 w-3' />}
 																	</button>
-																</div>{' '}
+																</div>
 																<div className='text-xs opacity-90 mb-1'>
 																	{formatTime(event.start)} - {formatTime(event.end)}
 																</div>
@@ -1172,7 +1150,8 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																	)}
 																</div>
 															</div>
-														)}{' '}
+														)}
+
 														{/* Large Cards (80px+) - Full info */}
 														{isLarge && (
 															<div className='p-2 h-full flex flex-col'>
@@ -1185,7 +1164,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 																	>
 																		{event.task.status === 'done' && <CheckCircle className='h-3 w-3' />}
 																	</button>
-																</div>{' '}
+																</div>
 																<div className='text-xs opacity-90 mb-2'>
 																	{formatTime(event.start)} - {formatTime(event.end)}
 																</div>
@@ -1309,28 +1288,124 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 
 			{/* Date Picker Dialog */}
 			<Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
-				<DialogContent className="p-0 max-w-xs">
+				<DialogContent className="max-w-md">
 					<DialogHeader>
-						<DialogTitle>Pick a Date</DialogTitle>
+						<DialogTitle>Schedule Task</DialogTitle>
+						<DialogDescription>
+							{selectedTaskForDatePicker && `Set date and time for "${selectedTaskForDatePicker.title}"`}
+						</DialogDescription>
 					</DialogHeader>
-					<CalendarUI
-						mode="single"
-						selected={selectedTaskForDatePicker?.scheduledDate ? new Date(selectedTaskForDatePicker.scheduledDate) : undefined}
-						onSelect={(date) => {
-							if (selectedTaskForDatePicker) {
-								// Use the handleSelectDate function from the TaskContextMenu
-								const handleSelectDate = async (date: Date | undefined) => {
-									if (!date) return;
-									
-									setIsDateDialogOpen(false);
-									// Set time to 9 AM by default
-									const scheduledDate = new Date(date);
-									scheduledDate.setHours(9, 0, 0, 0);
+					<div className="space-y-4">
+						{/* Calendar */}
+						<div>
+							<label className="text-sm font-medium mb-2 block">Select Date</label>
+							<div className="border rounded-md p-3 bg-background">
+								<CalendarUI
+									mode="single"
+									selected={selectedTaskForDatePicker?.scheduledDate ? new Date(selectedTaskForDatePicker.scheduledDate) : undefined}
+									onSelect={(date) => {
+										if (date && selectedTaskForDatePicker) {
+											// Update the selected task's date while preserving existing time or setting default
+											const existingDate = selectedTaskForDatePicker.scheduledDate ? new Date(selectedTaskForDatePicker.scheduledDate) : new Date();
+											const newDate = new Date(date);
+											newDate.setHours(existingDate.getHours() || 9, existingDate.getMinutes() || 0, 0, 0);
+											
+											// Update the selected task for date picker to reflect the new date
+											setSelectedTaskForDatePicker({
+												...selectedTaskForDatePicker,
+												scheduledDate: newDate.toISOString()
+											});
+										}
+									}}
+									className="w-full"
+								/>
+							</div>
+						</div>
+
+						{/* Time Selection */}
+						<div>
+							<label className="text-sm font-medium mb-2 block">Select Time</label>
+							<Input
+								type="time"
+								value={selectedTaskForDatePicker?.scheduledDate ? 
+									(() => {
+										const date = new Date(selectedTaskForDatePicker.scheduledDate);
+										return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+									})() : 
+									"09:00"
+								}
+								onChange={(e) => {
+									if (selectedTaskForDatePicker && e.target.value) {
+										const [hours, minutes] = e.target.value.split(':').map(Number);
+										const currentDate = selectedTaskForDatePicker.scheduledDate ? 
+											new Date(selectedTaskForDatePicker.scheduledDate) : 
+											new Date();
+										currentDate.setHours(hours, minutes, 0, 0);
+										setSelectedTaskForDatePicker({
+											...selectedTaskForDatePicker,
+											scheduledDate: currentDate.toISOString()
+										});
+									}
+								}}
+								className="bg-background"
+							/>
+						</div>
+
+						{/* Quick Time Presets */}
+						<div>
+							<label className="text-sm font-medium mb-2 block">Quick Times</label>
+							<div className="grid grid-cols-3 gap-2">
+								{[
+									{ label: '9:00 AM', hour: 9, minute: 0 },
+									{ label: '12:00 PM', hour: 12, minute: 0 },
+									{ label: '2:00 PM', hour: 14, minute: 0 },
+									{ label: '5:00 PM', hour: 17, minute: 0 },
+									{ label: '7:00 PM', hour: 19, minute: 0 },
+									{ label: '9:00 PM', hour: 21, minute: 0 },
+								].map((preset) => (
+									<Button
+										key={preset.label}
+										variant="outline"
+										size="sm"
+										onClick={() => {
+											if (selectedTaskForDatePicker) {
+												const currentDate = selectedTaskForDatePicker.scheduledDate ? 
+													new Date(selectedTaskForDatePicker.scheduledDate) : 
+													new Date();
+												currentDate.setHours(preset.hour, preset.minute, 0, 0);
+												setSelectedTaskForDatePicker({
+													...selectedTaskForDatePicker,
+													scheduledDate: currentDate.toISOString()
+												});
+											}
+										}}
+										className="text-xs"
+									>
+										{preset.label}
+									</Button>
+								))}
+							</div>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button 
+							variant="outline" 
+							onClick={() => {
+								setIsDateDialogOpen(false);
+								setSelectedTaskForDatePicker(null);
+							}}
+						>
+							Cancel
+						</Button>
+						<Button 
+							onClick={async () => {
+								if (selectedTaskForDatePicker && selectedTaskForDatePicker.scheduledDate) {
+									const scheduledDate = new Date(selectedTaskForDatePicker.scheduledDate);
 									
 									// Determine status based on date
 									const today = new Date();
 									today.setHours(0, 0, 0, 0);
-									const selectedDay = new Date(date);
+									const selectedDay = new Date(scheduledDate);
 									selectedDay.setHours(0, 0, 0, 0);
 									
 									let newStatus: Task['status'] = 'backlog';
@@ -1344,13 +1419,15 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 										scheduledDate: scheduledDate.toISOString(),
 										status: newStatus
 									});
-								};
-								handleSelectDate(date);
-							}
-						}}
-					/>
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setIsDateDialogOpen(false)}>Cancel</Button>
+									
+									setIsDateDialogOpen(false);
+									setSelectedTaskForDatePicker(null);
+								}
+							}}
+							disabled={!selectedTaskForDatePicker?.scheduledDate}
+						>
+							Schedule Task
+						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
