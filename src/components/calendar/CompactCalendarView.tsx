@@ -110,7 +110,12 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 
 	// Convert tasks to calendar events
 	const events: CalendarEvent[] = useMemo(() => {
-		const filteredTasks = filterTasks(tasks);
+		// First filter by board if not viewing all tasks
+		const boardFilteredTasks = isAllTasksBoard 
+			? tasks 
+			: tasks.filter(task => task.boardId === board.id);
+		
+		const filteredTasks = filterTasks(boardFilteredTasks);
 		const allEvents: CalendarEvent[] = [];
 
 		filteredTasks
@@ -167,10 +172,15 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 				(event.start <= startOfDay(date) && event.end >= endOfDay(date))
 			);
 		});
-	}, [tasks, filterTasks, visibleDates]);
+	}, [tasks, filterTasks, visibleDates, isAllTasksBoard, board.id]);
 	// Get unscheduled tasks
 	const unscheduledTasks = useMemo(() => {
-		const allUnscheduledTasks = tasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate && task.status !== 'done');
+		// First filter by board if not viewing all tasks
+		const boardFilteredTasks = isAllTasksBoard 
+			? tasks 
+			: tasks.filter(task => task.boardId === board.id);
+		
+		const allUnscheduledTasks = boardFilteredTasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate && task.status !== 'done');
 		const filteredTasks = filterTasks(allUnscheduledTasks);
 
 		// Sort by status priority first (today > this-week > backlog), then apply user preferences
@@ -213,7 +223,7 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 
 			return sortOrder === 'desc' ? -comparison : comparison;
 		});
-	}, [tasks, filterTasks, userPreferences?.taskSortBy, userPreferences?.taskSortOrder]); // Generate time slots for the day
+	}, [tasks, filterTasks, userPreferences?.taskSortBy, userPreferences?.taskSortOrder, isAllTasksBoard, board.id]); // Generate time slots for the day
 	const timeSlots = useMemo(() => {
 		const slots = [];
 		const startHour = 0; // Start at 12 AM (midnight)

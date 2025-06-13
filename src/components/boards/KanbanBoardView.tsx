@@ -35,8 +35,13 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 	// Memoize functions to prevent unnecessary re-renders
 	const getTasksByStatus = useCallback(
 		(status: Task['status']) => {
-			// First filter by status
-			const statusTasks = tasks.filter((task: Task) => task.status === status);
+			// First filter by board if not viewing all tasks
+			const boardFilteredTasks = isAllTasksBoard 
+				? tasks 
+				: tasks.filter(task => task.boardId === board.id);
+			
+			// Then filter by status
+			const statusTasks = boardFilteredTasks.filter((task: Task) => task.status === status);
 
 			// Apply user preferences: filter out completed tasks if disabled
 			const filteredTasks = filterTasks(statusTasks);
@@ -44,7 +49,7 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 			// Apply user sorting preferences only - no position-based override
 			return sortTasks(filteredTasks);
 		},
-		[tasks, filterTasks, sortTasks]
+		[tasks, filterTasks, sortTasks, isAllTasksBoard, board.id]
 	);
 	const getTotalTimeForColumn = useCallback(
 		(status: Task['status']): number => {
