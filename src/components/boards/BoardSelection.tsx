@@ -4,14 +4,15 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { 
-	Plus, Edit, Trash2, Layers, Grid3X3, List, LayoutGrid
+	Plus, Edit, Trash2, Layers, Copy
 } from 'lucide-react';
 import { BOARD_ICONS, renderIcon } from '@/constants/board-constants';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger } from '@/components/ui/sidebar';
-import { Logo } from '@/components/ui/logo';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { GlobalSidebar } from '@/components/ui/global-sidebar';
+import { UnifiedHeader } from '@/components/ui/unified-header';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu';
 
 
 
@@ -21,6 +22,7 @@ interface BoardSelectionProps {
 	onCreateBoard: (board: Omit<Board, 'id' | 'createdAt' | 'userId'>) => Promise<void>;
 	onUpdateBoard: (id: number, updates: Partial<Board>) => Promise<void>;
 	onDeleteBoard: (id: number) => Promise<void>;
+	onDuplicateBoard?: (board: Board) => Promise<void>;
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
 	onOpenSettings?: () => void;
@@ -78,7 +80,7 @@ const PRESET_COLORS = [
 
 type ViewMode = 'grid' | 'compact' | 'list';
 
-export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, user, onSignOut, onOpenSettings, userPreferences, onUpdateUserPreferences }: BoardSelectionProps) {
+export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, onDuplicateBoard, user, onSignOut, onOpenSettings, userPreferences, onUpdateUserPreferences }: BoardSelectionProps) {
 	const [isCreating, setIsCreating] = useState(false);
 	const [isEditing, setIsEditing] = useState<Board | null>(null);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -135,8 +137,16 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 		});
 	};
 
+	const handleDuplicateBoard = async (board: Board) => {
+		if (!onDuplicateBoard) return;
+		try {
+			await onDuplicateBoard(board);
+		} catch (error) {
+			console.error('Failed to duplicate board:', error);
+		}
+	};
+
 	const regularBoards = boards.filter(board => !board.isDefault);
-	const allTasksBoard = boards.find(board => board.isDefault);
 
 	const getGridClasses = () => {
 		switch (viewMode) {
@@ -157,112 +167,217 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 		switch (viewMode) {
 			case 'grid':
 				return (
-					<div
-						key={board.id}
-						className={cn(baseClasses, 'p-6 h-32')}
-						onClick={() => onSelectBoard(board)}
-					>
-						<div className='flex items-start gap-4 h-full'>
+					<ContextMenu key={board.id}>
+						<ContextMenuTrigger asChild>
 							<div
-								className='w-12 h-12 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 text-white'
-								style={{ backgroundColor: board.color }}
+								className={cn(baseClasses, 'p-6 h-32')}
+								onClick={() => onSelectBoard(board)}
 							>
-								{renderIcon(board.icon || 'Briefcase', 'h-6 w-6')}
-							</div>
-							<div className='flex-1 min-w-0 flex flex-col justify-between h-full'>
-								<div>
-									<h3 className='text-lg font-semibold text-foreground mb-1 truncate'>{board.name}</h3>
-									{board.description && (
-										<p className='text-sm text-muted-foreground line-clamp-2'>{board.description}</p>
-									)}
+								<div className='flex items-start gap-4 h-full'>
+									<div
+										className='w-12 h-12 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 text-white'
+										style={{ backgroundColor: board.color }}
+									>
+										{renderIcon(board.icon || 'Briefcase', 'h-6 w-6')}
+									</div>
+									<div className='flex-1 min-w-0 flex flex-col justify-between h-full'>
+										<div>
+											<h3 className='text-lg font-semibold text-foreground mb-1 truncate'>{board.name}</h3>
+											{board.description && (
+												<p className='text-sm text-muted-foreground line-clamp-2'>{board.description}</p>
+											)}
+										</div>
+										<div className='flex items-center text-xs text-muted-foreground mt-2'>
+											<span>Board • Click to open</span>
+										</div>
+									</div>
 								</div>
-								<div className='flex items-center text-xs text-muted-foreground mt-2'>
-									<span>Board • Click to open</span>
+								<div className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300'>
+									<button
+										onClick={e => {
+											e.stopPropagation();
+											startEditing(board);
+										}}
+										className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
+										title='Edit board'
+									>
+										<Edit className='h-4 w-4' />
+									</button>
 								</div>
 							</div>
-						</div>
-						<div className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300'>
-							<button
-								onClick={e => {
-									e.stopPropagation();
-									startEditing(board);
-								}}
-								className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
-								title='Edit board'
-							>
-								<Edit className='h-4 w-4' />
-							</button>
-						</div>
-					</div>
+						</ContextMenuTrigger>
+						<ContextMenuContent className='w-48'>
+							<ContextMenuItem onClick={() => onSelectBoard(board)}>
+								<Layers className='mr-2 h-4 w-4' />
+								Open Board
+							</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={() => startEditing(board)}>
+								<Edit className='mr-2 h-4 w-4' />
+								Edit Board
+							</ContextMenuItem>
+							{onDuplicateBoard && (
+								<ContextMenuItem onClick={() => handleDuplicateBoard(board)}>
+									<Copy className='mr-2 h-4 w-4' />
+									Duplicate Board
+								</ContextMenuItem>
+							)}
+							{!board.isDefault && (
+								<>
+									<ContextMenuSeparator />
+									<ContextMenuItem 
+										onClick={() => {
+											setIsEditing(board);
+											setShowDeleteConfirm(true);
+										}}
+										className='text-destructive'
+									>
+										<Trash2 className='mr-2 h-4 w-4' />
+										Delete Board
+									</ContextMenuItem>
+								</>
+							)}
+						</ContextMenuContent>
+					</ContextMenu>
 				);
 
 			case 'compact':
 				return (
-					<div
-						key={board.id}
-						className={cn(baseClasses, 'p-4 aspect-square flex flex-col items-center justify-center text-center')}
-						onClick={() => onSelectBoard(board)}
-					>
-						<div
-							className='w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-sm mb-3 text-white'
-							style={{ backgroundColor: board.color }}
-						>
-							{renderIcon(board.icon || 'Briefcase', 'h-5 w-5 sm:h-6 sm:w-6')}
-						</div>
-						<h3 className='text-sm sm:text-base font-semibold text-foreground mb-1 truncate w-full px-1'>{board.name}</h3>
-						{board.description && (
-							<p className='text-xs text-muted-foreground line-clamp-2 hidden sm:block'>{board.description}</p>
-						)}
-						<div className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300'>
-							<button
-								onClick={e => {
-									e.stopPropagation();
-									startEditing(board);
-								}}
-								className='text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-accent/50'
-								title='Edit board'
+					<ContextMenu key={board.id}>
+						<ContextMenuTrigger asChild>
+							<div
+								className={cn(baseClasses, 'p-4 aspect-square flex flex-col items-center justify-center text-center')}
+								onClick={() => onSelectBoard(board)}
 							>
-								<Edit className='h-3 w-3' />
-							</button>
-						</div>
-					</div>
+								<div
+									className='w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-sm mb-3 text-white'
+									style={{ backgroundColor: board.color }}
+								>
+									{renderIcon(board.icon || 'Briefcase', 'h-5 w-5 sm:h-6 sm:w-6')}
+								</div>
+								<h3 className='text-sm sm:text-base font-semibold text-foreground mb-1 truncate w-full px-1'>{board.name}</h3>
+								{board.description && (
+									<p className='text-xs text-muted-foreground line-clamp-2 hidden sm:block'>{board.description}</p>
+								)}
+								<div className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300'>
+									<button
+										onClick={e => {
+											e.stopPropagation();
+											startEditing(board);
+										}}
+										className='text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-accent/50'
+										title='Edit board'
+									>
+										<Edit className='h-3 w-3' />
+									</button>
+								</div>
+							</div>
+						</ContextMenuTrigger>
+						<ContextMenuContent className='w-48'>
+							<ContextMenuItem onClick={() => onSelectBoard(board)}>
+								<Layers className='mr-2 h-4 w-4' />
+								Open Board
+							</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={() => startEditing(board)}>
+								<Edit className='mr-2 h-4 w-4' />
+								Edit Board
+							</ContextMenuItem>
+							{onDuplicateBoard && (
+								<ContextMenuItem onClick={() => handleDuplicateBoard(board)}>
+									<Copy className='mr-2 h-4 w-4' />
+									Duplicate Board
+								</ContextMenuItem>
+							)}
+							{!board.isDefault && (
+								<>
+									<ContextMenuSeparator />
+									<ContextMenuItem 
+										onClick={() => {
+											setIsEditing(board);
+											setShowDeleteConfirm(true);
+										}}
+										className='text-destructive'
+									>
+										<Trash2 className='mr-2 h-4 w-4' />
+										Delete Board
+									</ContextMenuItem>
+								</>
+							)}
+						</ContextMenuContent>
+					</ContextMenu>
 				);
 
 			case 'list':
 				return (
-					<div
-						key={board.id}
-						className={cn(baseClasses, 'p-4 flex items-center gap-4')}
-						onClick={() => onSelectBoard(board)}
-					>
-						<div
-							className='w-10 h-10 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 text-white'
-							style={{ backgroundColor: board.color }}
-						>
-							{renderIcon(board.icon || 'Briefcase', 'h-5 w-5')}
-						</div>
-						<div className='flex-1 min-w-0'>
-							<h3 className='text-base font-semibold text-foreground mb-1 truncate'>{board.name}</h3>
-							{board.description && (
-								<p className='text-sm text-muted-foreground truncate'>{board.description}</p>
-							)}
-						</div>
-						<div className='flex items-center gap-2 text-xs text-muted-foreground'>
-							<span className='hidden sm:inline'>Board</span>
-						</div>
-						<div className='opacity-0 group-hover:opacity-100 transition-all duration-300'>
-							<button
-								onClick={e => {
-									e.stopPropagation();
-									startEditing(board);
-								}}
-								className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
-								title='Edit board'
+					<ContextMenu key={board.id}>
+						<ContextMenuTrigger asChild>
+							<div
+								className={cn(baseClasses, 'p-4 flex items-center gap-4')}
+								onClick={() => onSelectBoard(board)}
 							>
-								<Edit className='h-4 w-4' />
-							</button>
-						</div>
-					</div>
+								<div
+									className='w-10 h-10 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 text-white'
+									style={{ backgroundColor: board.color }}
+								>
+									{renderIcon(board.icon || 'Briefcase', 'h-5 w-5')}
+								</div>
+								<div className='flex-1 min-w-0'>
+									<h3 className='text-base font-semibold text-foreground mb-1 truncate'>{board.name}</h3>
+									{board.description && (
+										<p className='text-sm text-muted-foreground truncate'>{board.description}</p>
+									)}
+								</div>
+								<div className='flex items-center gap-2 text-xs text-muted-foreground'>
+									<span className='hidden sm:inline'>Board</span>
+								</div>
+								<div className='opacity-0 group-hover:opacity-100 transition-all duration-300'>
+									<button
+										onClick={e => {
+											e.stopPropagation();
+											startEditing(board);
+										}}
+										className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
+										title='Edit board'
+									>
+										<Edit className='h-4 w-4' />
+									</button>
+								</div>
+							</div>
+						</ContextMenuTrigger>
+						<ContextMenuContent className='w-48'>
+							<ContextMenuItem onClick={() => onSelectBoard(board)}>
+								<Layers className='mr-2 h-4 w-4' />
+								Open Board
+							</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={() => startEditing(board)}>
+								<Edit className='mr-2 h-4 w-4' />
+								Edit Board
+							</ContextMenuItem>
+							{onDuplicateBoard && (
+								<ContextMenuItem onClick={() => handleDuplicateBoard(board)}>
+									<Copy className='mr-2 h-4 w-4' />
+									Duplicate Board
+								</ContextMenuItem>
+							)}
+							{!board.isDefault && (
+								<>
+									<ContextMenuSeparator />
+									<ContextMenuItem 
+										onClick={() => {
+											setIsEditing(board);
+											setShowDeleteConfirm(true);
+										}}
+										className='text-destructive'
+									>
+										<Trash2 className='mr-2 h-4 w-4' />
+										Delete Board
+									</ContextMenuItem>
+								</>
+							)}
+						</ContextMenuContent>
+					</ContextMenu>
 				);
 
 			default:
@@ -281,13 +396,18 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 						className={cn(baseClasses, 'p-6 h-32')}
 						onClick={() => setIsCreating(true)}
 					>
-						<div className='flex items-center justify-center h-full'>
-							<div className='text-center'>
-								<div className='w-12 h-12 mx-auto rounded-xl bg-muted/50 flex items-center justify-center text-xl mb-2 group-hover:bg-primary/10 transition-colors'>
-									<Plus className='h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors' />
+						<div className='flex items-start gap-4 h-full'>
+							<div className='w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center shadow-sm flex-shrink-0 group-hover:bg-primary/10 transition-colors'>
+								<Plus className='h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors' />
+							</div>
+							<div className='flex-1 min-w-0 flex flex-col justify-between h-full'>
+								<div>
+									<h3 className='text-lg font-semibold text-muted-foreground group-hover:text-foreground mb-1 truncate transition-colors'>Create New Board</h3>
+									<p className='text-sm text-muted-foreground/70 line-clamp-2'>Add a new project board</p>
 								</div>
-								<h3 className='text-lg font-semibold text-muted-foreground group-hover:text-foreground transition-colors'>Create New Board</h3>
-								<p className='text-sm text-muted-foreground/70 mt-1'>Add a new project board</p>
+								<div className='flex items-center text-xs text-muted-foreground mt-2'>
+									<span>New Board • Click to create</span>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -353,160 +473,23 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 	return (
 		<SidebarProvider>
 			<div className='min-h-screen flex w-full'>
-				<Sidebar variant='sidebar'>
-					<SidebarHeader>
-						<div className='flex items-center gap-2 px-2 py-1'>
-							<div className='w-8 h-8 flex items-center justify-center'>
-								<Logo className='w-full h-full' />
-							</div>
-							<div>
-								<h1 className='text-lg font-semibold'>DayFlow</h1>
-								<p className='text-xs text-muted-foreground'>Task Management</p>
-							</div>
-						</div>
-					</SidebarHeader>
-
-					<SidebarContent>
-						{/* Quick Actions */}
-						<SidebarGroup>
-							<SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
-							<SidebarGroupContent>
-								<SidebarMenu>
-									<SidebarMenuItem>
-										<SidebarMenuButton
-											onClick={() => setIsCreating(true)}
-											className='gap-2'
-										>
-											<Plus className='h-4 w-4' />
-											<span>New Board</span>
-										</SidebarMenuButton>
-									</SidebarMenuItem>
-								</SidebarMenu>
-							</SidebarGroupContent>
-						</SidebarGroup>
-
-						{/* All Tasks Board */}
-						{allTasksBoard && (
-							<SidebarGroup>
-								<SidebarGroupLabel>Quick Access</SidebarGroupLabel>
-								<SidebarGroupContent>
-									<SidebarMenu>
-										<SidebarMenuItem>
-											<SidebarMenuButton
-												onClick={() => onSelectBoard(allTasksBoard)}
-												className='gap-2'
-											>
-																									<div
-														className='w-4 h-4 rounded flex items-center justify-center text-white'
-														style={{ backgroundColor: allTasksBoard.color || '#3B82F6' }}
-													>
-														{renderIcon(allTasksBoard.icon || 'Briefcase', 'h-3 w-3')}
-													</div>
-												<span>{allTasksBoard.name}</span>
-											</SidebarMenuButton>
-										</SidebarMenuItem>
-									</SidebarMenu>
-								</SidebarGroupContent>
-							</SidebarGroup>
-						)}
-
-						{/* Regular Boards */}
-						{regularBoards.length > 0 && (
-							<SidebarGroup>
-								<SidebarGroupLabel>Your Boards</SidebarGroupLabel>
-								<SidebarGroupContent>
-									<SidebarMenu>
-										{regularBoards.map(board => (
-											<SidebarMenuItem key={board.id}>
-												<SidebarMenuButton
-													onClick={() => onSelectBoard(board)}
-													className='gap-2 group'
-												>
-													<div
-														className='w-4 h-4 rounded flex items-center justify-center text-white'
-														style={{ backgroundColor: board.color }}
-													>
-														{renderIcon(board.icon || 'Briefcase', 'h-3 w-3')}
-													</div>
-													<span className='flex-1 truncate'>{board.name}</span>
-													<button
-															title='edit button'
-														onClick={e => {
-															e.stopPropagation();
-															startEditing(board);
-														}}
-														className='opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded'
-													>
-														<Edit className='h-3 w-3' />
-													</button>
-												</SidebarMenuButton>
-											</SidebarMenuItem>
-										))}
-									</SidebarMenu>
-								</SidebarGroupContent>
-							</SidebarGroup>
-						)}
-					</SidebarContent>
-
-					<SidebarFooter>
-						<SidebarMenu></SidebarMenu>
-					</SidebarFooter>
-
-					<SidebarRail />
-				</Sidebar>
-				{/* Main Content */}
-				<main className='flex-1 flex flex-col bg-muted/30'>
-					<header className='flex h-16 shrink-0 items-center gap-2 px-4 border-b bg-background/50 backdrop-blur-sm'>
-						<SidebarTrigger className='-ml-1' />
-						<div className='flex-1'>
-							<h2 className='text-xl font-semibold'>Your Boards</h2>
-							<p className='text-sm text-muted-foreground'>Organize your projects and workflows</p>
-						</div>
-						
-						{/* View Mode Toggle */}
-						{regularBoards.length > 0 && (
-							<div className='flex items-center gap-1 bg-muted/30 p-1 rounded-lg border border-border/50'>
-								<Button
-									variant={viewMode === 'compact' ? 'default' : 'ghost'}
-									size='sm'
-									onClick={() => handleViewModeChange('compact')}
-									className='h-7 w-7 p-0'
-									title='Compact grid view'
-								>
-									<LayoutGrid className='h-3.5 w-3.5' />
-								</Button>
-								<Button
-									variant={viewMode === 'grid' ? 'default' : 'ghost'}
-									size='sm'
-									onClick={() => handleViewModeChange('grid')}
-									className='h-7 w-7 p-0'
-									title='Grid view'
-								>
-									<Grid3X3 className='h-3.5 w-3.5' />
-								</Button>
-								<Button
-									variant={viewMode === 'list' ? 'default' : 'ghost'}
-									size='sm'
-									onClick={() => handleViewModeChange('list')}
-									className='h-7 w-7 p-0'
-									title='List view'
-								>
-									<List className='h-3.5 w-3.5' />
-								</Button>
-							</div>
-						)}
-						
-						{regularBoards.length > 0 && (
-							<div className='text-sm text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50'>
-								{regularBoards.length} {regularBoards.length === 1 ? 'board' : 'boards'}
-							</div>
-						)}
-						<ProfileDropdown
-							user={user}
-							onSignOut={onSignOut}
-							onOpenSettings={onOpenSettings}
-						/>{' '}
-					</header>
+				<GlobalSidebar
+					boards={boards}
+					onSelectBoard={onSelectBoard}
+					onCreateBoard={() => setIsCreating(true)}
+					onEditBoard={startEditing}
+				/>
+				<SidebarInset>
+					<UnifiedHeader
+						title="Your Boards"
+						subtitle="Organize your projects and workflows"
+						viewMode={viewMode}
+						boardCount={regularBoards.length}
+						onViewModeChange={handleViewModeChange}
+						user={user}
+						onSignOut={onSignOut}
+						onOpenSettings={onOpenSettings}
+					/>
 					<div className='flex-1 p-4 sm:p-6 bg-muted/30'>
 						{regularBoards.length > 0 ? (
 							<div className={getGridClasses()}>
@@ -532,8 +515,8 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 								</div>
 							</div>
 						)}
-					</div>{' '}
-				</main>
+					</div>
+				</SidebarInset>
 			</div>
 
 			<Dialog

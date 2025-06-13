@@ -1,14 +1,17 @@
 import { useState, useCallback } from 'react';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
-import { ViewHeader } from '@/components/ui/view-header';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { Task, Board } from '@/types';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { GlobalSidebar } from '@/components/ui/global-sidebar';
+import { UnifiedHeader } from '@/components/ui/unified-header';
 
 interface KanbanBoardViewProps {
 	board: Board;
 	tasks: Task[];
 	onBack: () => void;
+	onSelectBoard?: (board: Board) => void;
 	onMoveTask: (taskId: number, newStatus: Task['status']) => Promise<void>;
 	onAddTask: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
 	onUpdateTask: (id: number, updates: Partial<Task>) => Promise<void>;
@@ -26,7 +29,7 @@ interface KanbanBoardViewProps {
 	userPreferences?: any; // Add user preferences prop
 }
 
-export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings, userPreferences }: KanbanBoardViewProps) {
+export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings, userPreferences }: KanbanBoardViewProps) {
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [isCreatingDetailedTask, setIsCreatingDetailedTask] = useState(false);
@@ -128,105 +131,121 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 	};
 
 	return (
-		<div className='h-screen bg-background flex flex-col'>
-			{/* Header */}
-			<ViewHeader
-				board={board}
-				currentView='kanban'
-				onBack={onBack}
-				onViewChange={onViewChange}
-				onCreateDetailedTask={handleCreateDetailedTaskFromHeader}
-				user={user}
-				onSignOut={onSignOut}
-				onOpenSettings={onOpenSettings}
-			/>
-			{/* Kanban Board */}
-			<div className='flex-1 flex flex-col min-h-0'>
-				<div className='flex-1 overflow-x-auto overflow-y-hidden kanban-scroll-container'>
-					<div className='flex justify-center gap-8 p-4 min-w-fit h-full'>
-						<KanbanColumn
-							title='Backlog'
-							status='backlog'
-							tasks={getTasksByStatus('backlog')}
-							onMoveTask={onMoveTask}
-							onEditTask={handleEditTask}
-							onAddTask={handleAddTask}
-							onUpdateTimeEstimate={onUpdateTimeEstimate}
-							onDuplicateTask={onDuplicateTask}
-							onDeleteTask={onDeleteTask}
-							onUpdateTask={onUpdateTask}
-							showAddButton={true}
-							showProgress={false}
-							totalTimeEstimate={getTotalTimeForColumn('backlog')}
-							isAllTasksBoard={isAllTasksBoard}
-							boards={boards}
-							getBoardInfo={getBoardInfo}
-							currentBoard={board}
-							userPreferences={userPreferences}
-						/>
-						<KanbanColumn
-							title='This Week'
-							status='this-week'
-							tasks={getTasksByStatus('this-week')}
-							onMoveTask={onMoveTask}
-							onEditTask={handleEditTask}
-							onAddTask={handleAddTask}
-							onUpdateTimeEstimate={onUpdateTimeEstimate}
-							onDuplicateTask={onDuplicateTask}
-							onDeleteTask={onDeleteTask}
-							onUpdateTask={onUpdateTask}
-							showAddButton={true}
-							showProgress={false}
-							totalTimeEstimate={getTotalTimeForColumn('this-week')}
-							isAllTasksBoard={isAllTasksBoard}
-							boards={boards}
-							getBoardInfo={getBoardInfo}
-							currentBoard={board}
-							userPreferences={userPreferences}
-						/>
-						<KanbanColumn
-							title='Today'
-							status='today'
-							tasks={getTasksByStatus('today')}
-							onMoveTask={onMoveTask}
-							onEditTask={handleEditTask}
-							onAddTask={handleAddTask}
-							onUpdateTimeEstimate={onUpdateTimeEstimate}
-							onDuplicateTask={onDuplicateTask}
-							onDeleteTask={onDeleteTask}
-							onUpdateTask={onUpdateTask}
-							showAddButton={true}
-							showProgress={true}
-							completedCount={getTodayCompletedCount()}
-							totalTimeEstimate={getTotalTimeForColumn('today')}
-							onStartSprint={onStartSprint}
-							isAllTasksBoard={isAllTasksBoard}
-							boards={boards}
-							getBoardInfo={getBoardInfo}
-							currentBoard={board}
-							userPreferences={userPreferences}
-						/>
-						<KanbanColumn
-							title='Done'
-							status='done'
-							tasks={getTasksByStatus('done')}
-							onMoveTask={onMoveTask}
-							onEditTask={handleEditTask}
-							onAddTask={handleAddTask}
-							onUpdateTimeEstimate={onUpdateTimeEstimate}
-							onDuplicateTask={onDuplicateTask}
-							onDeleteTask={onDeleteTask}
-							onUpdateTask={onUpdateTask}
-							showAddButton={false}
-							showProgress={false}
-							isAllTasksBoard={isAllTasksBoard}
-							boards={boards}
-							getBoardInfo={getBoardInfo}
-							currentBoard={board}
-							userPreferences={userPreferences}
-						/>
+		<SidebarProvider>
+			<div className='h-screen bg-background flex w-full'>
+				<GlobalSidebar
+					boards={boards}
+					currentBoard={board}
+					onSelectBoard={(selectedBoard) => {
+						// Use the proper board selection handler if available, otherwise fallback to onBack
+						if (onSelectBoard) {
+							onSelectBoard(selectedBoard);
+						} else {
+							onBack();
+						}
+					}}
+				/>
+				<SidebarInset>
+					<UnifiedHeader
+						title={board.name}
+						subtitle={board.description}
+						board={board}
+						currentView='kanban'
+						onViewChange={onViewChange}
+						onCreateDetailedTask={handleCreateDetailedTaskFromHeader}
+						user={user}
+						onSignOut={onSignOut}
+						onOpenSettings={onOpenSettings}
+					/>
+					{/* Kanban Board */}
+					<div className='flex-1 flex flex-col min-h-0'>
+						<div className='flex-1 overflow-x-auto overflow-y-hidden kanban-scroll-container'>
+							<div className='flex justify-center gap-8 p-4 min-w-fit h-full'>
+								<KanbanColumn
+									title='Backlog'
+									status='backlog'
+									tasks={getTasksByStatus('backlog')}
+									onMoveTask={onMoveTask}
+									onEditTask={handleEditTask}
+									onAddTask={handleAddTask}
+									onUpdateTimeEstimate={onUpdateTimeEstimate}
+									onDuplicateTask={onDuplicateTask}
+									onDeleteTask={onDeleteTask}
+									onUpdateTask={onUpdateTask}
+									showAddButton={true}
+									showProgress={false}
+									totalTimeEstimate={getTotalTimeForColumn('backlog')}
+									isAllTasksBoard={isAllTasksBoard}
+									boards={boards}
+									getBoardInfo={getBoardInfo}
+									currentBoard={board}
+									userPreferences={userPreferences}
+								/>
+								<KanbanColumn
+									title='This Week'
+									status='this-week'
+									tasks={getTasksByStatus('this-week')}
+									onMoveTask={onMoveTask}
+									onEditTask={handleEditTask}
+									onAddTask={handleAddTask}
+									onUpdateTimeEstimate={onUpdateTimeEstimate}
+									onDuplicateTask={onDuplicateTask}
+									onDeleteTask={onDeleteTask}
+									onUpdateTask={onUpdateTask}
+									showAddButton={true}
+									showProgress={false}
+									totalTimeEstimate={getTotalTimeForColumn('this-week')}
+									isAllTasksBoard={isAllTasksBoard}
+									boards={boards}
+									getBoardInfo={getBoardInfo}
+									currentBoard={board}
+									userPreferences={userPreferences}
+								/>
+								<KanbanColumn
+									title='Today'
+									status='today'
+									tasks={getTasksByStatus('today')}
+									onMoveTask={onMoveTask}
+									onEditTask={handleEditTask}
+									onAddTask={handleAddTask}
+									onUpdateTimeEstimate={onUpdateTimeEstimate}
+									onDuplicateTask={onDuplicateTask}
+									onDeleteTask={onDeleteTask}
+									onUpdateTask={onUpdateTask}
+									showAddButton={true}
+									showProgress={true}
+									completedCount={getTodayCompletedCount()}
+									totalTimeEstimate={getTotalTimeForColumn('today')}
+									onStartSprint={onStartSprint}
+									isAllTasksBoard={isAllTasksBoard}
+									boards={boards}
+									getBoardInfo={getBoardInfo}
+									currentBoard={board}
+									userPreferences={userPreferences}
+								/>
+								<KanbanColumn
+									title='Done'
+									status='done'
+									tasks={getTasksByStatus('done')}
+									onMoveTask={onMoveTask}
+									onEditTask={handleEditTask}
+									onAddTask={handleAddTask}
+									onUpdateTimeEstimate={onUpdateTimeEstimate}
+									onDuplicateTask={onDuplicateTask}
+									onDeleteTask={onDeleteTask}
+									onUpdateTask={onUpdateTask}
+									showAddButton={false}
+									showProgress={false}
+									isAllTasksBoard={isAllTasksBoard}
+									boards={boards}
+									getBoardInfo={getBoardInfo}
+									currentBoard={board}
+									userPreferences={userPreferences}
+								/>
+							</div>
+						</div>
 					</div>
-				</div>
+				</SidebarInset>
 			</div>
 			
 			{/* Edit Task Dialog */}
@@ -254,6 +273,6 @@ export function KanbanBoardView({ board, tasks, onBack, onMoveTask, onAddTask, o
 				isCreating={true}
 				userPreferences={userPreferences}
 			/>
-		</div>
+		</SidebarProvider>
 	);
 }

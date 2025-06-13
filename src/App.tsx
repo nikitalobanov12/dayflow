@@ -233,6 +233,7 @@ function App() {
 						board={selectedBoard}
 						tasks={tasks}
 						onBack={handleBackToBoards}
+						onSelectBoard={handleSelectBoard}
 						onMoveTask={handleMoveTask}
 						onAddTask={handleAddTask}
 						onUpdateTask={handleUpdateTask}
@@ -272,6 +273,7 @@ function App() {
 						board={selectedBoard}
 						tasks={tasks}
 						onBack={handleBackToBoards}
+						onSelectBoard={handleSelectBoard}
 						onMoveTask={handleMoveTask}
 						onAddTask={handleAddTask}
 						onUpdateTask={handleUpdateTask}

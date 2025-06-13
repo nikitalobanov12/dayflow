@@ -9,7 +9,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 import { Task, Board } from '@/types';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, ZoomIn, ZoomOut, Edit, Copy, Trash2, ArrowLeft, ArrowRight, ArrowUp, Check, AlertTriangle, X, Repeat } from 'lucide-react';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
-import { ViewHeader } from '@/components/ui/view-header';
+import { UnifiedHeader } from '@/components/ui/unified-header';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { generateRecurringInstances } from '@/lib/recurring-tasks';
 import { recurringInstanceDatabase } from '@/lib/recurring-instance-database';
@@ -18,7 +18,6 @@ import { Calendar as CalendarUI } from '@/components/ui/calendar';
 interface CompactCalendarViewProps {
 	board: Board;
 	tasks: Task[];
-	onBack: () => void;
 	onMoveTask: (taskId: number, newStatus: Task['status']) => Promise<void>;
 	onAddTask: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
 	onUpdateTask: (id: number, updates: Partial<Task>) => Promise<void>;
@@ -51,7 +50,7 @@ const ZOOM_LEVELS = [
 	{ label: 'Detailed', height: 160, timeInterval: 30 }, // 30 min per 80px (160px per hour)
 ];
 
-export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards, user, onSignOut, onViewChange, onOpenSettings, userPreferences }: CompactCalendarViewProps) {
+export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards, user, onSignOut, onViewChange, onOpenSettings, userPreferences }: CompactCalendarViewProps) {
 	// Apply user preferences
 	const { filterTasks, weekStartsOn, calendarDefaultZoom, calendarDefaultView, formatDate } = useUserPreferences(userPreferences);
 	
@@ -917,89 +916,77 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 		<div className='h-screen bg-background flex flex-col overflow-hidden'>
 			{/* Header */}
 			<div className='flex-shrink-0'>
-				<ViewHeader
+				<UnifiedHeader
+					title={board.name}
+					subtitle={board.description}
 					board={board}
 					currentView='calendar'
-					onBack={onBack}
 					onViewChange={onViewChange}
 					onCreateDetailedTask={handleCreateDetailedTaskFromHeader}
 					user={user}
 					onSignOut={onSignOut}
 					onOpenSettings={onOpenSettings}
-				/>
-			</div>
-			{/* Calendar Controls */}
-			<div className='flex-shrink-0 flex items-center justify-between p-4 border-b border-border'>
-				{' '}
-				<h2 className='text-lg font-semibold'>{viewMode === '3-day' ? `${formatDate(currentDate)} - ${formatDate(addDays(currentDate, 2))}` : `${formatDate(startOfWeek(currentDate, { weekStartsOn }))} - ${formatDate(endOfWeek(currentDate, { weekStartsOn }))}`}</h2>
-				<div className='flex items-center gap-2'>
-					{/* Zoom Controls */}
-					<div className='flex items-center gap-1 mr-2'>
-						<Button
-							variant='outline'
-							size='sm'
-							onClick={handleZoomOut}
-							disabled={zoomLevel === 0}
-						>
-							<ZoomOut className='h-4 w-4' />
-						</Button>
-						<span className='text-xs text-muted-foreground px-2'>{currentZoom.label}</span>
-						<Button
-							variant='outline'
-							size='sm'
-							onClick={handleZoomIn}
-							disabled={zoomLevel === ZOOM_LEVELS.length - 1}
-						>
-							<ZoomIn className='h-4 w-4' />{' '}
-						</Button>
-					</div>
-
-					{/* Scroll to Now Button */}
-					<Button
-						variant='outline'
-						size='sm'
-						onClick={scrollToCurrentTime}
-						className='mr-2'
-						title='Scroll to current time'
-					>
-						<Clock className='h-4 w-4 mr-1' />
-						Now
-					</Button>
-
-					{/* View Mode Toggle */}
-					<div className='flex gap-1'>
-						{(['3-day', 'week'] as ViewMode[]).map(mode => (
+				>
+					<div className='flex items-center gap-2'>
+						{/* Date Range Display */}
+						<h2 className='text-lg font-semibold mr-4'>
+							{viewMode === '3-day' 
+								? `${formatDate(currentDate)} - ${formatDate(addDays(currentDate, 2))}` 
+								: `${formatDate(startOfWeek(currentDate, { weekStartsOn }))} - ${formatDate(endOfWeek(currentDate, { weekStartsOn }))}`
+							}
+						</h2>
+						
+						<div className='flex items-center gap-1 mr-2'>
 							<Button
-								key={mode}
-								variant={viewMode === mode ? 'default' : 'outline'}
-								size='sm'
-								onClick={() => setViewMode(mode)}
-								className='capitalize'
+								variant='outline'
+								size='lg'
+								onClick={handleZoomOut}
+								disabled={zoomLevel === 0}
 							>
-								{mode}
+								<ZoomOut className='h-4 w-4' />
 							</Button>
-						))}
+							<span className='text-xs text-muted-foreground px-2'>{currentZoom.label}</span>
+							<Button
+								variant='outline'
+								size='lg'
+								onClick={handleZoomIn}
+								disabled={zoomLevel === ZOOM_LEVELS.length - 1}
+							>
+								<ZoomIn className='h-4 w-4' />
+							</Button>
+						</div>
+
+						<Button
+							variant='outline'
+							size='lg'
+							onClick={scrollToCurrentTime}
+							className='mr-2'
+							title='Scroll to current time'
+						>
+							<Clock className='h-4 w-4 mr-1' />
+							Now
+						</Button>
+
+						{/* View Mode Toggle */}
+						<div className='flex gap-1'>
+							{(['3-day', 'week'] as ViewMode[]).map(mode => (
+								<Button
+									key={mode}
+									variant={viewMode === mode ? 'default' : 'outline'}
+									size='lg'
+									onClick={() => setViewMode(mode)}
+									className='capitalize'
+								>
+									{mode}
+								</Button>
+							))}
+						</div>
 					</div>
-				</div>
-			</div>{' '}
+				</UnifiedHeader>
+			</div>
+			
 			{/* Main Content */}
 			<div className='flex-1 flex min-h-0 overflow-hidden'>
-				{/* Unscheduled Tasks Sidebar */}
-				{unscheduledTasks.length > 0 && (
-					<div className='w-80 border-r border-border bg-muted/20 flex flex-col overflow-hidden'>
-						{' '}
-						<div className='flex-shrink-0 p-4 border-b border-border'>
-							<h3 className='text-sm font-semibold flex items-center gap-2'>
-								<CalendarIcon className='h-4 w-4' />
-								Unscheduled Tasks ({unscheduledTasks.length})
-							</h3>
-							{isDragging && <p className='text-xs text-muted-foreground mt-1'>Drop on a time slot to schedule the task</p>}
-						</div>
-						<div className='flex-1 p-4 overflow-y-auto'>
-							<div className='space-y-2'>{unscheduledTasks.map(task => renderTaskCard(task, false))}</div>
-						</div>
-					</div>
-				)}{' '}
 				{/* Calendar Grid */}
 				<div className='flex-1 flex flex-col min-h-0 overflow-hidden'>
 					{/* Calendar Header */}
@@ -1242,6 +1229,22 @@ export function CompactCalendarView({ board, tasks, onBack, onAddTask, onUpdateT
 						</div>
 					</div>
 				</div>
+				
+				{/* Unscheduled Tasks Sidebar - Right Side */}
+				{unscheduledTasks.length > 0 && (
+					<div className='w-80 border-l border-border bg-muted/20 flex flex-col overflow-hidden'>
+						<div className='flex-shrink-0 p-4 border-b border-border'>
+							<h3 className='text-sm font-semibold flex items-center gap-2'>
+								<CalendarIcon className='h-4 w-4' />
+								Unscheduled Tasks ({unscheduledTasks.length})
+							</h3>
+							{isDragging && <p className='text-xs text-muted-foreground mt-1'>Drop on a time slot to schedule the task</p>}
+						</div>
+						<div className='flex-1 p-4 overflow-y-auto'>
+							<div className='space-y-2'>{unscheduledTasks.map(task => renderTaskCard(task, false))}</div>
+						</div>
+					</div>
+				)}
 			</div>
 			{/* Create Task Dialog */}
 			<Dialog
