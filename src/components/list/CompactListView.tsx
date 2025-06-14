@@ -1,8 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Task, Board, UserPreferences } from '@/types';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
-import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { TaskListItem } from '@/components/list/TaskListItem';
 
@@ -30,7 +28,6 @@ interface CompactListViewProps {
 export function CompactListView({ 
 	board, 
 	tasks, 
-	onAddTask, 
 	onUpdateTask, 
 	onDeleteTask, 
 	onDuplicateTask, 
@@ -40,7 +37,6 @@ export function CompactListView({
 	boards, 
 	userPreferences 
 }: CompactListViewProps) {
-	const [isCreatingTask, setIsCreatingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [isEditingTask, setIsEditingTask] = useState(false);
 
@@ -62,10 +58,6 @@ export function CompactListView({
 		};
 	}, [displayedTasks]);
 
-	const handleCreateTask = () => {
-		setIsCreatingTask(true);
-	};
-
 	const handleEditTask = (task: Task) => {
 		setEditingTask(task);
 		setIsEditingTask(true);
@@ -76,8 +68,6 @@ export function CompactListView({
 		setIsEditingTask(false);
 		setEditingTask(null);
 	};
-
-	
 
 	const handleToggleComplete = async (task: Task) => {
 		const newStatus = task.status === 'done' ? 'today' : 'done';
@@ -91,17 +81,6 @@ export function CompactListView({
 
 	return (
 		<div className='flex flex-col h-full bg-muted/40'>
-			{/* Header: Board name and Add Task */}
-			<div className='p-4 border-b border-border flex justify-between items-center'>
-				<h2 className='text-lg font-bold'>{isAllTasksBoard ? 'All Tasks - List View' : `${board.name} - List View`}</h2>
-				<Button
-					onClick={handleCreateTask}
-					size='sm'
-				>
-					<PlusCircle className='mr-2 h-4 w-4' /> Add Task
-				</Button>
-			</div>
-			
 			<div className='flex-1 overflow-y-auto p-4'>
 				{/* Today Section */}
 				{groupedTasks.today.length > 0 && (
@@ -207,12 +186,11 @@ export function CompactListView({
 					</div>
 				)}
 			</div>
-			{(isCreatingTask || isEditingTask) && (
+			{isEditingTask && (
 				<TaskEditDialog
 					task={editingTask || null}
-					isOpen={isCreatingTask || isEditingTask}
+					isOpen={isEditingTask}
 					onClose={() => {
-						setIsCreatingTask(false);
 						setIsEditingTask(false);
 						setEditingTask(null);
 					}}
@@ -223,32 +201,13 @@ export function CompactListView({
 							  }
 							: undefined
 					}
-					onCreate={
-						isCreatingTask
-							? async updates => {
-									await onAddTask({
-										title: updates.title || '',
-										description: updates.description || '',
-										timeEstimate: updates.timeEstimate || 0,
-										priority: updates.priority || 2,
-										status: updates.status || 'backlog',
-										position: groupedTasks.backlog.length, // Use backlog length for default positioning
-										boardId: isAllTasksBoard ? updates.boardId : board.id,
-										progressPercentage: updates.progressPercentage || 0,
-										timeSpent: updates.timeSpent || 0,
-										labels: updates.labels || [],
-										attachments: updates.attachments || [],
-									});
-							  }
-							: undefined
-					}
 					// Always pass onDelete handler (required by TaskEditDialogProps)
 					onDelete={async (id: number) => {
 						await handleDeleteTask(id);
 					}}
 					isAllTasksBoard={isAllTasksBoard}
 					boards={boards || []}
-					isCreating={isCreatingTask}
+					isCreating={false}
 					userPreferences={userPreferences}
 				/>
 			)}

@@ -3,6 +3,8 @@ import { Task, Board, UserPreferences, BoardViewType } from '@/types';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { GlobalSidebar } from '@/components/ui/global-sidebar';
 import { UnifiedHeader } from '@/components/ui/unified-header';
+import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
+import { useState } from 'react';
 
 interface ListViewProps {
 	board: Board;
@@ -25,6 +27,38 @@ interface ListViewProps {
 }
 
 export function ListView(props: ListViewProps) {
+	const [isCreatingDetailedTask, setIsCreatingDetailedTask] = useState(false);
+
+	// Handler for creating detailed task from header
+	const handleCreateDetailedTaskFromHeader = () => {
+		setIsCreatingDetailedTask(true);
+	};
+
+	// Handler for saving detailed task creation
+	const handleCreateDetailedTaskSave = async (updates: Partial<Task>) => {
+		const newTask: Omit<Task, 'id' | 'createdAt'> = {
+			title: updates.title || '',
+			description: updates.description || '',
+			timeEstimate: updates.timeEstimate || 0,
+			priority: updates.priority || 2,
+			status: updates.status || 'backlog', // Default to backlog when created from header
+			position: props.tasks.filter(t => t.status === (updates.status || 'backlog')).length,
+			boardId: props.isAllTasksBoard ? updates.boardId : props.board.id,
+			progressPercentage: updates.progressPercentage || 0,
+			timeSpent: updates.timeSpent || 0,
+			labels: updates.labels || [],
+			attachments: updates.attachments || [],
+			category: updates.category || '',
+			scheduledDate: updates.scheduledDate,
+			startDate: updates.startDate,
+			dueDate: updates.dueDate,
+			recurring: updates.recurring,
+		};
+
+		await props.onAddTask(newTask);
+		setIsCreatingDetailedTask(false);
+	};
+
 	// GlobalSidebar requiring minimal props
 	return (
 		<SidebarProvider>
@@ -48,6 +82,7 @@ export function ListView(props: ListViewProps) {
 						board={props.board}
 						currentView='list'
 						onViewChange={props.onViewChange}
+						onCreateDetailedTask={handleCreateDetailedTaskFromHeader}
 						user={props.user}
 						onSignOut={props.onSignOut}
 						onOpenSettings={props.onOpenSettings}
@@ -55,6 +90,19 @@ export function ListView(props: ListViewProps) {
 					<CompactListView {...props} />
 				</SidebarInset>
 			</div>
+
+			{/* Create Detailed Task Dialog */}
+			<TaskEditDialog
+				task={null}
+				isOpen={isCreatingDetailedTask}
+				onClose={() => setIsCreatingDetailedTask(false)}
+				onCreate={handleCreateDetailedTaskSave}
+				onDelete={async () => {}} // Not needed for creation
+				isAllTasksBoard={props.isAllTasksBoard}
+				boards={props.boards}
+				isCreating={true}
+				userPreferences={props.userPreferences}
+			/>
 		</SidebarProvider>
 	);
 }
