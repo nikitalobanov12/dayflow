@@ -3,6 +3,7 @@ import { CustomTitlebar } from './components/ui/custom-titlebar';
 import { BoardSelection } from '@/components/boards/BoardSelection';
 import { KanbanBoardView } from '@/components/boards/KanbanBoardView';
 import { CalendarView } from '@/components/calendar/CalendarView';
+import { ListView } from '@/components/list/ListView';
 import { SprintMode } from './components/sprint/SprintMode';
 import { SprintConfig, SprintConfiguration } from '@/components/sprint/SprintConfig';
 import { SettingsPage } from '@/components/settings/SettingsPage';
@@ -24,7 +25,7 @@ function App() {
 	useEffect(() => {
 		const urlParams = new URLSearchParams(window.location.search);
 		const code = urlParams.get('code');
-		const state = urlParams.get('state'); 
+		const state = urlParams.get('state');
 
 		if (code && state) {
 			setIsOAuthCallback(true);
@@ -83,7 +84,7 @@ function App() {
 	const handleGoogleSignIn = async () => {
 		return await signInWithGoogle();
 	};
-	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'calendar' | 'sprint' | 'settings'>('boards');
+	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'calendar' | 'list' | 'sprint' | 'settings'>('boards');
 	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
 	const [showSprintConfig, setShowSprintConfig] = useState(false);
 	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null);
@@ -139,7 +140,7 @@ function App() {
 	const handleOpenSettings = () => {
 		setCurrentView('settings');
 	};
-	const handleSelectView = async (board: Board, viewType: 'kanban' | 'calendar') => {
+	const handleSelectView = async (board: Board, viewType: 'kanban' | 'calendar' | 'list') => {
 		setSelectedBoard(board);
 		setCurrentView(viewType);
 		await loadTasks();
@@ -261,7 +262,6 @@ function App() {
 			</div>
 		);
 	}
-
 	// Calendar view
 	if (currentView === 'calendar' && selectedBoard) {
 		return (
@@ -287,6 +287,37 @@ function App() {
 						onViewChange={handleSelectView}
 						onOpenSettings={handleOpenSettings}
 						userPreferences={userPreferences}
+					/>
+				</div>
+			</div>
+		);
+	}
+
+	// List view
+	if (currentView === 'list' && selectedBoard) {
+		return (
+			<div className='h-screen bg-background flex flex-col'>
+				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - List`} />
+				<div className='flex-1'>
+					{' '}
+					<ListView
+						board={selectedBoard}
+						tasks={tasks}
+						onBack={handleBackToBoards}
+						onSelectBoard={handleSelectBoard}
+						onMoveTask={handleMoveTask}
+						onAddTask={handleAddTask}
+						onUpdateTask={handleUpdateTask}
+						onDeleteTask={handleDeleteTask}
+						onDuplicateTask={handleDuplicateTask}
+						onUpdateTimeEstimate={handleUpdateTimeEstimate}
+						isAllTasksBoard={selectedBoard.isDefault}
+						boards={boards}
+						user={user}
+						onSignOut={signOut}
+						onViewChange={handleSelectView}
+						onOpenSettings={handleOpenSettings}
+						userPreferences={userPreferences || undefined}
 					/>
 				</div>
 			</div>

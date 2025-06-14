@@ -234,3 +234,11 @@ export interface RecurringInstanceRow {
 	updated_at: string;
 	user_id: string;
 }
+
+export type BoardViewType = 'kanban' | 'calendar' | 'list';
+
+// Ensure Task and Board types are defined in this file as per project structure.
+// If they are not, this comment serves as a placeholder for their definitions.
+// export interface Task { ... }
+// export interface Board { ... }
+// export interface UserPreferences { ... }

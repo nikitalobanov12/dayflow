@@ -171,7 +171,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 	return (
 		<div
 			className={cn(
-				'flex-none  w-80 bg-card border border-border shadow-sm hover:shadow-md transition-all duration-300 flex flex-col backdrop-blur-sm',
+				'flex-none rounded-lg w-80 bg-card border border-border shadow-sm hover:shadow-md transition-all duration-300 flex flex-col backdrop-blur-sm',
 				isDragOver && 'border-primary/50 bg-primary/5 shadow-lg'
 			)}
 			style={{ height: 'calc(100vh - 120px)' }}

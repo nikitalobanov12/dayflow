@@ -24,7 +24,7 @@ interface KanbanBoardViewProps {
 	boards?: Board[]; // Available boards for board selection
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
-	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar') => Promise<void>;
+	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: any; // Add user preferences prop
 }
@@ -40,10 +40,8 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 	const getTasksByStatus = useCallback(
 		(status: Task['status']) => {
 			// First filter by board if not viewing all tasks
-			const boardFilteredTasks = isAllTasksBoard 
-				? tasks 
-				: tasks.filter(task => task.boardId === board.id);
-			
+			const boardFilteredTasks = isAllTasksBoard ? tasks : tasks.filter(task => task.boardId === board.id);
+
 			// Then filter by status
 			const statusTasks = boardFilteredTasks.filter((task: Task) => task.status === status);
 
@@ -119,7 +117,7 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 			dueDate: updates.dueDate,
 			recurring: updates.recurring,
 		};
-		
+
 		await onAddTask(newTask);
 		setIsCreatingDetailedTask(false);
 	};
@@ -136,7 +134,7 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 				<GlobalSidebar
 					boards={boards}
 					currentBoard={board}
-					onSelectBoard={(selectedBoard) => {
+					onSelectBoard={selectedBoard => {
 						// Use the proper board selection handler if available, otherwise fallback to onBack
 						if (onSelectBoard) {
 							onSelectBoard(selectedBoard);
@@ -247,7 +245,7 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 					</div>
 				</SidebarInset>
 			</div>
-			
+
 			{/* Edit Task Dialog */}
 			<TaskEditDialog
 				task={editingTask}
@@ -260,7 +258,7 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 				boards={boards}
 				userPreferences={userPreferences}
 			/>
-			
+
 			{/* Create Detailed Task Dialog */}
 			<TaskEditDialog
 				task={null}

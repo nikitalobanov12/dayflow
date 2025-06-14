@@ -28,7 +28,7 @@ interface CompactCalendarViewProps {
 	boards?: Board[];
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
-	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar') => Promise<void>;
+	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: any;
 }
@@ -53,7 +53,7 @@ const ZOOM_LEVELS = [
 export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards, user, onSignOut, onViewChange, onOpenSettings, userPreferences }: CompactCalendarViewProps) {
 	// Apply user preferences
 	const { filterTasks, weekStartsOn, calendarDefaultZoom, calendarDefaultView, formatDate } = useUserPreferences(userPreferences);
-	
+
 	// State to force re-render when recurring instances are updated
 	const [recurringInstancesVersion, setRecurringInstancesVersion] = useState(0);
 	const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -122,22 +122,14 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 	useEffect(() => {
 		const generateEvents = async () => {
 			// First filter by board if not viewing all tasks
-			const boardFilteredTasks = isAllTasksBoard 
-				? tasks 
-				: tasks.filter(task => task.boardId === board.id);
-			
+			const boardFilteredTasks = isAllTasksBoard ? tasks : tasks.filter(task => task.boardId === board.id);
+
 			const filteredTasks = filterTasks(boardFilteredTasks);
 			const allEvents: CalendarEvent[] = [];
 
 			for (const task of filteredTasks.filter(task => task.scheduledDate || task.startDate || task.dueDate)) {
 				// Generate recurring instances if the task is recurring
-				const instances = task.recurring 
-					? await generateRecurringInstances(
-						task, 
-						startOfDay(visibleDates[0]), 
-						endOfDay(visibleDates[visibleDates.length - 1])
-					)
-					: [task];
+				const instances = task.recurring ? await generateRecurringInstances(task, startOfDay(visibleDates[0]), endOfDay(visibleDates[visibleDates.length - 1])) : [task];
 
 				instances.forEach(instance => {
 					let start: Date;
@@ -179,11 +171,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 
 			// Filter events to only show those within visible dates
 			const filteredEvents = allEvents.filter(event => {
-				return visibleDates.some(date => 
-					isSameDay(event.start, date) || 
-					isSameDay(event.end, date) || 
-					(event.start <= startOfDay(date) && event.end >= endOfDay(date))
-				);
+				return visibleDates.some(date => isSameDay(event.start, date) || isSameDay(event.end, date) || (event.start <= startOfDay(date) && event.end >= endOfDay(date)));
 			});
 
 			setEvents(filteredEvents);
@@ -197,10 +185,8 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 	// Get unscheduled tasks
 	const unscheduledTasks = useMemo(() => {
 		// First filter by board if not viewing all tasks
-		const boardFilteredTasks = isAllTasksBoard 
-			? tasks 
-			: tasks.filter(task => task.boardId === board.id);
-		
+		const boardFilteredTasks = isAllTasksBoard ? tasks : tasks.filter(task => task.boardId === board.id);
+
 		const allUnscheduledTasks = boardFilteredTasks.filter(task => !task.scheduledDate && !task.startDate && !task.dueDate && task.status !== 'done');
 		const filteredTasks = filterTasks(allUnscheduledTasks);
 
@@ -468,7 +454,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 		if (task.recurring && task.recurringInstanceId) {
 			const isCurrentlyCompleted = task.status === 'done';
 			const instanceDate = (task.scheduledDate || new Date().toISOString()).split('T')[0]; // Get just the date part
-			
+
 			try {
 				if (isCurrentlyCompleted) {
 					// Mark this instance as incomplete
@@ -477,7 +463,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 					// Mark this instance as completed
 					await recurringInstanceDatabase.markInstanceCompleted(task.id, instanceDate);
 				}
-				
+
 				// Force a re-render by incrementing the version
 				setRecurringInstancesVersion(prev => prev + 1);
 			} catch (error) {
@@ -485,7 +471,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 			}
 			return;
 		}
-		
+
 		// Handle regular tasks
 		const newStatus = task.status === 'done' ? 'today' : 'done';
 		const updates: Partial<Task> = {
@@ -625,9 +611,9 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 		const handleScheduleToday = async () => {
 			const today = new Date();
 			today.setHours(9, 0, 0, 0); // Default to 9 AM
-			await onUpdateTask(task.id, { 
+			await onUpdateTask(task.id, {
 				scheduledDate: today.toISOString(),
-				status: 'today'
+				status: 'today',
 			});
 		};
 
@@ -635,9 +621,9 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 			const tomorrow = new Date();
 			tomorrow.setDate(tomorrow.getDate() + 1);
 			tomorrow.setHours(9, 0, 0, 0); // Default to 9 AM
-			await onUpdateTask(task.id, { 
+			await onUpdateTask(task.id, {
 				scheduledDate: tomorrow.toISOString(),
-				status: 'this-week'
+				status: 'this-week',
 			});
 		};
 
@@ -647,21 +633,19 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 			const daysUntilSaturday = (6 - now.getDay()) % 7;
 			saturday.setDate(now.getDate() + (daysUntilSaturday === 0 ? 7 : daysUntilSaturday));
 			saturday.setHours(10, 0, 0, 0); // Default to 10 AM on Saturday
-			await onUpdateTask(task.id, { 
+			await onUpdateTask(task.id, {
 				scheduledDate: saturday.toISOString(),
-				status: 'this-week'
+				status: 'this-week',
 			});
 		};
 
 		const handleClearSchedule = async () => {
-			await onUpdateTask(task.id, { 
+			await onUpdateTask(task.id, {
 				scheduledDate: undefined,
 				startDate: undefined,
-				dueDate: undefined
+				dueDate: undefined,
 			});
 		};
-
-
 
 		return (
 			<ContextMenu>
@@ -683,7 +667,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 						{task.status === 'done' ? 'Mark as Incomplete' : 'Mark as Complete'}
 					</ContextMenuItem>
 					<ContextMenuSeparator />
-					
+
 					{/* Priority submenu */}
 					<ContextMenuSub>
 						<ContextMenuSubTrigger>
@@ -743,7 +727,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 						</ContextMenuSubTrigger>
 						<ContextMenuSubContent>
 							<ContextMenuItem
-								onSelect={(e) => {
+								onSelect={e => {
 									e.preventDefault();
 									e.stopPropagation();
 									setSelectedTaskForDatePicker(task);
@@ -843,7 +827,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 		if (!container) return;
 
 		const now = new Date();
-		
+
 		// Update current date to today if not already on today
 		if (!isToday(currentDate)) {
 			setCurrentDate(now);
@@ -852,19 +836,19 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 		// Calculate scroll position based on current time
 		const currentHour = now.getHours();
 		const currentMinute = now.getMinutes();
-		
+
 		// Calculate total minutes since midnight
-		const totalMinutes = (currentHour * 60) + currentMinute;
-		
+		const totalMinutes = currentHour * 60 + currentMinute;
+
 		// Calculate the scroll position
 		// Each hour takes up currentZoom.height pixels
 		// Each minute is a fraction of that height
 		const minutesPerPixel = currentZoom.timeInterval / currentZoom.height;
 		const scrollPosition = totalMinutes / minutesPerPixel;
-		
+
 		// Add some offset to show the current time in the upper portion of the view
 		const containerHeight = container.clientHeight;
-		const targetScroll = Math.max(0, scrollPosition - (containerHeight / 3));
+		const targetScroll = Math.max(0, scrollPosition - containerHeight / 3);
 
 		container.scrollTo({
 			top: targetScroll,
@@ -907,7 +891,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 			dueDate: updates.dueDate,
 			recurring: updates.recurring,
 		};
-		
+
 		await onAddTask(newTask);
 		setIsCreatingDetailedTask(false);
 	};
@@ -929,13 +913,8 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 				>
 					<div className='flex items-center gap-2'>
 						{/* Date Range Display */}
-						<h2 className='text-lg font-semibold mr-4'>
-							{viewMode === '3-day' 
-								? `${formatDate(currentDate)} - ${formatDate(addDays(currentDate, 2))}` 
-								: `${formatDate(startOfWeek(currentDate, { weekStartsOn }))} - ${formatDate(endOfWeek(currentDate, { weekStartsOn }))}`
-							}
-						</h2>
-						
+						<h2 className='text-lg font-semibold mr-4'>{viewMode === '3-day' ? `${formatDate(currentDate)} - ${formatDate(addDays(currentDate, 2))}` : `${formatDate(startOfWeek(currentDate, { weekStartsOn }))} - ${formatDate(endOfWeek(currentDate, { weekStartsOn }))}`}</h2>
+
 						<div className='flex items-center gap-1 mr-2'>
 							<Button
 								variant='outline'
@@ -984,7 +963,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 					</div>
 				</UnifiedHeader>
 			</div>
-			
+
 			{/* Main Content */}
 			<div className='flex-1 flex min-h-0 overflow-hidden'>
 				{/* Calendar Grid */}
@@ -1086,7 +1065,6 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 												})()}
 										</div>
 									))}
-
 									{/* Events */}
 									{events
 										.filter(event => isSameDay(event.start, date))
@@ -1229,7 +1207,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 						</div>
 					</div>
 				</div>
-				
+
 				{/* Unscheduled Tasks Sidebar - Right Side */}
 				{unscheduledTasks.length > 0 && (
 					<div className='w-80 border-l border-border bg-muted/20 flex flex-col overflow-hidden'>
@@ -1326,7 +1304,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 				onSave={handleEditTaskSave}
 				onDelete={handleEditTaskDelete}
 			/>
-			
+
 			{/* Create Detailed Task Dialog */}
 			<TaskEditDialog
 				task={null}
@@ -1341,74 +1319,74 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 			/>
 
 			{/* Date Picker Dialog */}
-			<Dialog open={isDateDialogOpen} onOpenChange={setIsDateDialogOpen}>
-				<DialogContent className="max-w-md">
+			<Dialog
+				open={isDateDialogOpen}
+				onOpenChange={setIsDateDialogOpen}
+			>
+				<DialogContent className='max-w-md'>
 					<DialogHeader>
 						<DialogTitle>Schedule Task</DialogTitle>
-						<DialogDescription>
-							{selectedTaskForDatePicker && `Set date and time for "${selectedTaskForDatePicker.title}"`}
-						</DialogDescription>
+						<DialogDescription>{selectedTaskForDatePicker && `Set date and time for "${selectedTaskForDatePicker.title}"`}</DialogDescription>
 					</DialogHeader>
-					<div className="space-y-4">
+					<div className='space-y-4'>
 						{/* Calendar */}
 						<div>
-							<label className="text-sm font-medium mb-2 block">Select Date</label>
-							<div className="border rounded-md p-3 bg-background">
+							<label className='text-sm font-medium mb-2 block'>Select Date</label>
+							<div className='border rounded-md p-3 bg-background'>
 								<CalendarUI
-									mode="single"
+									mode='single'
 									selected={selectedTaskForDatePicker?.scheduledDate ? new Date(selectedTaskForDatePicker.scheduledDate) : undefined}
-									onSelect={(date) => {
+									onSelect={date => {
 										if (date && selectedTaskForDatePicker) {
 											// Update the selected task's date while preserving existing time or setting default
 											const existingDate = selectedTaskForDatePicker.scheduledDate ? new Date(selectedTaskForDatePicker.scheduledDate) : new Date();
 											const newDate = new Date(date);
 											newDate.setHours(existingDate.getHours() || 9, existingDate.getMinutes() || 0, 0, 0);
-											
+
 											// Update the selected task for date picker to reflect the new date
 											setSelectedTaskForDatePicker({
 												...selectedTaskForDatePicker,
-												scheduledDate: newDate.toISOString()
+												scheduledDate: newDate.toISOString(),
 											});
 										}
 									}}
-									className="w-full"
+									className='w-full'
 								/>
 							</div>
 						</div>
 
 						{/* Time Selection */}
 						<div>
-							<label className="text-sm font-medium mb-2 block">Select Time</label>
+							<label className='text-sm font-medium mb-2 block'>Select Time</label>
 							<Input
-								type="time"
-								value={selectedTaskForDatePicker?.scheduledDate ? 
-									(() => {
-										const date = new Date(selectedTaskForDatePicker.scheduledDate);
-										return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-									})() : 
-									"09:00"
+								type='time'
+								value={
+									selectedTaskForDatePicker?.scheduledDate
+										? (() => {
+												const date = new Date(selectedTaskForDatePicker.scheduledDate);
+												return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+										  })()
+										: '09:00'
 								}
-								onChange={(e) => {
+								onChange={e => {
 									if (selectedTaskForDatePicker && e.target.value) {
 										const [hours, minutes] = e.target.value.split(':').map(Number);
-										const currentDate = selectedTaskForDatePicker.scheduledDate ? 
-											new Date(selectedTaskForDatePicker.scheduledDate) : 
-											new Date();
+										const currentDate = selectedTaskForDatePicker.scheduledDate ? new Date(selectedTaskForDatePicker.scheduledDate) : new Date();
 										currentDate.setHours(hours, minutes, 0, 0);
 										setSelectedTaskForDatePicker({
 											...selectedTaskForDatePicker,
-											scheduledDate: currentDate.toISOString()
+											scheduledDate: currentDate.toISOString(),
 										});
 									}
 								}}
-								className="bg-background"
+								className='bg-background'
 							/>
 						</div>
 
 						{/* Quick Time Presets */}
 						<div>
-							<label className="text-sm font-medium mb-2 block">Quick Times</label>
-							<div className="grid grid-cols-3 gap-2">
+							<label className='text-sm font-medium mb-2 block'>Quick Times</label>
+							<div className='grid grid-cols-3 gap-2'>
 								{[
 									{ label: '9:00 AM', hour: 9, minute: 0 },
 									{ label: '12:00 PM', hour: 12, minute: 0 },
@@ -1416,24 +1394,22 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 									{ label: '5:00 PM', hour: 17, minute: 0 },
 									{ label: '7:00 PM', hour: 19, minute: 0 },
 									{ label: '9:00 PM', hour: 21, minute: 0 },
-								].map((preset) => (
+								].map(preset => (
 									<Button
 										key={preset.label}
-										variant="outline"
-										size="sm"
+										variant='outline'
+										size='sm'
 										onClick={() => {
 											if (selectedTaskForDatePicker) {
-												const currentDate = selectedTaskForDatePicker.scheduledDate ? 
-													new Date(selectedTaskForDatePicker.scheduledDate) : 
-													new Date();
+												const currentDate = selectedTaskForDatePicker.scheduledDate ? new Date(selectedTaskForDatePicker.scheduledDate) : new Date();
 												currentDate.setHours(preset.hour, preset.minute, 0, 0);
 												setSelectedTaskForDatePicker({
 													...selectedTaskForDatePicker,
-													scheduledDate: currentDate.toISOString()
+													scheduledDate: currentDate.toISOString(),
 												});
 											}
 										}}
-										className="text-xs"
+										className='text-xs'
 									>
 										{preset.label}
 									</Button>
@@ -1442,8 +1418,8 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 						</div>
 					</div>
 					<DialogFooter>
-						<Button 
-							variant="outline" 
+						<Button
+							variant='outline'
 							onClick={() => {
 								setIsDateDialogOpen(false);
 								setSelectedTaskForDatePicker(null);
@@ -1451,29 +1427,29 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 						>
 							Cancel
 						</Button>
-						<Button 
+						<Button
 							onClick={async () => {
 								if (selectedTaskForDatePicker && selectedTaskForDatePicker.scheduledDate) {
 									const scheduledDate = new Date(selectedTaskForDatePicker.scheduledDate);
-									
+
 									// Determine status based on date
 									const today = new Date();
 									today.setHours(0, 0, 0, 0);
 									const selectedDay = new Date(scheduledDate);
 									selectedDay.setHours(0, 0, 0, 0);
-									
+
 									let newStatus: Task['status'] = 'backlog';
 									if (selectedDay.getTime() === today.getTime()) {
 										newStatus = 'today';
 									} else if (selectedDay > today && selectedDay <= new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)) {
 										newStatus = 'this-week';
 									}
-									
-									await onUpdateTask(selectedTaskForDatePicker.id, { 
+
+									await onUpdateTask(selectedTaskForDatePicker.id, {
 										scheduledDate: scheduledDate.toISOString(),
-										status: newStatus
+										status: newStatus,
 									});
-									
+
 									setIsDateDialogOpen(false);
 									setSelectedTaskForDatePicker(null);
 								}

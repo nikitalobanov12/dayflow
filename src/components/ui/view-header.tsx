@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, Layers, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Layers, PlusCircle, List } from 'lucide-react';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { Board } from '@/types';
 import { isTauri } from '@/lib/platform';
@@ -8,9 +8,9 @@ import { renderIcon } from '@/constants/board-constants';
 
 interface ViewHeaderProps {
 	board: Board;
-	currentView: 'kanban' | 'calendar';
+	currentView: 'kanban' | 'calendar' | 'list';
 	onBack: () => void;
-	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar') => Promise<void>;
+	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onCreateDetailedTask?: () => void;
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
@@ -20,11 +20,13 @@ interface ViewHeaderProps {
 const VIEW_ICONS = {
 	kanban: <Layers className='h-4 w-4' />,
 	calendar: <Calendar className='h-4 w-4' />,
+	list: <List className='h-4 w-4' />,
 };
 
 const VIEW_NAMES = {
 	kanban: 'Kanban',
 	calendar: 'Calendar',
+	list: 'List',
 };
 
 export function ViewHeader({ board, currentView, onBack, onViewChange, onCreateDetailedTask, user, onSignOut, onOpenSettings }: ViewHeaderProps) {
@@ -70,7 +72,7 @@ export function ViewHeader({ board, currentView, onBack, onViewChange, onCreateD
 
 					{onViewChange && (
 						<div className='flex items-center gap-2 bg-muted rounded-lg p-1'>
-							{(['kanban', 'calendar'] as const).map(view => (
+							{(['kanban', 'calendar', 'list'] as const).map(view => (
 								<Button
 									key={view}
 									variant='ghost'

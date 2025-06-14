@@ -12,25 +12,25 @@ interface UnifiedHeaderProps {
 	// Basic header info
 	title: string;
 	subtitle?: string;
-	
+
 	// Board info (for board views)
 	board?: Board;
-	currentView?: 'kanban' | 'calendar';
-	
+	currentView?: 'kanban' | 'calendar' | 'list';
+
 	// View mode (for board selection)
 	viewMode?: 'grid' | 'compact' | 'list';
 	boardCount?: number;
-	
+
 	// Actions
-	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar') => Promise<void>;
+	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onCreateDetailedTask?: () => void;
 	onViewModeChange?: (mode: 'grid' | 'compact' | 'list') => void;
-	
+
 	// Right side actions
 	user?: any;
 	onSignOut?: () => Promise<{ error: any }>;
 	onOpenSettings?: () => void;
-	
+
 	// Extra content
 	children?: React.ReactNode;
 }
@@ -38,33 +38,24 @@ interface UnifiedHeaderProps {
 const VIEW_ICONS = {
 	kanban: <Layers className='h-4 w-4' />,
 	calendar: <Calendar className='h-4 w-4' />,
+	list: <List className='h-4 w-4' />,
 };
 
 const VIEW_NAMES = {
 	kanban: 'Kanban',
 	calendar: 'Calendar',
+	list: 'List',
 };
 
-export function UnifiedHeader({
-	title,
-	subtitle,
-	board,
-	currentView,
-	viewMode,
-	boardCount,
-	onViewChange,
-	onCreateDetailedTask,
-	onViewModeChange,
-	user,
-	onSignOut,
-	onOpenSettings,
-	children
-}: UnifiedHeaderProps) {
+export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, boardCount, onViewChange, onCreateDetailedTask, onViewModeChange, user, onSignOut, onOpenSettings, children }: UnifiedHeaderProps) {
 	return (
 		<header className={`${!isTauri() ? '' : ''} flex h-16 shrink-0 items-center gap-2 px-4 border-b border-border bg-card/50 backdrop-blur-sm relative z-10`}>
 			<SidebarTrigger className='mr-2.5' />
-			<Separator orientation="vertical" className="mr-2 h-4" />
-			
+			<Separator
+				orientation='vertical'
+				className='mr-2 h-4'
+			/>
+
 			{/* Left side - Title and board info */}
 			<div className='flex items-center gap-3 flex-1'>
 				{board && (
@@ -84,7 +75,7 @@ export function UnifiedHeader({
 			{/* Center - View controls */}
 			<div className='flex items-center gap-4'>
 				{children}
-				
+
 				{/* Board view mode toggle */}
 				{onViewModeChange && viewMode && (
 					<div className='flex items-center gap-1 bg-muted/30 p-1 rounded-lg border border-border/50'>
@@ -118,16 +109,19 @@ export function UnifiedHeader({
 					</div>
 				)}
 
-				{/* Kanban/Calendar view toggle */}
+				{/* Kanban/Calendar/List view toggle */}
 				{onViewChange && board && currentView && (
 					<div className='flex items-center gap-2 bg-muted rounded-lg p-1'>
-						{(['kanban', 'calendar'] as const).map(view => (
+						{(['kanban', 'calendar', 'list'] as const).map(view => (
 							<Button
 								key={view}
 								variant='ghost'
 								size='sm'
 								className={`text-xs px-3 py-1 gap-1.5 ${currentView === view ? 'bg-primary text-primary-foreground' : 'hover:bg-primary/10'}`}
-								onClick={() => onViewChange(board, view)}
+								onClick={() => {
+									console.log('View change clicked:', view, 'for board:', board.name);
+									onViewChange(board, view);
+								}}
 							>
 								{VIEW_ICONS[view]}
 								{VIEW_NAMES[view]}
@@ -145,7 +139,7 @@ export function UnifiedHeader({
 						{boardCount} {boardCount === 1 ? 'board' : 'boards'}
 					</div>
 				)}
-				
+
 				{/* New task button */}
 				{onCreateDetailedTask && (
 					<Button
@@ -168,4 +162,4 @@ export function UnifiedHeader({
 			</div>
 		</header>
 	);
-} 
+}
