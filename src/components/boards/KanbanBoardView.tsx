@@ -160,6 +160,10 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 						// Trigger task creation
 						setIsCreatingDetailedTask(true);
 					}}
+					onNavigateToBoards={() => {
+						// Navigate back to board selection
+						onBack();
+					}}
 				/>
 				<SidebarInset>
 					<UnifiedHeader

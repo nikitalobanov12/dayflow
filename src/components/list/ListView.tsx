@@ -91,6 +91,10 @@ export function ListView(props: ListViewProps) {
 						// Trigger task creation
 						setIsCreatingDetailedTask(true);
 					}}
+					onNavigateToBoards={() => {
+						// Navigate back to board selection
+						props.onBack();
+					}}
 				/>
 				<SidebarInset className='flex flex-col flex-1 overflow-y-auto'>
 					{/* Header for List View */}

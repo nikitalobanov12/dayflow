@@ -47,6 +47,10 @@ export function CalendarView(props: CalendarViewProps) {
 							props.onBack();
 						}
 					}}
+					onNavigateToBoards={() => {
+						// Navigate back to board selection
+						props.onBack();
+					}}
 				/>
 				<SidebarInset className='flex flex-col'>
 					<CompactCalendarView {...props} />

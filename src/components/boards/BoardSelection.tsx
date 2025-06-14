@@ -146,7 +146,8 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 		}
 	};
 
-	const regularBoards = boards.filter(board => !board.isDefault);
+	const allBoards = boards; // Display all boards including the "All Tasks" board
+	const regularBoards = boards.filter(board => !board.isDefault); // Keep for count in header
 
 	const getGridClasses = () => {
 		switch (viewMode) {
@@ -192,18 +193,20 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 										</div>
 									</div>
 								</div>
-								<div className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300'>
-									<button
-										onClick={e => {
-											e.stopPropagation();
-											startEditing(board);
-										}}
-										className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
-										title='Edit board'
-									>
-										<Edit className='h-4 w-4' />
-									</button>
-								</div>
+								{!board.isDefault && (
+									<div className='absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300'>
+										<button
+											onClick={e => {
+												e.stopPropagation();
+												startEditing(board);
+											}}
+											className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
+											title='Edit board'
+										>
+											<Edit className='h-4 w-4' />
+										</button>
+									</div>
+								)}
 							</div>
 						</ContextMenuTrigger>
 						<ContextMenuContent className='w-48'>
@@ -259,18 +262,20 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 								{board.description && (
 									<p className='text-xs text-muted-foreground line-clamp-2 hidden sm:block'>{board.description}</p>
 								)}
-								<div className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300'>
-									<button
-										onClick={e => {
-											e.stopPropagation();
-											startEditing(board);
-										}}
-										className='text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-accent/50'
-										title='Edit board'
-									>
-										<Edit className='h-3 w-3' />
-									</button>
-								</div>
+								{!board.isDefault && (
+									<div className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300'>
+										<button
+											onClick={e => {
+												e.stopPropagation();
+												startEditing(board);
+											}}
+											className='text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-accent/50'
+											title='Edit board'
+										>
+											<Edit className='h-3 w-3' />
+										</button>
+									</div>
+								)}
 							</div>
 						</ContextMenuTrigger>
 						<ContextMenuContent className='w-48'>
@@ -331,18 +336,20 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 								<div className='flex items-center gap-2 text-xs text-muted-foreground'>
 									<span className='hidden sm:inline'>Board</span>
 								</div>
-								<div className='opacity-0 group-hover:opacity-100 transition-all duration-300'>
-									<button
-										onClick={e => {
-											e.stopPropagation();
-											startEditing(board);
-										}}
-										className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
-										title='Edit board'
-									>
-										<Edit className='h-4 w-4' />
-									</button>
-								</div>
+								{!board.isDefault && (
+									<div className='opacity-0 group-hover:opacity-100 transition-all duration-300'>
+										<button
+											onClick={e => {
+												e.stopPropagation();
+												startEditing(board);
+											}}
+											className='text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-accent/50'
+											title='Edit board'
+										>
+											<Edit className='h-4 w-4' />
+										</button>
+									</div>
+								)}
 							</div>
 						</ContextMenuTrigger>
 						<ContextMenuContent className='w-48'>
@@ -499,9 +506,9 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 						onOpenSettings={onOpenSettings}
 					/>
 					<div className='flex-1 p-4 sm:p-6 bg-muted/30'>
-						{regularBoards.length > 0 ? (
+						{boards.length > 0 ? (
 							<div className={getGridClasses()}>
-								{regularBoards.map(renderBoardCard)}
+								{allBoards.map(renderBoardCard)}
 								{renderCreateBoardCard()}
 							</div>
 						) : (

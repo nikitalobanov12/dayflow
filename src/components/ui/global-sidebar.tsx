@@ -1,4 +1,4 @@
-import { Plus, Edit, ChevronRight, Calendar, List, Kanban } from 'lucide-react';
+import { Plus, Edit, ChevronRight, Calendar, List, Kanban, Layers } from 'lucide-react';
 import { Board, BoardViewType } from '@/types';
 import { renderIcon } from '@/constants/board-constants';
 import {
@@ -30,6 +30,7 @@ interface GlobalSidebarProps {
 	onCreateBoard?: () => void;
 	onEditBoard?: (board: Board) => void;
 	onCreateTask?: (board: Board) => void;
+	onNavigateToBoards?: () => void;
 }
 
 // Helper function to get view icon
@@ -68,7 +69,8 @@ export function GlobalSidebar({
 	onSelectBoardView,
 	onCreateBoard, 
 	onEditBoard,
-	onCreateTask 
+	onCreateTask,
+	onNavigateToBoards
 }: GlobalSidebarProps) {
 	const [expandedBoards, setExpandedBoards] = useState<Set<number>>(new Set());
 	const regularBoards = boards.filter(board => !board.isDefault);
@@ -222,11 +224,22 @@ export function GlobalSidebar({
 
 			<SidebarContent>
 				{/* Quick Actions */}
-				{onCreateBoard && (
-					<SidebarGroup>
-						<SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
-						<SidebarGroupContent>
-							<SidebarMenu>
+				<SidebarGroup>
+					<SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
+					<SidebarGroupContent>
+						<SidebarMenu>
+							{onNavigateToBoards && (
+								<SidebarMenuItem>
+									<SidebarMenuButton
+										onClick={onNavigateToBoards}
+										className='gap-2'
+									>
+										<Layers className='h-4 w-4' />
+										<span>View All Boards</span>
+									</SidebarMenuButton>
+								</SidebarMenuItem>
+							)}
+							{onCreateBoard && (
 								<SidebarMenuItem>
 									<SidebarMenuButton
 										onClick={onCreateBoard}
@@ -236,10 +249,10 @@ export function GlobalSidebar({
 										<span>New Board</span>
 									</SidebarMenuButton>
 								</SidebarMenuItem>
-							</SidebarMenu>
-						</SidebarGroupContent>
-					</SidebarGroup>
-				)}
+							)}
+						</SidebarMenu>
+					</SidebarGroupContent>
+				</SidebarGroup>
 
 				{/* All Tasks Board */}
 				{allTasksBoard && (
