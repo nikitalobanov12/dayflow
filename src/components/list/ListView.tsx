@@ -66,12 +66,30 @@ export function ListView(props: ListViewProps) {
 				<GlobalSidebar
 					boards={props.boards || []}
 					currentBoard={props.board}
+					currentView="list"
 					onSelectBoard={(selectedBoard: Board) => {
 						if (props.onSelectBoard) {
 							props.onSelectBoard(selectedBoard);
 						} else {
 							props.onBack();
 						}
+					}}
+					onSelectBoardView={(board: Board, view: BoardViewType) => {
+						if (props.onViewChange) {
+							props.onViewChange(board, view);
+						} else if (props.onSelectBoard) {
+							props.onSelectBoard(board);
+						} else {
+							props.onBack();
+						}
+					}}
+					onCreateTask={(board: Board) => {
+						// Set the board context and trigger task creation
+						if (board.id !== props.board.id && props.onSelectBoard) {
+							props.onSelectBoard(board);
+						}
+						// Trigger task creation
+						setIsCreatingDetailedTask(true);
 					}}
 				/>
 				<SidebarInset className='flex flex-col flex-1 overflow-y-auto'>

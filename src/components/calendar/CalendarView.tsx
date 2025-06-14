@@ -1,5 +1,5 @@
 import { CompactCalendarView } from './CompactCalendarView';
-import { Task, Board } from '@/types';
+import { Task, Board, BoardViewType } from '@/types';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { GlobalSidebar } from '@/components/ui/global-sidebar';
 
@@ -29,10 +29,20 @@ export function CalendarView(props: CalendarViewProps) {
 				<GlobalSidebar
 					boards={props.boards || []}
 					currentBoard={props.board}
+					currentView="calendar"
 					onSelectBoard={selectedBoard => {
 						// Use the proper board selection handler if available, otherwise fallback to onBack
 						if (props.onSelectBoard) {
 							props.onSelectBoard(selectedBoard);
+						} else {
+							props.onBack();
+						}
+					}}
+					onSelectBoardView={(board: Board, view: BoardViewType) => {
+						if (props.onViewChange) {
+							props.onViewChange(board, view);
+						} else if (props.onSelectBoard) {
+							props.onSelectBoard(board);
 						} else {
 							props.onBack();
 						}

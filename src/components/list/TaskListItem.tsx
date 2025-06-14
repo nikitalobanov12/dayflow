@@ -92,7 +92,7 @@ export function TaskListItem({
 		>
 			<div
 				className={cn(
-					'flex items-center mb-3 p-3 bg-card rounded-md shadow-sm hover:bg-muted cursor-pointer border-l-4 transition-all duration-200',
+					'flex items-center mb-3 px-2 py-4 bg-card rounded-md shadow-sm hover:bg-muted cursor-pointer border-l-4 transition-all duration-200',
 					priorityColors[task.priority || 1],
 					task.status === 'done' ? 'opacity-60' : ''
 				)}

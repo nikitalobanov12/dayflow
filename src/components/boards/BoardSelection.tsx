@@ -1,4 +1,4 @@
-import { Board, UserPreferences } from '@/types';
+import { Board, UserPreferences} from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -476,8 +476,16 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 				<GlobalSidebar
 					boards={boards}
 					onSelectBoard={onSelectBoard}
+					onSelectBoardView={(board: Board) => {
+						// Navigate to the board with specific view (this would need to be implemented in parent component)
+						onSelectBoard(board);
+					}}
 					onCreateBoard={() => setIsCreating(true)}
 					onEditBoard={startEditing}
+					onCreateTask={(board: Board) => {
+						// For now, just navigate to the board - task creation could be enhanced later
+						onSelectBoard(board);
+					}}
 				/>
 				<SidebarInset>
 					<UnifiedHeader

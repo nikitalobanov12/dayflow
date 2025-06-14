@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
-import { Task, Board } from '@/types';
+import { Task, Board, BoardViewType } from '@/types';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { GlobalSidebar } from '@/components/ui/global-sidebar';
@@ -134,6 +134,7 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 				<GlobalSidebar
 					boards={boards}
 					currentBoard={board}
+					currentView="kanban"
 					onSelectBoard={selectedBoard => {
 						// Use the proper board selection handler if available, otherwise fallback to onBack
 						if (onSelectBoard) {
@@ -141,6 +142,23 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 						} else {
 							onBack();
 						}
+					}}
+					onSelectBoardView={(selectedBoard: Board, view: BoardViewType) => {
+						if (onViewChange) {
+							onViewChange(selectedBoard, view);
+						} else if (onSelectBoard) {
+							onSelectBoard(selectedBoard);
+						} else {
+							onBack();
+						}
+					}}
+					onCreateTask={(selectedBoard: Board) => {
+						// Set the board context and trigger task creation
+						if (selectedBoard.id !== board.id && onSelectBoard) {
+							onSelectBoard(selectedBoard);
+						}
+						// Trigger task creation
+						setIsCreatingDetailedTask(true);
 					}}
 				/>
 				<SidebarInset>
