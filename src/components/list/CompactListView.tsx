@@ -2,11 +2,9 @@ import { useState, useMemo } from 'react';
 import { Task, Board, UserPreferences } from '@/types';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit2, Trash2, Copy, CheckCircle, Circle } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { TaskListItem } from '@/components/list/TaskListItem';
-// Use context menu primitives
-import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from '@/components/ui/context-menu';
 
 interface CompactListViewProps {
 	board: Board;
@@ -29,7 +27,19 @@ interface CompactListViewProps {
 	onOpenSettings?: () => void;
 }
 
-export function CompactListView({ board, tasks, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards, userPreferences }: CompactListViewProps) {
+export function CompactListView({ 
+	board, 
+	tasks, 
+	onAddTask, 
+	onUpdateTask, 
+	onDeleteTask, 
+	onDuplicateTask, 
+	onMoveTask,
+	onUpdateTimeEstimate,
+	isAllTasksBoard = false, 
+	boards, 
+	userPreferences 
+}: CompactListViewProps) {
 	const [isCreatingTask, setIsCreatingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [isEditingTask, setIsEditingTask] = useState(false);
@@ -61,29 +71,23 @@ export function CompactListView({ board, tasks, onAddTask, onUpdateTask, onDelet
 		setIsEditingTask(true);
 	};
 
-	// Remove handleSaveTask, directly use onUpdateTask / onAddTask in dialog callbacks
-
 	const handleDeleteTask = async (taskId: number) => {
 		await onDeleteTask(taskId);
 		setIsEditingTask(false);
 		setEditingTask(null);
 	};
 
-	const handleDuplicateTask = async (task: Task) => {
-		if (onDuplicateTask) {
-			await onDuplicateTask(task);
-		}
-	};
+	
 
 	const handleToggleComplete = async (task: Task) => {
 		const newStatus = task.status === 'done' ? 'today' : 'done';
 		const completedAt = newStatus === 'done' ? new Date().toISOString() : undefined;
-		// Optimistically update UI for status change before calling onUpdateTask
-		// This might involve updating local state if `tasks` prop isn't immediately reactive
 		await onUpdateTask(task.id, { status: newStatus, completedAt });
 	};
 
-	// Remove activeDialogTask
+	const handleMoveTask = async (taskId: number, newStatus: Task['status']) => {
+		await onMoveTask(taskId, newStatus);
+	};
 
 	return (
 		<div className='flex flex-col h-full bg-muted/40'>
@@ -96,7 +100,8 @@ export function CompactListView({ board, tasks, onAddTask, onUpdateTask, onDelet
 				>
 					<PlusCircle className='mr-2 h-4 w-4' /> Add Task
 				</Button>
-			</div>{' '}
+			</div>
+			
 			<div className='flex-1 overflow-y-auto p-4'>
 				{/* Today Section */}
 				{groupedTasks.today.length > 0 && (
@@ -104,35 +109,19 @@ export function CompactListView({ board, tasks, onAddTask, onUpdateTask, onDelet
 						<h3 className='text-lg font-semibold mb-3 text-foreground border-b border-border pb-2'>Today ({groupedTasks.today.length})</h3>
 						<div className='space-y-3'>
 							{groupedTasks.today.map(task => (
-								<ContextMenu key={task.id}>
-									<ContextMenuTrigger>
-										<TaskListItem
-											task={task}
-											onToggleComplete={() => handleToggleComplete(task)}
-											onEditTask={() => handleEditTask(task)}
-										/>
-									</ContextMenuTrigger>
-									<ContextMenuContent>
-										<ContextMenuItem onClick={() => handleEditTask(task)}>
-											<Edit2 className='mr-2 h-4 w-4' /> Edit
-										</ContextMenuItem>
-										<ContextMenuItem onClick={() => handleToggleComplete(task)}>
-											{task.status === 'done' ? <Circle className='mr-2 h-4 w-4' /> : <CheckCircle className='mr-2 h-4 w-4' />}
-											{task.status === 'done' ? 'Mark Incomplete' : 'Mark Complete'}
-										</ContextMenuItem>
-										{onDuplicateTask && (
-											<ContextMenuItem onClick={() => handleDuplicateTask(task)}>
-												<Copy className='mr-2 h-4 w-4' /> Duplicate
-											</ContextMenuItem>
-										)}
-										<ContextMenuItem
-											onClick={() => handleDeleteTask(task.id)}
-											className='text-red-600'
-										>
-											<Trash2 className='mr-2 h-4 w-4' /> Delete
-										</ContextMenuItem>
-									</ContextMenuContent>
-								</ContextMenu>
+								<TaskListItem
+									key={task.id}
+									task={task}
+									onToggleComplete={() => handleToggleComplete(task)}
+									onEditTask={() => handleEditTask(task)}
+									onMoveTask={handleMoveTask}
+									onUpdateTask={onUpdateTask}
+									onUpdateTimeEstimate={onUpdateTimeEstimate}
+									onDuplicateTask={onDuplicateTask}
+									onDeleteTask={handleDeleteTask}
+									boardInfo={isAllTasksBoard ? boards?.find(b => b.id === task.boardId) : board}
+									userPreferences={userPreferences}
+								/>
 							))}
 						</div>
 					</div>
@@ -144,35 +133,19 @@ export function CompactListView({ board, tasks, onAddTask, onUpdateTask, onDelet
 						<h3 className='text-lg font-semibold mb-3 text-foreground border-b border-border pb-2'>This Week ({groupedTasks.thisWeek.length})</h3>
 						<div className='space-y-3'>
 							{groupedTasks.thisWeek.map(task => (
-								<ContextMenu key={task.id}>
-									<ContextMenuTrigger>
-										<TaskListItem
-											task={task}
-											onToggleComplete={() => handleToggleComplete(task)}
-											onEditTask={() => handleEditTask(task)}
-										/>
-									</ContextMenuTrigger>
-									<ContextMenuContent>
-										<ContextMenuItem onClick={() => handleEditTask(task)}>
-											<Edit2 className='mr-2 h-4 w-4' /> Edit
-										</ContextMenuItem>
-										<ContextMenuItem onClick={() => handleToggleComplete(task)}>
-											{task.status === 'done' ? <Circle className='mr-2 h-4 w-4' /> : <CheckCircle className='mr-2 h-4 w-4' />}
-											{task.status === 'done' ? 'Mark Incomplete' : 'Mark Complete'}
-										</ContextMenuItem>
-										{onDuplicateTask && (
-											<ContextMenuItem onClick={() => handleDuplicateTask(task)}>
-												<Copy className='mr-2 h-4 w-4' /> Duplicate
-											</ContextMenuItem>
-										)}
-										<ContextMenuItem
-											onClick={() => handleDeleteTask(task.id)}
-											className='text-red-600'
-										>
-											<Trash2 className='mr-2 h-4 w-4' /> Delete
-										</ContextMenuItem>
-									</ContextMenuContent>
-								</ContextMenu>
+								<TaskListItem
+									key={task.id}
+									task={task}
+									onToggleComplete={() => handleToggleComplete(task)}
+									onEditTask={() => handleEditTask(task)}
+									onMoveTask={handleMoveTask}
+									onUpdateTask={onUpdateTask}
+									onUpdateTimeEstimate={onUpdateTimeEstimate}
+									onDuplicateTask={onDuplicateTask}
+									onDeleteTask={handleDeleteTask}
+									boardInfo={isAllTasksBoard ? boards?.find(b => b.id === task.boardId) : board}
+									userPreferences={userPreferences}
+								/>
 							))}
 						</div>
 					</div>
@@ -184,35 +157,19 @@ export function CompactListView({ board, tasks, onAddTask, onUpdateTask, onDelet
 						<h3 className='text-lg font-semibold mb-3 text-foreground border-b border-border pb-2'>Backlog ({groupedTasks.backlog.length})</h3>
 						<div className='space-y-3'>
 							{groupedTasks.backlog.map(task => (
-								<ContextMenu key={task.id}>
-									<ContextMenuTrigger>
-										<TaskListItem
-											task={task}
-											onToggleComplete={() => handleToggleComplete(task)}
-											onEditTask={() => handleEditTask(task)}
-										/>
-									</ContextMenuTrigger>
-									<ContextMenuContent>
-										<ContextMenuItem onClick={() => handleEditTask(task)}>
-											<Edit2 className='mr-2 h-4 w-4' /> Edit
-										</ContextMenuItem>
-										<ContextMenuItem onClick={() => handleToggleComplete(task)}>
-											{task.status === 'done' ? <Circle className='mr-2 h-4 w-4' /> : <CheckCircle className='mr-2 h-4 w-4' />}
-											{task.status === 'done' ? 'Mark Incomplete' : 'Mark Complete'}
-										</ContextMenuItem>
-										{onDuplicateTask && (
-											<ContextMenuItem onClick={() => handleDuplicateTask(task)}>
-												<Copy className='mr-2 h-4 w-4' /> Duplicate
-											</ContextMenuItem>
-										)}
-										<ContextMenuItem
-											onClick={() => handleDeleteTask(task.id)}
-											className='text-red-600'
-										>
-											<Trash2 className='mr-2 h-4 w-4' /> Delete
-										</ContextMenuItem>
-									</ContextMenuContent>
-								</ContextMenu>
+								<TaskListItem
+									key={task.id}
+									task={task}
+									onToggleComplete={() => handleToggleComplete(task)}
+									onEditTask={() => handleEditTask(task)}
+									onMoveTask={handleMoveTask}
+									onUpdateTask={onUpdateTask}
+									onUpdateTimeEstimate={onUpdateTimeEstimate}
+									onDuplicateTask={onDuplicateTask}
+									onDeleteTask={handleDeleteTask}
+									boardInfo={isAllTasksBoard ? boards?.find(b => b.id === task.boardId) : board}
+									userPreferences={userPreferences}
+								/>
 							))}
 						</div>
 					</div>
@@ -224,35 +181,20 @@ export function CompactListView({ board, tasks, onAddTask, onUpdateTask, onDelet
 						<h3 className='text-lg font-semibold mb-3 text-foreground border-b border-border pb-2'>Done ({groupedTasks.done.length})</h3>
 						<div className='space-y-3'>
 							{groupedTasks.done.map(task => (
-								<ContextMenu key={task.id}>
-									<ContextMenuTrigger>
-										<TaskListItem
-											task={task}
-											onToggleComplete={() => handleToggleComplete(task)}
-											onEditTask={() => handleEditTask(task)}
-										/>
-									</ContextMenuTrigger>
-									<ContextMenuContent>
-										<ContextMenuItem onClick={() => handleEditTask(task)}>
-											<Edit2 className='mr-2 h-4 w-4' /> Edit
-										</ContextMenuItem>
-										<ContextMenuItem onClick={() => handleToggleComplete(task)}>
-											{task.status === 'done' ? <Circle className='mr-2 h-4 w-4' /> : <CheckCircle className='mr-2 h-4 w-4' />}
-											{task.status === 'done' ? 'Mark Incomplete' : 'Mark Complete'}
-										</ContextMenuItem>
-										{onDuplicateTask && (
-											<ContextMenuItem onClick={() => handleDuplicateTask(task)}>
-												<Copy className='mr-2 h-4 w-4' /> Duplicate
-											</ContextMenuItem>
-										)}
-										<ContextMenuItem
-											onClick={() => handleDeleteTask(task.id)}
-											className='text-red-600'
-										>
-											<Trash2 className='mr-2 h-4 w-4' /> Delete
-										</ContextMenuItem>
-									</ContextMenuContent>
-								</ContextMenu>
+								<TaskListItem
+									key={task.id}
+									task={task}
+									onToggleComplete={() => handleToggleComplete(task)}
+									onEditTask={() => handleEditTask(task)}
+									onMoveTask={handleMoveTask}
+									onUpdateTask={onUpdateTask}
+									onUpdateTimeEstimate={onUpdateTimeEstimate}
+									onDuplicateTask={onDuplicateTask}
+									onDeleteTask={handleDeleteTask}
+									boardInfo={isAllTasksBoard ? boards?.find(b => b.id === task.boardId) : board}
+									userPreferences={userPreferences}
+									isDone={true}
+								/>
 							))}
 						</div>
 					</div>
