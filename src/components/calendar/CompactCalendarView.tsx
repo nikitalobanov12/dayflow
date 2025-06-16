@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Task, Board } from '@/types';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, ZoomIn, ZoomOut, Edit, Copy, Trash2, ArrowLeft, ArrowRight, ArrowUp, Check, AlertTriangle, X, Repeat } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, CheckCircle, ZoomIn, ZoomOut, Edit, Copy, Trash2, ArrowLeft, ArrowRight, ArrowUp, Check, AlertTriangle, X, Repeat, Cloud, RefreshCw } from 'lucide-react';
+import { getGoogleCalendarService } from '@/lib/googleCalendar';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 import { UnifiedHeader } from '@/components/ui/unified-header';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
@@ -31,6 +32,8 @@ interface CompactCalendarViewProps {
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: any;
+	onManualSyncTask?: (task: Task) => Promise<void>;
+	onManualUnsyncTask?: (task: Task) => Promise<void>;
 }
 
 interface CalendarEvent {
@@ -50,9 +53,66 @@ const ZOOM_LEVELS = [
 	{ label: 'Detailed', height: 160, timeInterval: 30 }, // 30 min per 80px (160px per hour)
 ];
 
-export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards, user, onSignOut, onViewChange, onOpenSettings, userPreferences }: CompactCalendarViewProps) {
+export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, isAllTasksBoard = false, boards, user, onSignOut, onViewChange, onOpenSettings, userPreferences, onManualSyncTask, onManualUnsyncTask }: CompactCalendarViewProps) {
 	// Apply user preferences
 	const { filterTasks, weekStartsOn, calendarDefaultZoom, calendarDefaultView, formatDate } = useUserPreferences(userPreferences);
+
+	// Google Calendar sync state
+	const [isSyncing, setIsSyncing] = useState(false);
+	const [syncError, setSyncError] = useState<string | null>(null);
+
+	// Check Google Calendar status
+	const getGoogleCalendarStatus = useCallback(() => {
+		const service = getGoogleCalendarService();
+		// Use user preferences if available, otherwise fallback to localStorage
+		const autoSync = userPreferences?.googleCalendarAutoSync || 
+			localStorage.getItem('google_calendar_auto_sync') === 'true';
+		const isAuthenticated = service?.isUserAuthenticated() || false;
+		
+		return {
+			isAuthenticated,
+			autoSync,
+			hasManualSync: !!(onManualSyncTask && onManualUnsyncTask)
+		};
+	}, [onManualSyncTask, onManualUnsyncTask, userPreferences]);
+
+	// Bulk sync functionality
+	const handleBulkSync = useCallback(async () => {
+		if (!onManualSyncTask) return;
+
+		setIsSyncing(true);
+		setSyncError(null);
+
+		try {
+			// Get all scheduled tasks that aren't already synced
+			const boardFilteredTasks = isAllTasksBoard ? tasks : tasks.filter(task => task.boardId === board.id);
+			const scheduledTasks = boardFilteredTasks.filter(task => 
+				(task.scheduledDate || task.startDate) && !task.googleCalendarSynced
+			);
+
+			if (scheduledTasks.length === 0) {
+				setSyncError('No unsynced scheduled tasks found');
+				return;
+			}
+
+			// Sync all tasks
+			const results = await Promise.allSettled(
+				scheduledTasks.map(task => onManualSyncTask(task))
+			);
+
+			const successful = results.filter(result => result.status === 'fulfilled').length;
+			const failed = results.filter(result => result.status === 'rejected').length;
+
+			if (failed > 0) {
+				setSyncError(`Synced ${successful} tasks, ${failed} failed`);
+			}
+		} catch (error) {
+			setSyncError('Failed to sync tasks to Google Calendar');
+			console.error('Bulk sync error:', error);
+		} finally {
+			setIsSyncing(false);
+		}
+	}, [onManualSyncTask, tasks, isAllTasksBoard, board.id]);
 
 	// State to force re-render when recurring instances are updated
 	const [recurringInstancesVersion, setRecurringInstancesVersion] = useState(0);
@@ -669,7 +729,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 					<ContextMenuSeparator />
 
 					{/* Priority submenu */}
-					<ContextMenuSub>
+					<ContextMenuSub key="priority-submenu">
 						<ContextMenuSubTrigger>
 							<AlertTriangle className='mr-2 h-4 w-4' />
 							Priority
@@ -703,7 +763,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 					</ContextMenuSub>
 
 					{/* Time Estimate submenu */}
-					<ContextMenuSub>
+					<ContextMenuSub key="time-estimate-submenu">
 						<ContextMenuSubTrigger>
 							<Clock className='mr-2 h-4 w-4' />
 							Time Estimate
@@ -720,7 +780,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 					</ContextMenuSub>
 
 					{/* Schedule submenu with date picker */}
-					<ContextMenuSub>
+					<ContextMenuSub key="schedule-submenu">
 						<ContextMenuSubTrigger>
 							<CalendarIcon className='mr-2 h-4 w-4' />
 							Schedule
@@ -759,7 +819,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 					</ContextMenuSub>
 
 					{/* Recurring pattern submenu */}
-					<ContextMenuSub>
+					<ContextMenuSub key="recurring-submenu">
 						<ContextMenuSubTrigger>
 							<Repeat className='mr-2 h-4 w-4' />
 							Recurring
@@ -777,7 +837,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 					<ContextMenuSeparator />
 
 					{/* Move to submenu */}
-					<ContextMenuSub>
+					<ContextMenuSub key="move-to-submenu">
 						<ContextMenuSubTrigger>
 							<ArrowRight className='mr-2 h-4 w-4' />
 							Move to...
@@ -947,7 +1007,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 						</Button>
 
 						{/* View Mode Toggle */}
-						<div className='flex gap-1'>
+						<div className='flex gap-1 mr-2'>
 							{(['3-day', 'week'] as ViewMode[]).map(mode => (
 								<Button
 									key={mode}
@@ -960,6 +1020,54 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 								</Button>
 							))}
 						</div>
+
+						{/* Google Calendar Sync */}
+						{(() => {
+							const status = getGoogleCalendarStatus();
+							
+							if (!status.isAuthenticated) return null;
+							
+							if (!status.autoSync && status.hasManualSync) {
+								const scheduledTasksCount = (isAllTasksBoard ? tasks : tasks.filter(task => task.boardId === board.id))
+									.filter(task => (task.scheduledDate || task.startDate) && !task.googleCalendarSynced).length;
+								
+								return (
+									<div className='flex items-center gap-2'>
+										<Button
+											variant='outline'
+											size='lg'
+											onClick={handleBulkSync}
+											disabled={isSyncing || scheduledTasksCount === 0}
+											className='gap-2'
+											title={scheduledTasksCount === 0 ? 'No unsynced scheduled tasks' : `Sync ${scheduledTasksCount} scheduled tasks to Google Calendar`}
+										>
+											{isSyncing ? (
+												<RefreshCw className='h-4 w-4 animate-spin' />
+											) : (
+												<Cloud className='h-4 w-4' />
+											)}
+											{isSyncing ? 'Syncing...' : `Sync (${scheduledTasksCount})`}
+										</Button>
+										{syncError && (
+											<span className='text-xs text-red-600 max-w-40 truncate' title={syncError}>
+												{syncError}
+											</span>
+										)}
+									</div>
+								);
+							}
+							
+							if (status.autoSync) {
+								return (
+									<div className='flex items-center gap-2 text-xs text-muted-foreground'>
+										<Cloud className='h-4 w-4 text-green-600' />
+										Auto-sync enabled
+									</div>
+								);
+							}
+							
+							return null;
+						})()}
 					</div>
 				</UnifiedHeader>
 			</div>

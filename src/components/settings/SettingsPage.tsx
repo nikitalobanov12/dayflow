@@ -6,8 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, Save, User, Palette, Calendar, List, CalendarDays, Shield, Key, Mail, Eye, EyeOff } from 'lucide-react';
-import { UserPreferences, Profile } from '@/types';
+import { UserPreferences, Profile, Task } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
+import { GoogleCalendarSettings } from '@/components/GoogleCalendarSettings';
+import { appConfig } from '@/lib/config';
 import {
 	Sidebar,
 	SidebarContent,
@@ -39,6 +41,7 @@ interface SettingsPageProps {
 	onUpdateProfile: (profile: Partial<Profile>) => Promise<void>;
 	onSignOut?: () => Promise<{ error: any }>;
 	onUpdatePassword?: (newPassword: string) => Promise<{ data: any; error: any }>;
+	onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void>;
 }
 
 type SettingsSection = 'profile' | 'appearance' | 'datetime' | 'calendar' | 'tasks';
@@ -100,7 +103,7 @@ function SettingsSidebar({ activeSection, onSectionChange }: { activeSection: Se
 	);
 }
 
-export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpdatePreferences, onUpdateProfile, onSignOut, onUpdatePassword }: SettingsPageProps) {
+export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpdatePreferences, onUpdateProfile, onSignOut, onUpdatePassword, onUpdateTask }: SettingsPageProps) {
 	const { setTheme } = useTheme();
 	const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
 	const [isLoading, setIsLoading] = useState(false);
@@ -257,6 +260,7 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 						<CalendarSection
 							preferences={localPreferences}
 							onUpdatePreference={updatePreference}
+							onUpdateTask={onUpdateTask}
 						/>
 					)}
 					{activeSection === 'tasks' && (
@@ -693,7 +697,7 @@ function DateTimeSection({ preferences, onUpdatePreference }: { preferences: Par
 }
 
 // Calendar Section Component
-function CalendarSection({ preferences, onUpdatePreference }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void }) {
+function CalendarSection({ preferences, onUpdatePreference, onUpdateTask }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void; onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void> }) {
 	const zoomLevels = [
 		{ value: 0, label: 'Compact', description: '1 hour per 60px' },
 		{ value: 1, label: 'Comfortable', description: '1 hour per 80px' },
@@ -701,11 +705,19 @@ function CalendarSection({ preferences, onUpdatePreference }: { preferences: Par
 		{ value: 3, label: 'Detailed', description: '30 min per 80px' },
 	];
 
+	// Create a function to handle Google Calendar preference updates
+	const handleGoogleCalendarUpdate = async (updates: Partial<UserPreferences>) => {
+		// Update each preference individually to trigger the proper state management
+		for (const [key, value] of Object.entries(updates)) {
+			onUpdatePreference(key as keyof UserPreferences, value);
+		}
+	};
+
 	return (
 		<div className='space-y-6'>
 			<div>
 				<h2 className='text-lg font-semibold mb-2'>Calendar Settings</h2>
-				<p className='text-sm text-muted-foreground'>Configure default settings for the calendar view.</p>
+				<p className='text-sm text-muted-foreground'>Configure default settings for the calendar view and external integrations.</p>
 			</div>
 
 			<Card>
@@ -759,6 +771,16 @@ function CalendarSection({ preferences, onUpdatePreference }: { preferences: Par
 					</Select>
 				</CardContent>
 			</Card>
+
+			{/* Google Calendar Integration */}
+			{onUpdateTask && (
+				<GoogleCalendarSettings
+					onTaskUpdate={onUpdateTask}
+					config={appConfig.googleCalendar}
+					userPreferences={preferences as UserPreferences}
+					onUpdateUserPreferences={handleGoogleCalendarUpdate}
+				/>
+			)}
 		</div>
 	);
 }

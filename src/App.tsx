@@ -12,12 +12,34 @@ import { AuthCallback } from '@/components/auth/AuthCallback';
 
 import { useSupabaseDatabase } from '@/hooks/useSupabaseDatabase';
 import { useUserSettings } from '@/hooks/useUserSettings';
+import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
+import { initializeGoogleCalendar } from '@/lib/googleCalendar';
+import { appConfig } from '@/lib/config';
 import { Board, Task } from '@/types';
 import './App.css';
 
 function App() {
 	const { tasks, boards, addTask, deleteTask, duplicateTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, signInWithGoogle, resetPasswordForEmail, updatePassword } = useSupabaseDatabase();
 	const { userPreferences, userProfile, updateUserPreferences, updateUserProfile } = useUserSettings(user?.id);
+
+	// Initialize Google Calendar service at app startup
+	useEffect(() => {
+		if (appConfig.validateGoogleCalendar()) {
+			console.log('🔧 Initializing Google Calendar service...');
+			const service = initializeGoogleCalendar(appConfig.googleCalendar);
+			console.log('✅ Google Calendar service initialized:', service.isUserAuthenticated());
+		} else {
+			console.log('⚠️ Google Calendar configuration incomplete');
+		}
+	}, []);
+
+	// Google Calendar sync integration
+	const {
+		updateTask: syncedUpdateTask,
+		deleteTask: syncedDeleteTask,
+		manualSyncTask,
+		manualUnsyncTask
+	} = useGoogleCalendarSync(updateTask, deleteTask, tasks, userPreferences);
 
 	const [isOAuthCallback, setIsOAuthCallback] = useState(false);
 
@@ -26,9 +48,15 @@ function App() {
 		const urlParams = new URLSearchParams(window.location.search);
 		const code = urlParams.get('code');
 		const state = urlParams.get('state');
+		const scope = urlParams.get('scope');
 
+		// Check if this is a Supabase OAuth callback (has state parameter)
 		if (code && state) {
 			setIsOAuthCallback(true);
+		}
+		// Check if this is a Google Calendar OAuth callback (has calendar scope)
+		else if (code && scope && scope.includes('calendar')) {
+			handleGoogleCalendarCallback(code);
 		}
 	}, []);
 
@@ -36,6 +64,19 @@ function App() {
 		setIsOAuthCallback(false);
 		// Clear URL parameters
 		window.history.replaceState({}, document.title, window.location.pathname);
+	};
+
+	const handleGoogleCalendarCallback = async (code: string) => {
+		console.log('Detected Google Calendar OAuth callback with code:', code.substring(0, 10) + '...');
+		
+		// Store the code in localStorage temporarily so the settings page can pick it up
+		localStorage.setItem('google_calendar_auth_code', code);
+		
+		// Clear the URL parameters
+		window.history.replaceState({}, document.title, window.location.pathname);
+		
+		// Show a success message or redirect to settings
+		console.log('Google Calendar authorization code stored. Please go to Settings > Calendar to complete the connection.');
 	};
 
 	// Wrapper functions to match component signatures
@@ -61,10 +102,10 @@ function App() {
 	};
 
 	const handleUpdateTask = async (id: number, updates: Partial<Task>) => {
-		await updateTask(id, updates);
+		await syncedUpdateTask(id, updates);
 	};
 	const handleDeleteTask = async (id: number) => {
-		await deleteTask(id);
+		await syncedDeleteTask(id);
 	};
 	const handleDuplicateTask = async (task: Task) => {
 		await duplicateTask(task);
@@ -287,6 +328,8 @@ function App() {
 						onViewChange={handleSelectView}
 						onOpenSettings={handleOpenSettings}
 						userPreferences={userPreferences}
+						onManualSyncTask={manualSyncTask}
+						onManualUnsyncTask={manualUnsyncTask}
 					/>
 				</div>
 			</div>
@@ -339,6 +382,7 @@ function App() {
 						onUpdateProfile={updateUserProfile}
 						onSignOut={signOut}
 						onUpdatePassword={updatePassword}
+						onUpdateTask={handleUpdateTask}
 					/>
 				</div>
 			</div>

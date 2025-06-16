@@ -17,6 +17,11 @@ const transformUserPreferences = (row: UserPreferencesRow): UserPreferences => (
 	calendarDefaultZoom: row.calendar_default_zoom || 1,
 	calendarDefaultView: (row.calendar_default_view as '3-day' | 'week') || '3-day',
 	boardDefaultView: (row.board_default_view as 'grid' | 'compact' | 'list') || 'compact',
+	// Google Calendar integration settings
+	googleCalendarEnabled: row.google_calendar_enabled || false,
+	googleCalendarSelectedCalendar: row.google_calendar_selected_calendar || undefined,
+	googleCalendarAutoSync: row.google_calendar_auto_sync || false,
+	googleCalendarSyncOnlyScheduled: row.google_calendar_sync_only_scheduled !== undefined ? row.google_calendar_sync_only_scheduled : true,
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 });
@@ -47,6 +52,10 @@ const transformUserPreferencesToRow = (preferences: Partial<UserPreferences>): P
 	...(preferences.calendarDefaultZoom !== undefined && { calendar_default_zoom: preferences.calendarDefaultZoom }),
 	...(preferences.calendarDefaultView && { calendar_default_view: preferences.calendarDefaultView }),
 	...(preferences.boardDefaultView && { board_default_view: preferences.boardDefaultView }),
+	...(preferences.googleCalendarEnabled !== undefined && { google_calendar_enabled: preferences.googleCalendarEnabled }),
+	...(preferences.googleCalendarSelectedCalendar !== undefined && { google_calendar_selected_calendar: preferences.googleCalendarSelectedCalendar }),
+	...(preferences.googleCalendarAutoSync !== undefined && { google_calendar_auto_sync: preferences.googleCalendarAutoSync }),
+	...(preferences.googleCalendarSyncOnlyScheduled !== undefined && { google_calendar_sync_only_scheduled: preferences.googleCalendarSyncOnlyScheduled }),
 	updated_at: new Date().toISOString(),
 });
 
@@ -115,6 +124,11 @@ export function useUserSettings(userId?: string) {
 			calendar_default_zoom: 1,
 			calendar_default_view: '3-day',
 			board_default_view: 'compact',
+			// Google Calendar integration defaults
+			google_calendar_enabled: false,
+			google_calendar_selected_calendar: null,
+			google_calendar_auto_sync: false,
+			google_calendar_sync_only_scheduled: true,
 		};
 
 		const { data, error } = await supabase.from('user_preferences').insert(defaultPreferences).select().single();

@@ -37,6 +37,9 @@ export interface Task {
 	timeSpent: number; // Actual time spent in minutes
 	subtasks?: Subtask[]; // Array of subtasks
 	dependencies?: TaskDependency[]; // Array of task dependencies
+	// Google Calendar integration
+	googleCalendarEventId?: string; // ID of the corresponding Google Calendar event
+	googleCalendarSynced?: boolean; // Whether the task is synced with Google Calendar
 }
 
 export interface Subtask {
@@ -172,6 +175,11 @@ export interface UserPreferences {
 	calendarDefaultZoom: number; // 0-3 for zoom levels
 	calendarDefaultView: '3-day' | 'week';
 	boardDefaultView: 'grid' | 'compact' | 'list';
+	// Google Calendar integration settings
+	googleCalendarEnabled: boolean;
+	googleCalendarSelectedCalendar?: string;
+	googleCalendarAutoSync: boolean;
+	googleCalendarSyncOnlyScheduled: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -201,6 +209,11 @@ export interface UserPreferencesRow {
 	calendar_default_zoom: number;
 	calendar_default_view: string;
 	board_default_view: string;
+	// Google Calendar integration settings
+	google_calendar_enabled: boolean;
+	google_calendar_selected_calendar: string | null;
+	google_calendar_auto_sync: boolean;
+	google_calendar_sync_only_scheduled: boolean;
 	created_at: string;
 	updated_at: string;
 }

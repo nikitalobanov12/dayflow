@@ -27,6 +27,7 @@ const TASK_FIELD_MAPPING = {
 		priority: 'priority',
 		progressPercentage: 'progress_percentage',
 		timeSpent: 'time_spent',
+		googleCalendarSynced: 'google_calendar_synced',
 	},
 	// Fields that can be null/undefined (nullable in database)
 	optional: {
@@ -40,6 +41,7 @@ const TASK_FIELD_MAPPING = {
 		category: 'category',
 		assigneeId: 'assignee_id',
 		parentTaskId: 'parent_task_id',
+		googleCalendarEventId: 'google_calendar_event_id',
 	},
 	// Special handling fields
 	special: ['recurring']
@@ -125,6 +127,9 @@ const convertTaskFromDb = (row: TaskRow): Task => ({
 	parentTaskId: (row as any).parent_task_id || undefined,
 	labels: [],
 	attachments: [],
+	// Google Calendar integration fields
+	googleCalendarEventId: (row as any).google_calendar_event_id || undefined,
+	googleCalendarSynced: (row as any).google_calendar_synced || false,
 	// Map recurring fields
 	recurring: (row as any).recurring_pattern ? {
 		pattern: (row as any).recurring_pattern,
@@ -157,6 +162,9 @@ const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId
 		time_spent: task.timeSpent || 0,
 		assignee_id: task.assigneeId || null,
 		parent_task_id: task.parentTaskId || null,
+		// Google Calendar integration fields
+		google_calendar_event_id: task.googleCalendarEventId || null,
+		google_calendar_synced: task.googleCalendarSynced || false,
 		// Handle recurring fields - explicitly set to null when undefined
 		recurring_pattern: task.recurring?.pattern || null,
 		recurring_interval: task.recurring?.interval || null,

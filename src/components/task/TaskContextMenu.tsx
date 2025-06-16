@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Calendar as CalendarUI } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { useTaskOperations } from '@/hooks/useTaskOperations';
+import { getGoogleCalendarService } from '@/lib/googleCalendar';
 import { 
 	Edit, 
 	Copy, 
@@ -18,7 +19,9 @@ import {
 	Repeat, 
 	Clock, 
 	AlertTriangle, 
-	X 
+	X,
+	CloudOff,
+	Cloud
 } from 'lucide-react';
 
 interface TaskContextMenuProps {
@@ -33,6 +36,8 @@ interface TaskContextMenuProps {
 	onToggleComplete?: (taskId: number) => void;
 	boardInfo?: Board | null;
 	userPreferences?: any;
+	onManualSyncTask?: (task: Task) => Promise<void>;
+	onManualUnsyncTask?: (task: Task) => Promise<void>;
 }
 
 export function TaskContextMenu({
@@ -46,9 +51,15 @@ export function TaskContextMenu({
 	onUpdateTimeEstimate,
 	onToggleComplete,
 	// boardInfo,
-	userPreferences
+	userPreferences,
+	onManualSyncTask,
+	onManualUnsyncTask
 }: TaskContextMenuProps) {
 	const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
+	
+	// Check if Google Calendar is available and authenticated
+	const googleCalendarService = getGoogleCalendarService();
+	const isGoogleCalendarConnected = googleCalendarService?.isUserAuthenticated() || false;
 
 	const taskOperations = useTaskOperations(
 		task,
@@ -63,6 +74,27 @@ export function TaskContextMenu({
 		},
 		userPreferences
 	);
+
+	// Google Calendar sync handlers
+	const handleSyncToGoogle = async () => {
+		if (onManualSyncTask) {
+			try {
+				await onManualSyncTask(task);
+			} catch (error) {
+				console.error('Failed to sync task to Google Calendar:', error);
+			}
+		}
+	};
+
+	const handleUnsyncFromGoogle = async () => {
+		if (onManualUnsyncTask) {
+			try {
+				await onManualUnsyncTask(task);
+			} catch (error) {
+				console.error('Failed to unsync task from Google Calendar:', error);
+			}
+		}
+	};
 
 	return (
 		<>
@@ -88,7 +120,7 @@ export function TaskContextMenu({
 					<ContextMenuSeparator />
 					
 					{/* Priority submenu */}
-					<ContextMenuSub>
+					<ContextMenuSub key="priority-submenu">
 						<ContextMenuSubTrigger>
 							<AlertTriangle className='mr-2 h-4 w-4' />
 							Priority
@@ -122,7 +154,7 @@ export function TaskContextMenu({
 					</ContextMenuSub>
 
 					{/* Time Estimate submenu */}
-					<ContextMenuSub>
+					<ContextMenuSub key="time-estimate-submenu">
 						<ContextMenuSubTrigger>
 							<Clock className='mr-2 h-4 w-4' />
 							Time Estimate
@@ -139,7 +171,7 @@ export function TaskContextMenu({
 					</ContextMenuSub>
 
 					{/* Schedule submenu with date picker */}
-					<ContextMenuSub>
+					<ContextMenuSub key="schedule-submenu">
 						<ContextMenuSubTrigger>
 							<Calendar className='mr-2 h-4 w-4' />
 							Schedule
@@ -178,7 +210,7 @@ export function TaskContextMenu({
 
 					{/* Recurring pattern submenu */}
 					{onUpdateTask && (
-						<ContextMenuSub>
+						<ContextMenuSub key="recurring-submenu">
 							<ContextMenuSubTrigger>
 								<Repeat className='mr-2 h-4 w-4' />
 								Recurring
@@ -194,11 +226,52 @@ export function TaskContextMenu({
 						</ContextMenuSub>
 					)}
 
+					{/* Google Calendar submenu */}
+					{isGoogleCalendarConnected && (
+						<ContextMenuSub key="google-calendar-submenu">
+							<ContextMenuSubTrigger>
+								<Cloud className='mr-2 h-4 w-4' />
+								Google Calendar
+							</ContextMenuSubTrigger>
+							<ContextMenuSubContent>
+								{task.googleCalendarSynced ? (
+									<>
+										<ContextMenuItem disabled>
+											<Check className='mr-2 h-4 w-4' />
+											Synced to Calendar
+										</ContextMenuItem>
+										<ContextMenuSeparator />
+										<ContextMenuItem onClick={handleUnsyncFromGoogle}>
+											<CloudOff className='mr-2 h-4 w-4' />
+											Remove from Calendar
+										</ContextMenuItem>
+									</>
+								) : (
+									<ContextMenuItem 
+										onClick={handleSyncToGoogle}
+										disabled={!task.scheduledDate && !task.startDate}
+									>
+										<Cloud className='mr-2 h-4 w-4' />
+										Sync to Calendar
+									</ContextMenuItem>
+								)}
+								{!task.scheduledDate && !task.startDate && (
+									<>
+										<ContextMenuSeparator />
+										<div className="px-2 py-1 text-xs text-muted-foreground">
+											Schedule task first to sync
+										</div>
+									</>
+								)}
+							</ContextMenuSubContent>
+						</ContextMenuSub>
+					)}
+
 					<ContextMenuSeparator />
 
 					{/* Move to submenu */}
 					{onMoveTask && (
-						<ContextMenuSub>
+						<ContextMenuSub key="move-to-submenu">
 							<ContextMenuSubTrigger>
 								<ArrowRight className='mr-2 h-4 w-4' />
 								Move to...

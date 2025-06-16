@@ -21,6 +21,8 @@ interface CalendarViewProps {
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: any;
+	onManualSyncTask?: (task: Task) => Promise<void>;
+	onManualUnsyncTask?: (task: Task) => Promise<void>;
 }
 export function CalendarView(props: CalendarViewProps) {
 	return (
