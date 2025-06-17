@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, User, Palette, Calendar, List, CalendarDays, Shield, Key, Mail, Eye, EyeOff } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ArrowLeft, Save, User, Palette, Calendar, List, CalendarDays, Shield, Key, Mail, Eye, EyeOff, AlertTriangle, LayoutDashboard } from 'lucide-react';
 import { UserPreferences, Profile, Task } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GoogleCalendarSettings } from '@/components/GoogleCalendarSettings';
@@ -47,7 +48,7 @@ interface SettingsPageProps {
 type SettingsSection = 'profile' | 'appearance' | 'datetime' | 'calendar' | 'tasks';
 
 // Settings Sidebar Component
-function SettingsSidebar({ activeSection, onSectionChange }: { activeSection: SettingsSection; onSectionChange: (section: SettingsSection) => void }) {
+function SettingsSidebar({ activeSection, onSectionChange, onBackToBoards }: { activeSection: SettingsSection; onSectionChange: (section: SettingsSection) => void; onBackToBoards: () => void }) {
 	const sections = [
 		{ id: 'profile' as const, name: 'Profile', icon: User, description: 'Personal information and account' },
 		{ id: 'appearance' as const, name: 'Appearance', icon: Palette, description: 'Theme and visual preferences' },
@@ -76,6 +77,22 @@ function SettingsSidebar({ activeSection, onSectionChange }: { activeSection: Se
 				</SidebarMenu>
 			</SidebarHeader>
 			<SidebarContent>
+				<SidebarGroup>
+					<SidebarGroupLabel>Navigation</SidebarGroupLabel>
+					<SidebarGroupContent>
+						<SidebarMenu>
+							<SidebarMenuItem>
+								<SidebarMenuButton
+									onClick={onBackToBoards}
+									tooltip="Return to boards view"
+								>
+									<LayoutDashboard className="size-4" />
+									<span>Back to Boards</span>
+								</SidebarMenuButton>
+							</SidebarMenuItem>
+						</SidebarMenu>
+					</SidebarGroupContent>
+				</SidebarGroup>
 				<SidebarGroup>
 					<SidebarGroupLabel>Configuration</SidebarGroupLabel>
 					<SidebarGroupContent>
@@ -108,6 +125,7 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 	const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
 	const [isLoading, setIsLoading] = useState(false);
 	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+	const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
 	// Local state for preferences
 	const [localPreferences, setLocalPreferences] = useState<Partial<UserPreferences>>({
 		theme: 'system',
@@ -172,6 +190,30 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 		}
 	};
 
+	const handleBack = () => {
+		if (hasUnsavedChanges) {
+			setShowUnsavedChangesDialog(true);
+		} else {
+			onBack();
+		}
+	};
+
+	const handleSaveAndExit = async () => {
+		await handleSave();
+		setShowUnsavedChangesDialog(false);
+		onBack();
+	};
+
+	const handleDiscardAndExit = () => {
+		setHasUnsavedChanges(false);
+		setShowUnsavedChangesDialog(false);
+		onBack();
+	};
+
+	const handleCancelExit = () => {
+		setShowUnsavedChangesDialog(false);
+	};
+
 	const handleSignOut = async () => {
 		if (!onSignOut) return;
 
@@ -201,7 +243,7 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 
 	return (
 		<SidebarProvider>
-			<SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+			<SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} onBackToBoards={handleBack} />
 			<SidebarInset>
 				<header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
 					<div className="flex items-center gap-2 px-4">
@@ -210,7 +252,7 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 						<Breadcrumb>
 							<BreadcrumbList>
 								<BreadcrumbItem>
-									<Button variant="ghost" size="sm" onClick={onBack} className="h-auto p-0 text-muted-foreground hover:text-foreground">
+									<Button variant="ghost" size="sm" onClick={handleBack} className="h-auto p-0 text-muted-foreground hover:text-foreground">
 										<ArrowLeft className="h-4 w-4 mr-1" />
 										Back
 									</Button>
@@ -271,6 +313,49 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 					)}
 				</div>
 			</SidebarInset>
+			
+			{/* Unsaved Changes Dialog */}
+			<Dialog open={showUnsavedChangesDialog} onOpenChange={setShowUnsavedChangesDialog}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<AlertTriangle className="h-5 w-5 text-amber-500" />
+							Unsaved Changes
+						</DialogTitle>
+						<DialogDescription>
+							You have unsaved changes that will be lost if you leave this page. What would you like to do?
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter className="sm:justify-start">
+						<div className="flex gap-2 w-full sm:w-auto">
+							<Button
+								variant="default"
+								onClick={handleSaveAndExit}
+								disabled={isLoading}
+								className="flex-1 sm:flex-none"
+							>
+								{isLoading ? 'Saving...' : 'Save & Exit'}
+							</Button>
+							<Button
+								variant="destructive"
+								onClick={handleDiscardAndExit}
+								disabled={isLoading}
+								className="flex-1 sm:flex-none"
+							>
+								Discard Changes
+							</Button>
+							<Button
+								variant="outline"
+								onClick={handleCancelExit}
+								disabled={isLoading}
+								className="flex-1 sm:flex-none"
+							>
+								Cancel
+							</Button>
+						</div>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</SidebarProvider>
 	);
 }
