@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Calendar, CheckCircle, AlertCircle, ExternalLink, Unlink, Save } from 'lucide-react';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
-import { GoogleCalendarConfig } from '../lib/googleCalendar';
+import { GoogleCalendarConfig, getGoogleCalendarService } from '../lib/googleCalendar';
 import { UserPreferences } from '../types';
 
 interface GoogleCalendarSettingsProps {
@@ -50,8 +50,6 @@ export function GoogleCalendarSettings({
   const [autoSync, setAutoSync] = useState(false);
   const [syncOnlyScheduled, setSyncOnlyScheduled] = useState(true);
   const [selectedCalendar, setSelectedCalendar] = useState<string>('');
-  const [authCode, setAuthCode] = useState('');
-  const [showAuthInput, setShowAuthInput] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
@@ -63,7 +61,7 @@ export function GoogleCalendarSettings({
     handleAuthCallback,
     disconnect,
     setSelectedCalendarId,
-    getAuthUrl,
+    authenticate,
   } = useGoogleCalendar(config, onTaskUpdate);
 
   // Filter calendars to show only user calendars
@@ -138,29 +136,12 @@ export function GoogleCalendarSettings({
     }
   };
 
-  const handleConnect = () => {
-    const authUrl = getAuthUrl();
-    if (authUrl) {
-      console.log('Redirecting to Google Calendar OAuth:', authUrl);
-      // Navigate to the OAuth URL in the same window
-      window.location.href = authUrl;
-    }
+  const handleConnect = async () => {
+    console.log('Connecting to Google Calendar with GIS...');
+    await authenticate();
   };
 
-  const handleAuthCodeSubmit = async () => {
-    if (authCode.trim()) {
-      try {
-        console.log('Submitting auth code for Google Calendar...');
-        await handleAuthCallback(authCode.trim());
-        setAuthCode('');
-        setShowAuthInput(false);
-        console.log('Auth code submission successful');
-      } catch (error) {
-        console.error('Failed to authenticate:', error);
-        // Error will be shown via the error state from the hook
-      }
-    }
-  };
+  // Removed handleAuthCodeSubmit as GIS doesn't require manual code input
 
   const handleCalendarChange = (calendarId: string) => {
     setSelectedCalendar(calendarId);
@@ -176,6 +157,16 @@ export function GoogleCalendarSettings({
         googleCalendarSelectedCalendar: undefined,
       });
     }
+  };
+
+  const handleClearAuthData = () => {
+    // Clear all authentication data for debugging
+    const service = getGoogleCalendarService();
+    if (service) {
+      service.clearAllAuthData();
+    }
+    // Force page reload to reset all state
+    window.location.reload();
   };
 
   return (
@@ -207,49 +198,29 @@ export function GoogleCalendarSettings({
             )}
           </div>
           
-          {isAuthenticated ? (
-            <Button variant="outline" onClick={handleDisconnect} size="sm">
-              <Unlink className="h-4 w-4 mr-2" />
-              Disconnect
-            </Button>
-          ) : (
-            <Button onClick={handleConnect} disabled={isLoading} size="sm">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Connect to Google Calendar
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {isAuthenticated ? (
+              <Button variant="outline" onClick={handleDisconnect} size="sm">
+                <Unlink className="h-4 w-4 mr-2" />
+                Disconnect
+              </Button>
+            ) : (
+              <Button onClick={handleConnect} disabled={isLoading} size="sm">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Connect to Google Calendar
+              </Button>
+            )}
+            
+            {/* Debug button for development */}
+            {import.meta.env.DEV && (
+              <Button variant="ghost" size="sm" onClick={handleClearAuthData} className="text-orange-600 hover:text-orange-700">
+                Clear Auth Data
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Auth Code Input (shown when connecting) */}
-        {showAuthInput && !isAuthenticated && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <div className="space-y-3">
-                <p>
-                  The authorization URL has been copied to your clipboard and opened in your browser. 
-                  After authorizing the app, copy the authorization code and paste it below.
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Paste authorization code here..."
-                    value={authCode}
-                    onChange={(e) => setAuthCode(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-input rounded-md bg-background text-sm"
-                  />
-                  <Button 
-                    onClick={handleAuthCodeSubmit} 
-                    disabled={!authCode.trim() || isLoading}
-                    size="sm"
-                  >
-                    Connect
-                  </Button>
-                </div>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* GIS handles authentication through popup - no manual input needed */}
 
         {/* Error Display */}
         {error && (

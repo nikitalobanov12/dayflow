@@ -153,9 +153,16 @@ export function GoogleCalendarIntegration({
                   <li>Go to <a href="https://console.developers.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Cloud Console</a></li>
                   <li>Create a new project or select an existing one</li>
                   <li>Enable the Google Calendar API</li>
-                  <li>Create credentials (OAuth 2.0 Client ID)</li>
-                  <li>Add your credentials to the environment variables</li>
+                  <li><strong>Create credentials (OAuth 2.0 Client ID) - Select "Web application" type</strong></li>
+                  <li>Add your domain to "Authorized JavaScript origins" (e.g., https://yourdomain.com)</li>
+                  <li>For development, add: <code>http://localhost:1420</code></li>
+                  <li>Add the Client ID to your environment variables</li>
                 </ol>
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    ℹ️ This integration uses Google Identity Services (GIS) - the modern, secure approach for web applications that doesn't require exposing client secrets.
+                  </p>
+                </div>
               </div>
             </AlertDescription>
           </Alert>
@@ -163,10 +170,12 @@ export function GoogleCalendarIntegration({
           <div className="bg-muted p-4 rounded-md">
             <h4 className="font-medium mb-2">Required Environment Variables:</h4>
             <pre className="text-sm bg-background p-2 rounded border">
-{`VITE_GOOGLE_CLIENT_ID=your_client_id
-VITE_GOOGLE_CLIENT_SECRET=your_client_secret
+{`VITE_GOOGLE_CLIENT_ID=your_web_application_client_id
 VITE_GOOGLE_REDIRECT_URI=http://localhost:1420`}
             </pre>
+            <p className="text-sm text-muted-foreground mt-2">
+              Note: No client secret required! Google Identity Services handles authentication securely.
+            </p>
           </div>
 
           <Button asChild className="w-full">

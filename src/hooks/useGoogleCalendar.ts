@@ -14,7 +14,7 @@ export interface UseGoogleCalendarReturn {
   syncTask: (task: Task) => Promise<void>;
   unsyncTask: (task: Task) => Promise<void>;
   setSelectedCalendarId: (calendarId: string) => void;
-  getAuthUrl: () => string | null;
+  getAuthUrl: () => Promise<string | null>;
 }
 
 export function useGoogleCalendar(
@@ -26,6 +26,37 @@ export function useGoogleCalendar(
   const [error, setError] = useState<string | null>(null);
   const [calendars, setCalendars] = useState<any[]>([]);
   const [selectedCalendarId, setSelectedCalendarId] = useState('primary');
+
+  const loadCalendars = useCallback(async () => {
+    const service = getGoogleCalendarService();
+    if (!service || !service.isUserAuthenticated()) {
+      console.log('Cannot load calendars: service not authenticated');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      console.log('Loading calendars...');
+      const calendarList = await service.getCalendarList();
+      console.log('Calendars loaded:', calendarList);
+      setCalendars(calendarList);
+    } catch (err) {
+      console.error('Failed to load calendars:', err);
+      
+      // Check if it's an authentication error (expired tokens)
+      if (err instanceof Error && err.message.includes('Authentication expired')) {
+        setError('Your Google Calendar session has expired. Please reconnect to continue.');
+        setIsAuthenticated(false);
+      } else {
+        setError('Failed to load calendars. Please try reconnecting.');
+        // If loading calendars fails and it's not an auth error, keep authenticated status
+        // This allows users to retry without re-authenticating
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Initialize Google Calendar service and check for stored tokens
   useEffect(() => {
@@ -50,46 +81,9 @@ export function useGoogleCalendar(
     if (isServiceAuthenticated) {
       loadCalendars();
     }
-  }, [config]);
+  }, [config, loadCalendars]);
 
-  const loadCalendars = useCallback(async () => {
-    const service = getGoogleCalendarService();
-    if (!service || !service.isUserAuthenticated()) {
-      console.log('Cannot load calendars: service not authenticated');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-      console.log('Loading calendars...');
-      const calendarList = await service.getCalendarList();
-      console.log('Calendars loaded:', calendarList);
-      setCalendars(calendarList);
-    } catch (err) {
-      console.error('Failed to load calendars:', err);
-      setError('Failed to load calendars. Please try reconnecting.');
-      // If loading calendars fails, the tokens might be invalid
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const authenticate = useCallback(() => {
-    const service = getGoogleCalendarService();
-    if (!service) {
-      setError('Google Calendar service not initialized');
-      return;
-    }
-
-    const authUrl = service.getAuthUrl();
-    console.log('Navigating to auth URL:', authUrl);
-    // Navigate to the OAuth URL in the same window for better callback handling
-    window.location.href = authUrl;
-  }, []);
-
-  const handleAuthCallback = useCallback(async (code: string) => {
+  const authenticate = useCallback(async () => {
     const service = getGoogleCalendarService();
     if (!service) {
       setError('Google Calendar service not initialized');
@@ -97,27 +91,35 @@ export function useGoogleCalendar(
     }
 
     try {
-      setIsLoading(true);
+      setIsLoading(true); 
       setError(null);
-      console.log('Authenticating with code:', code.substring(0, 10) + '...');
+      console.log('Starting Google Calendar authentication...');
       
-      await service.authenticate(code);
+      // For GIS, we call authenticate directly (no URL needed)
+      await service.authenticate();
+      
       const isServiceAuthenticated = service.isUserAuthenticated();
-      
       console.log('Authentication result:', isServiceAuthenticated);
       setIsAuthenticated(isServiceAuthenticated);
       
       if (isServiceAuthenticated) {
         await loadCalendars();
       }
-    } catch (err) {
-      console.error('Authentication failed:', err);
-      setError(`Authentication failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } catch (error) {
+      console.error('Authentication failed:', error);
+      setError(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
     }
   }, [loadCalendars]);
+
+  const handleAuthCallback = useCallback(async (_code: string) => {
+    // Note: With GIS, this function is no longer used for authentication
+    // GIS handles authentication through popups automatically
+    // This is kept for backward compatibility but logs a deprecation notice
+    console.log('handleAuthCallback called but not needed with GIS - authentication handled automatically');
+  }, []);
 
   const disconnect = useCallback(() => {
     const service = getGoogleCalendarService();
@@ -207,9 +209,14 @@ export function useGoogleCalendar(
     }
   }, [selectedCalendarId, onTaskUpdate]);
 
-  const getAuthUrl = useCallback(() => {
+  const getAuthUrl = useCallback(async () => {
     const service = getGoogleCalendarService();
-    return service ? service.getAuthUrl() : null;
+    try {
+      return service ? await service.getAuthUrl() : null;
+    } catch (error) {
+      console.error('Failed to generate auth URL:', error);
+      return null;
+    }
   }, []);
 
   return {

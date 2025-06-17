@@ -2,7 +2,7 @@ import { Task } from '../types';
 
 export interface GoogleCalendarConfig {
   clientId: string;
-  clientSecret: string;
+  clientSecret: string; // Not used in GIS flow
   redirectUri: string;
 }
 
@@ -13,78 +13,161 @@ interface GoogleTokens {
   token_type?: string;
 }
 
+// Type definitions for Google Identity Services
+declare global {
+  interface Window {
+    google: {
+      accounts: {
+        oauth2: {
+          initTokenClient: (config: any) => any;
+        };
+      };
+    };
+  }
+}
+
 export class GoogleCalendarService {
   private tokens: GoogleTokens | null = null;
   private isAuthenticated = false;
   private readonly CALENDAR_API_BASE = 'https://www.googleapis.com/calendar/v3';
-  private readonly OAUTH_BASE = 'https://oauth2.googleapis.com/token';
+  private tokenClient: any = null;
+  private isGISLoaded = false;
 
   constructor(private config: GoogleCalendarConfig) {}
 
   /**
-   * Get the authorization URL for Google OAuth
+   * Load Google Identity Services script
    */
-  getAuthUrl(): string {
-    const params = new URLSearchParams({
-      client_id: this.config.clientId,
-      redirect_uri: this.config.redirectUri,
-      response_type: 'code',
-      scope: 'https://www.googleapis.com/auth/calendar',
-      access_type: 'offline',
-      prompt: 'consent'
-    });
+  private async loadGIS(): Promise<void> {
+    if (this.isGISLoaded) return;
 
-    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    return new Promise((resolve, reject) => {
+      // Check if script already exists
+      if (document.getElementById('google-identity-script')) {
+        this.isGISLoaded = true;
+        resolve();
+        return;
+      }
+
+      // Create and load the script
+      const script = document.createElement('script');
+      script.id = 'google-identity-script';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.onload = () => {
+        this.isGISLoaded = true;
+        console.log('Google Identity Services loaded successfully');
+        resolve();
+      };
+      script.onerror = () => {
+        console.error('Failed to load Google Identity Services');
+        reject(new Error('Failed to load Google Identity Services'));
+      };
+      document.head.appendChild(script);
+    });
   }
 
   /**
-   * Authenticate with the authorization code
+   * Initialize the token client
    */
-  async authenticate(code: string): Promise<void> {
-    try {
-      console.log('Starting Google Calendar authentication...');
-      
-      const response = await fetch(this.OAUTH_BASE, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          client_id: this.config.clientId,
-          // Note: client_secret is not used in client-side OAuth flows
-          code: code,
-          grant_type: 'authorization_code',
-          redirect_uri: this.config.redirectUri,
-        }),
-      });
+  private async initializeTokenClient(): Promise<void> {
+    await this.loadGIS();
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Authentication response error:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
+    if (typeof window.google === 'undefined') {
+      throw new Error('Google Identity Services not available');
+    }
+
+    this.tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: this.config.clientId,
+      scope: 'https://www.googleapis.com/auth/calendar',
+      callback: (tokenResponse: any) => {
+        console.log('Token response received:', {
+          hasAccessToken: !!tokenResponse.access_token,
+          hasError: !!tokenResponse.error,
+          expiresIn: tokenResponse.expires_in
         });
-        throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
+
+        if (tokenResponse.error) {
+          console.error('GIS authentication error:', tokenResponse.error);
+          this.handleAuthError(tokenResponse.error);
+          return;
+        }
+
+        // Store the tokens
+        this.tokens = {
+          access_token: tokenResponse.access_token,
+          expires_in: tokenResponse.expires_in,
+          token_type: 'Bearer'
+        };
+        this.isAuthenticated = true;
+
+        // Store in localStorage for persistence
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('google_calendar_tokens', JSON.stringify(this.tokens));
+          console.log('Tokens stored successfully');
+        }
+
+        // Trigger a custom event to notify components
+        window.dispatchEvent(new CustomEvent('google-auth-success'));
+      },
+    });
+
+    console.log('Google Identity Services token client initialized');
+  }
+
+  /**
+   * Handle authentication errors
+   */
+  private handleAuthError(error: any): void {
+    console.error('Google authentication error:', error);
+    this.isAuthenticated = false;
+    this.tokens = null;
+    window.dispatchEvent(new CustomEvent('google-auth-error', { detail: error }));
+  }
+
+  /**
+   * Get the authorization URL - for GIS, we trigger the popup directly
+   */
+  async getAuthUrl(): Promise<string> {
+    // GIS doesn't use URLs, but we return a placeholder for compatibility
+    return 'javascript:void(0)'; // This will be ignored as we call authenticate directly
+  }
+
+  /**
+   * Authenticate using Google Identity Services
+   */
+  async authenticate(): Promise<void> {
+    try {
+      console.log('Starting Google Calendar authentication with GIS...');
+      
+      if (!this.tokenClient) {
+        await this.initializeTokenClient();
       }
 
-      const tokens = await response.json();
-      console.log('Authentication successful, received tokens:', {
-        hasAccessToken: !!tokens.access_token,
-        hasRefreshToken: !!tokens.refresh_token,
-        expiresIn: tokens.expires_in
+      return new Promise((resolve, reject) => {
+        // Set up one-time event listeners for this authentication attempt
+        const handleSuccess = () => {
+          window.removeEventListener('google-auth-success', handleSuccess);
+          window.removeEventListener('google-auth-error', handleError);
+          resolve();
+        };
+
+        const handleError = (event: any) => {
+          window.removeEventListener('google-auth-success', handleSuccess);
+          window.removeEventListener('google-auth-error', handleError);
+          reject(new Error(`Authentication failed: ${event.detail || 'Unknown error'}`));
+        };
+
+        window.addEventListener('google-auth-success', handleSuccess);
+        window.addEventListener('google-auth-error', handleError);
+
+        // Request access token - this will show Google's popup
+        console.log('Requesting access token...');
+        this.tokenClient.requestAccessToken({
+          prompt: 'consent', // Force consent screen to get refresh token behavior
+        });
       });
-      
-      this.tokens = tokens;
-      this.isAuthenticated = true;
-      
-      // Store tokens in localStorage for persistence
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('google_calendar_tokens', JSON.stringify(tokens));
-        console.log('Tokens stored in localStorage');
-      }
     } catch (error) {
-      console.error('Error authenticating with Google Calendar:', error);
+      console.error('Error during authentication:', error);
       this.isAuthenticated = false;
       this.tokens = null;
       throw error;
@@ -99,20 +182,49 @@ export class GoogleCalendarService {
       const storedTokens = localStorage.getItem('google_calendar_tokens');
       if (storedTokens) {
         try {
-          this.tokens = JSON.parse(storedTokens);
-          this.isAuthenticated = true;
-          console.log('Loaded stored Google Calendar tokens');
-          return true;
+          const tokens = JSON.parse(storedTokens);
+          
+          // Check if we have required token data
+          if (tokens && tokens.access_token) {
+            this.tokens = tokens;
+            this.isAuthenticated = true; // Restore authenticated state
+            
+            console.log('Restored Google Calendar authentication from stored tokens');
+            
+            // Optionally verify the token by making a quick API call
+            // This will automatically handle expired tokens
+            this.verifyTokenAsync();
+            
+            return true;
+          } else {
+            console.log('Stored tokens are invalid, clearing...');
+            localStorage.removeItem('google_calendar_tokens');
+          }
         } catch (error) {
           console.error('Failed to parse stored tokens:', error);
-          // Clear invalid tokens
           localStorage.removeItem('google_calendar_tokens');
         }
       }
     }
+    
     this.isAuthenticated = false;
     this.tokens = null;
     return false;
+  }
+
+  /**
+   * Verify stored tokens are still valid (async, non-blocking)
+   */
+  private async verifyTokenAsync(): Promise<void> {
+    try {
+      // Make a lightweight API call to verify the token
+      await this.makeApiRequest('/users/me/calendarList?maxResults=1');
+      console.log('Stored tokens verified as valid');
+    } catch (error) {
+      console.log('Stored tokens are expired or invalid, user will need to re-authenticate');
+      // Don't set isAuthenticated to false immediately - let the user try to use the feature
+      // The error will be handled when they actually try to use Google Calendar features
+    }
   }
 
   /**
@@ -130,6 +242,19 @@ export class GoogleCalendarService {
     this.tokens = null;
     if (typeof window !== 'undefined') {
       localStorage.removeItem('google_calendar_tokens');
+    }
+  }
+
+  /**
+   * Clear all stored authentication data (for debugging)
+   */
+  clearAllAuthData(): void {
+    console.log('Clearing all Google Calendar authentication data...');
+    this.isAuthenticated = false;
+    this.tokens = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('google_calendar_tokens');
+      console.log('All authentication data cleared');
     }
   }
 
@@ -163,12 +288,14 @@ export class GoogleCalendarService {
       });
 
       if (response.status === 401) {
-        console.log('Token expired, attempting to refresh...');
-        // Token might be expired, try to refresh
-        await this.refreshToken();
-        // Retry the request with new token
-        console.log('Retrying API request after token refresh...');
-        return this.makeApiRequest(endpoint, options);
+        console.log('Token expired, user needs to re-authenticate...');
+        this.isAuthenticated = false;
+        this.tokens = null;
+        // Clear stored tokens
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('google_calendar_tokens');
+        }
+        throw new Error('Authentication expired. Please reconnect to Google Calendar.');
       }
       throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
@@ -176,40 +303,6 @@ export class GoogleCalendarService {
     const responseData = await response.json();
     console.log('API request successful, response data:', responseData);
     return responseData;
-  }
-
-  /**
-   * Refresh access token
-   */
-  private async refreshToken(): Promise<void> {
-    if (!this.tokens?.refresh_token) {
-      throw new Error('No refresh token available');
-    }
-
-    const response = await fetch(this.OAUTH_BASE, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: this.config.clientId,
-        // Note: client_secret is not used in client-side OAuth flows
-        refresh_token: this.tokens.refresh_token,
-        grant_type: 'refresh_token',
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Token refresh failed: ${response.statusText}`);
-    }
-
-    const newTokens = await response.json();
-    this.tokens = { ...this.tokens, ...newTokens };
-    
-    // Update stored tokens
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('google_calendar_tokens', JSON.stringify(this.tokens));
-    }
   }
 
   /**
@@ -356,4 +449,10 @@ export function initializeGoogleCalendar(config: GoogleCalendarConfig): GoogleCa
 
 export function getGoogleCalendarService(): GoogleCalendarService | null {
   return googleCalendarService;
+}
+
+export function clearGoogleCalendarAuthData(): void {
+  if (googleCalendarService) {
+    googleCalendarService.clearAllAuthData();
+  }
 } 
