@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Layers, PlusCircle, Grid3X3, List, LayoutGrid } from 'lucide-react';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { ThemeToggle } from './theme-toggle';
 import { Board } from '@/types';
 import { renderIcon } from '@/constants/board-constants';
 import { isTauri } from '@/lib/platform';
@@ -57,23 +56,23 @@ export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, b
 			/>
 
 			{/* Left side - Title and board info */}
-			<div className='flex items-center gap-3 flex-1'>
+			<div className='flex items-center gap-3 flex-1 min-w-0'>
 				{board && (
 					<div
-						className='w-8 h-8 rounded-lg flex items-center justify-center text-white'
+						className='w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0'
 						style={{ backgroundColor: board.color || '#3B82F6' }}
 					>
 						{renderIcon(board.icon, 'h-5 w-5')}
 					</div>
 				)}
-				<div>
-					<h1 className='text-xl font-bold text-foreground'>{title}</h1>
-					{subtitle && <p className='text-sm text-muted-foreground'>{subtitle}</p>}
+				<div className='min-w-0 flex-1'>
+					<h1 className='text-lg font-semibold text-foreground truncate'>{title}</h1>
+					{subtitle && <p className='text-xs text-muted-foreground truncate'>{subtitle}</p>}
 				</div>
 			</div>
 
 			{/* Center - View controls */}
-			<div className='flex items-center gap-4'>
+			<div className='flex items-center gap-3'>
 				{children}
 
 				{/* Board view mode toggle */}
@@ -111,13 +110,13 @@ export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, b
 
 				{/* Kanban/Calendar/List view toggle */}
 				{onViewChange && board && currentView && (
-					<div className='flex items-center gap-2 bg-muted rounded-lg p-1'>
+					<div className='flex items-center gap-1 bg-muted/30 p-1 rounded-lg border border-border/50'>
 						{(['kanban', 'calendar', 'list'] as const).map(view => (
 							<Button
 								key={view}
-								variant='ghost'
+								variant={currentView === view ? 'default' : 'ghost'}
 								size='sm'
-								className={`text-xs px-3 py-1 gap-1.5 ${currentView === view ? 'bg-primary text-primary-foreground' : 'hover:bg-primary/10'}`}
+								className='gap-1.5 h-7'
 								onClick={() => {
 									console.log('View change clicked:', view, 'for board:', board.name);
 									onViewChange(board, view);
@@ -132,10 +131,10 @@ export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, b
 			</div>
 
 			{/* Right side - Actions and user menu */}
-			<div className='flex items-center gap-4'>
+			<div className='flex items-center gap-3'>
 				{/* Board count */}
 				{boardCount !== undefined && boardCount > 0 && (
-					<div className='text-sm text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50'>
+					<div className='text-xs text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-lg border border-border/50'>
 						{boardCount} {boardCount === 1 ? 'board' : 'boards'}
 					</div>
 				)}
@@ -146,14 +145,13 @@ export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, b
 						variant='default'
 						size='sm'
 						onClick={onCreateDetailedTask}
-						className='gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm'
+						className='gap-1.5'
 					>
 						<PlusCircle className='h-4 w-4' />
 						New Task
 					</Button>
 				)}
 
-				<ThemeToggle />
 				<ProfileDropdown
 					user={user}
 					onSignOut={onSignOut}

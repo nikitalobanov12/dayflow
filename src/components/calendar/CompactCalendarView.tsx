@@ -973,48 +973,50 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 				>
 					<div className='flex items-center gap-2'>
 						{/* Date Range Display */}
-						<h2 className='text-lg font-semibold mr-4'>{viewMode === '3-day' ? `${formatDate(currentDate)} - ${formatDate(addDays(currentDate, 2))}` : `${formatDate(startOfWeek(currentDate, { weekStartsOn }))} - ${formatDate(endOfWeek(currentDate, { weekStartsOn }))}`}</h2>
+						<h2 className='text-sm font-medium mr-3'>{viewMode === '3-day' ? `${formatDate(currentDate)} - ${formatDate(addDays(currentDate, 2))}` : `${formatDate(startOfWeek(currentDate, { weekStartsOn }))} - ${formatDate(endOfWeek(currentDate, { weekStartsOn }))}`}</h2>
 
 						<div className='flex items-center gap-1 mr-2'>
 							<Button
 								variant='outline'
-								size='lg'
+								size='sm'
 								onClick={handleZoomOut}
 								disabled={zoomLevel === 0}
+								className='h-7 w-7 p-0'
 							>
-								<ZoomOut className='h-4 w-4' />
+								<ZoomOut className='h-3.5 w-3.5' />
 							</Button>
 							<span className='text-xs text-muted-foreground px-2'>{currentZoom.label}</span>
 							<Button
 								variant='outline'
-								size='lg'
+								size='sm'
 								onClick={handleZoomIn}
 								disabled={zoomLevel === ZOOM_LEVELS.length - 1}
+								className='h-7 w-7 p-0'
 							>
-								<ZoomIn className='h-4 w-4' />
+								<ZoomIn className='h-3.5 w-3.5' />
 							</Button>
 						</div>
 
 						<Button
 							variant='outline'
-							size='lg'
+							size='sm'
 							onClick={scrollToCurrentTime}
-							className='mr-2'
+							className='mr-2 gap-1.5'
 							title='Scroll to current time'
 						>
-							<Clock className='h-4 w-4 mr-1' />
+							<Clock className='h-3.5 w-3.5' />
 							Now
 						</Button>
 
 						{/* View Mode Toggle */}
-						<div className='flex gap-1 mr-2'>
+						<div className='flex gap-1 mr-2 bg-muted/30 p-1 rounded-lg border border-border/50'>
 							{(['3-day', 'week'] as ViewMode[]).map(mode => (
 								<Button
 									key={mode}
-									variant={viewMode === mode ? 'default' : 'outline'}
-									size='lg'
+									variant={viewMode === mode ? 'default' : 'ghost'}
+									size='sm'
 									onClick={() => setViewMode(mode)}
-									className='capitalize'
+									className='capitalize h-7'
 								>
 									{mode}
 								</Button>
@@ -1033,21 +1035,21 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 								
 								return (
 									<div className='flex items-center gap-2'>
-										<Button
-											variant='outline'
-											size='lg'
-											onClick={handleBulkSync}
-											disabled={isSyncing || scheduledTasksCount === 0}
-											className='gap-2'
-											title={scheduledTasksCount === 0 ? 'No unsynced scheduled tasks' : `Sync ${scheduledTasksCount} scheduled tasks to Google Calendar`}
-										>
-											{isSyncing ? (
-												<RefreshCw className='h-4 w-4 animate-spin' />
-											) : (
-												<Cloud className='h-4 w-4' />
-											)}
-											{isSyncing ? 'Syncing...' : `Sync (${scheduledTasksCount})`}
-										</Button>
+																<Button
+							variant='outline'
+							size='sm'
+							onClick={handleBulkSync}
+							disabled={isSyncing || scheduledTasksCount === 0}
+							className='gap-1.5'
+							title={scheduledTasksCount === 0 ? 'No unsynced scheduled tasks' : `Sync ${scheduledTasksCount} scheduled tasks to Google Calendar`}
+						>
+							{isSyncing ? (
+								<RefreshCw className='h-3.5 w-3.5 animate-spin' />
+							) : (
+								<Cloud className='h-3.5 w-3.5' />
+							)}
+							{isSyncing ? 'Syncing...' : `Sync (${scheduledTasksCount})`}
+						</Button>
 										{syncError && (
 											<span className='text-xs text-red-600 max-w-40 truncate' title={syncError}>
 												{syncError}
@@ -1081,10 +1083,11 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 						<div className='w-16 border-r border-border p-2 text-xs text-muted-foreground text-center'>Time</div>
 						<Button
 							variant='ghost'
-							size='lg'
+							size='sm'
 							onClick={handlePrevious}
+							className='h-8 w-8 p-0'
 						>
-							<ChevronLeft />
+							<ChevronLeft className='h-4 w-4' />
 						</Button>
 						{visibleDates.map((date, index) => (
 							<div
@@ -1098,10 +1101,11 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 						))}
 						<Button
 							variant='ghost'
-							size='lg'
+							size='sm'
 							onClick={handleNext}
+							className='h-8 w-8 p-0'
 						>
-							<ChevronRight />
+							<ChevronRight className='h-4 w-4' />
 						</Button>
 					</div>
 					{/* Calendar Body */}

@@ -39,11 +39,11 @@ export function TaskSidebarRight({
 		<ContextMenu key={task.id}>
 			<ContextMenuTrigger asChild>
 				<div
-					className={cn(
-						'p-3 bg-card border border-border rounded-lg hover:shadow-sm transition-all duration-200 cursor-pointer group', 
-						isCompleted && 'opacity-70', 
-						isDraggable && !isCompleted && 'hover:border-border/80'
-					)}
+								className={cn(
+				'p-3 bg-background border border-border rounded-lg hover:shadow-sm transition-all duration-200 cursor-pointer group',
+				isCompleted && 'opacity-70',
+				isDraggable && !isCompleted && 'hover:border-border/80'
+			)}
 					draggable={isDraggable && !isCompleted}
 					onDragStart={e => {
 						if (isDraggable && !isCompleted) {

@@ -139,7 +139,7 @@ export function TaskCard({
 				onDragEnd={() => setIsDragging(false)}
 			>
 				<div className={cn(
-					'bg-card border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300',
+					'bg-background border border-border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300',
 					isDone ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
 					'hover:border-border/80 hover:-translate-y-0.5',
 					isDone && 'opacity-70 saturate-50',

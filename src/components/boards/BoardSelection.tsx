@@ -80,6 +80,29 @@ const PRESET_COLORS = [
 
 type ViewMode = 'grid' | 'compact' | 'list';
 
+// Helper function to determine if a color is light or dark
+const isLightColor = (hexColor: string): boolean => {
+	// Remove # if present
+	const hex = hexColor.replace('#', '');
+	
+	// Convert to RGB
+	const r = parseInt(hex.substr(0, 2), 16);
+	const g = parseInt(hex.substr(2, 2), 16);
+	const b = parseInt(hex.substr(4, 2), 16);
+	
+	// Calculate luminance using the standard formula
+	const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+	
+	// Return true if luminance is greater than 0.5 (light color)
+	return luminance > 0.5;
+};
+
+// Helper function to get appropriate text color for a background
+const getTextColorForBackground = (backgroundColor?: string): string => {
+	if (!backgroundColor) return 'text-white'; // Default to white if no color
+	return isLightColor(backgroundColor) ? 'text-gray-800' : 'text-white';
+};
+
 export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, onDuplicateBoard, user, onSignOut, onOpenSettings, userPreferences, onUpdateUserPreferences }: BoardSelectionProps) {
 	const [isCreating, setIsCreating] = useState(false);
 	const [isEditing, setIsEditing] = useState<Board | null>(null);
@@ -176,7 +199,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 							>
 								<div className='flex items-start gap-4 h-full'>
 									<div
-										className='w-12 h-12 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 text-white'
+										className={cn('w-12 h-12 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0', getTextColorForBackground(board.color))}
 										style={{ backgroundColor: board.color }}
 									>
 										{renderIcon(board.icon || 'Briefcase', 'h-6 w-6')}
@@ -253,7 +276,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 								onClick={() => onSelectBoard(board)}
 							>
 								<div
-									className='w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-sm mb-3 text-white'
+									className={cn('w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-sm mb-3', getTextColorForBackground(board.color))}
 									style={{ backgroundColor: board.color }}
 								>
 									{renderIcon(board.icon || 'Briefcase', 'h-5 w-5 sm:h-6 sm:w-6')}
@@ -322,7 +345,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 								onClick={() => onSelectBoard(board)}
 							>
 								<div
-									className='w-10 h-10 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 text-white'
+									className={cn('w-10 h-10 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0', getTextColorForBackground(board.color))}
 									style={{ backgroundColor: board.color }}
 								>
 									{renderIcon(board.icon || 'Briefcase', 'h-5 w-5')}
@@ -605,7 +628,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 								<div className='flex items-center justify-center p-6 bg-muted/30 rounded-lg'>
 									<div className='flex items-center gap-3'>
 										<div
-											className='w-16 h-16 rounded-xl flex items-center justify-center shadow-lg border-2 border-background text-white'
+											className={cn('w-16 h-16 rounded-xl flex items-center justify-center shadow-lg border-2 border-background', getTextColorForBackground(newBoard.color))}
 											style={{ backgroundColor: newBoard.color }}
 										>
 											{renderIcon(newBoard.icon, 'h-8 w-8')}
@@ -637,7 +660,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 											>
 												{newBoard.color === color && (
 													<div className='absolute inset-0 flex items-center justify-center'>
-														<svg className="w-5 h-5 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+														<svg className={cn("w-5 h-5 drop-shadow-lg", getTextColorForBackground(color))} fill="currentColor" viewBox="0 0 20 20">
 															<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
 														</svg>
 													</div>
@@ -670,7 +693,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 													>
 														{newBoard.color === shade && (
 															<div className='absolute inset-0 flex items-center justify-center'>
-																<svg className="w-3 h-3 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+																<svg className={cn("w-3 h-3 drop-shadow-lg", getTextColorForBackground(shade))} fill="currentColor" viewBox="0 0 20 20">
 																	<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
 																</svg>
 															</div>
