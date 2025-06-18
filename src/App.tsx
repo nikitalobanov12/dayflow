@@ -13,7 +13,8 @@ import { AuthCallback } from '@/components/auth/AuthCallback';
 import { useSupabaseDatabase } from '@/hooks/useSupabaseDatabase';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useGoogleCalendarSync } from '@/hooks/useGoogleCalendarSync';
-import { initializeGoogleCalendar } from '@/lib/googleCalendar';
+// Google Calendar service initialization
+import { initializeGoogleCalendar, getGoogleCalendarService } from '@/lib/googleCalendar';
 import { appConfig } from '@/lib/config';
 import { Board, Task } from '@/types';
 import './App.css';
@@ -22,16 +23,49 @@ function App() {
 	const { tasks, boards, addTask, deleteTask, duplicateTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, signInWithGoogle, resetPasswordForEmail, updatePassword } = useSupabaseDatabase();
 	const { userPreferences, userProfile, updateUserPreferences, updateUserProfile } = useUserSettings(user?.id);
 
-	// Initialize Google Calendar service at app startup
+	// Initialize Google Calendar service when user is authenticated
 	useEffect(() => {
-		if (appConfig.validateGoogleCalendar()) {
-			console.log('🔧 Initializing Google Calendar service...');
-			const service = initializeGoogleCalendar(appConfig.googleCalendar);
-			console.log('✅ Google Calendar service initialized:', service.isUserAuthenticated());
-		} else {
-			console.log('⚠️ Google Calendar configuration incomplete');
-		}
-	}, []);
+		const initializeGoogleCalendarService = async () => {
+			if (!user || !appConfig.validateGoogleCalendar()) {
+				console.log('🔍 Skipping Google Calendar initialization: user not authenticated or config invalid');
+				return;
+			}
+
+			try {
+				console.log('🔄 Initializing Google Calendar service on app startup...');
+				
+				// Initialize the service
+				const service = initializeGoogleCalendar(appConfig.googleCalendar);
+				
+				// Set user ID for token management
+				service.setUserId(user.id);
+				
+				// Check if we have stored tokens and they're valid
+				const hasStoredTokens = await service.loadStoredTokens();
+				const isServiceAuthenticated = service.isUserAuthenticated();
+				
+				console.log('Google Calendar service initialized:', {
+					hasStoredTokens,
+					isServiceAuthenticated,
+					userId: user.id,
+					config: {
+						hasClientId: !!appConfig.googleCalendar.clientId,
+						redirectUri: appConfig.googleCalendar.redirectUri
+					}
+				});
+				
+				if (isServiceAuthenticated) {
+					console.log('✅ Google Calendar service authenticated and ready');
+				} else {
+					console.log('ℹ️ Google Calendar service initialized but not authenticated');
+				}
+			} catch (error) {
+				console.error('❌ Failed to initialize Google Calendar service:', error);
+			}
+		};
+
+		initializeGoogleCalendarService();
+	}, [user]);
 
 	// Google Calendar sync integration
 	const {
@@ -43,26 +77,65 @@ function App() {
 
 	const [isOAuthCallback, setIsOAuthCallback] = useState(false);
 
+	// Handle Google Calendar OAuth callback
+	const handleGoogleCalendarCallback = async (code: string) => {
+		try {
+			console.log('🔄 Processing Google Calendar authorization code in App.tsx...');
+			
+			// Get the already initialized Google Calendar service
+			const service = getGoogleCalendarService();
+			
+			if (!service) {
+				console.error('Google Calendar service not initialized');
+				return;
+			}
+
+			// Set the user ID (should already be set, but ensure it's correct)
+			service.setUserId(user.id);
+			
+			// Process the authorization code
+			await service.exchangeCodeForTokens(code);
+			
+			console.log('✅ Google Calendar connected successfully on app load');
+			
+			// Clear URL parameters
+			window.history.replaceState({}, document.title, window.location.pathname);
+		} catch (error) {
+			console.error('❌ Failed to process Google Calendar callback:', error);
+			// Clear URL parameters even on error
+			window.history.replaceState({}, document.title, window.location.pathname);
+		}
+	};
+
 	// Check if this is an OAuth callback
 	useEffect(() => {
 		const urlParams = new URLSearchParams(window.location.search);
 		const code = urlParams.get('code');
 		const state = urlParams.get('state');
+		const error = urlParams.get('error');
 
 		// Check if this is a Supabase OAuth callback (has state parameter)
 		if (code && state) {
 			setIsOAuthCallback(true);
 		}
-		// Google Calendar OAuth callbacks are now handled directly in GoogleCalendarSettings component
-	}, []);
+		// Handle Google Calendar OAuth callback (has code but no state)
+		else if (code && !state && user && appConfig.validateGoogleCalendar()) {
+			console.log('🔄 Processing Google Calendar OAuth callback on app load...');
+			handleGoogleCalendarCallback(code);
+		}
+		// Handle OAuth errors
+		else if (error) {
+			console.error('OAuth error on app load:', error);
+			// Clear URL parameters
+			window.history.replaceState({}, document.title, window.location.pathname);
+		}
+	}, [user, handleGoogleCalendarCallback]);
 
 	const handleAuthComplete = () => {
 		setIsOAuthCallback(false);
 		// Clear URL parameters
 		window.history.replaceState({}, document.title, window.location.pathname);
 	};
-
-	// OAuth callback is now handled directly in GoogleCalendarSettings component
 
 	// Wrapper functions to match component signatures
 	const handleAddBoard = async (board: Omit<Board, 'id' | 'createdAt' | 'userId'>) => {
@@ -368,6 +441,8 @@ function App() {
 						onSignOut={signOut}
 						onUpdatePassword={updatePassword}
 						onUpdateTask={handleUpdateTask}
+						onAddTask={handleAddTask}
+						tasks={tasks}
 						boards={boards}
 					/>
 				</div>

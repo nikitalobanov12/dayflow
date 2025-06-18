@@ -52,10 +52,19 @@ export class GoogleCalendarService {
     try {
       console.log('Exchanging authorization code for tokens via secure backend...');
       
+      // Get current auth session to ensure we're authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session');
+      }
+      
       const { data, error } = await supabase.functions.invoke('google-oauth-exchange', {
         body: {
           code,
           redirectUri: this.config.redirectUri,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
@@ -92,6 +101,8 @@ export class GoogleCalendarService {
     }
 
     try {
+      console.log(`🔍 Loading stored tokens for user: ${this.userId}`);
+      
       const { data, error } = await supabase
         .from('google_calendar_tokens')
         .select('*')
@@ -99,15 +110,18 @@ export class GoogleCalendarService {
         .maybeSingle(); // Use maybeSingle() instead of single() to handle 0 rows gracefully
 
       if (error) {
-        console.error('Error loading tokens:', error);
-        throw error;
-      }
-
-      if (!data) {
-        console.log('No Google Calendar tokens found for user');
+        console.error('Error loading tokens from database:', error);
         this.tokens = null;
         return false;
       }
+
+      if (!data) {
+        console.log('No Google Calendar tokens found for user in database');
+        this.tokens = null;
+        return false;
+      }
+
+      console.log('📦 Found stored tokens, checking validity...');
 
       // Transform database row to client type
       this.tokens = {
@@ -119,6 +133,13 @@ export class GoogleCalendarService {
         createdAt: data.created_at,
         updatedAt: data.updated_at,
       };
+
+      // Check token expiration
+      const expiresAt = new Date(this.tokens.expiresAt);
+      const now = new Date();
+      const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+      
+      console.log(`⏰ Token expires in ${Math.round(timeUntilExpiry / 60000)} minutes`);
 
       // Check if tokens are about to expire and refresh if necessary
       await this.ensureValidTokens();
@@ -143,21 +164,25 @@ export class GoogleCalendarService {
     const expiresAt = new Date(this.tokens.expiresAt);
     const now = new Date();
     const timeUntilExpiry = expiresAt.getTime() - now.getTime();
-    const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+    const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
 
-    // Refresh if token expires within 5 minutes
-    if (timeUntilExpiry <= fiveMinutes) {
-      console.log('🔄 Access token expires soon, refreshing...');
+    // Refresh if token expires within 10 minutes (less aggressive)
+    if (timeUntilExpiry <= tenMinutes) {
+      console.log(`🔄 Access token expires in ${Math.round(timeUntilExpiry / 60000)} minutes, refreshing...`);
       
       // Prevent concurrent refresh attempts
       if (this.refreshPromise) {
+        console.log('⏳ Waiting for existing refresh attempt...');
         await this.refreshPromise;
         return;
       }
 
       this.refreshPromise = this.refreshAccessToken();
-      await this.refreshPromise;
-      this.refreshPromise = null;
+      try {
+        await this.refreshPromise;
+      } finally {
+        this.refreshPromise = null;
+      }
     }
   }
 
@@ -172,19 +197,46 @@ export class GoogleCalendarService {
     try {
       console.log('🔄 Refreshing Google Calendar access token via secure backend...');
 
+      // Get current auth session to ensure we're authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session');
+      }
+
       const { data, error } = await supabase.functions.invoke('google-oauth-exchange', {
         method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       if (error) {
         console.error('Token refresh failed:', error);
-        // If refresh fails, user needs to re-authenticate
-        await this.disconnect();
-        throw new Error('Authentication expired. Please reconnect to Google Calendar.');
+        
+        // Only disconnect if it's specifically an authentication/authorization error
+        // Network errors, server errors, etc. should NOT force re-authentication
+        if (error.message?.includes('401') || error.message?.includes('403') || 
+            error.message?.includes('needsReauth') || error.message?.includes('invalid_grant')) {
+          console.warn('Authentication error detected, forcing re-authentication');
+          await this.disconnect();
+          throw new Error('Authentication expired. Please reconnect to Google Calendar.');
+        }
+        
+        // For other errors (network, server issues), just throw without disconnecting
+        throw new Error(`Failed to refresh access token: ${error.message}. Please try again.`);
       }
 
       if (!data?.access_token || !data?.expires_at) {
-        throw new Error('Invalid refresh response');
+        console.error('Invalid refresh response:', data);
+        
+        // Only disconnect if the response explicitly indicates auth failure
+        if (data?.needsReauth) {
+          await this.disconnect();
+          throw new Error('Authentication expired. Please reconnect to Google Calendar.');
+        }
+        
+        // For other invalid responses, don't disconnect - might be temporary
+        throw new Error('Invalid refresh response. Please try again later.');
       }
 
       // Update local tokens with new access token
@@ -198,6 +250,8 @@ export class GoogleCalendarService {
       console.log('✅ Access token refreshed successfully');
     } catch (error) {
       console.error('❌ Failed to refresh access token:', error);
+      // Don't clear tokens on network/temporary errors - only on auth errors
+      // The specific error handling above will call disconnect() when appropriate
       throw error;
     }
   }
@@ -485,6 +539,216 @@ export class GoogleCalendarService {
       return response.items || [];
     } catch (error) {
       console.error('Error fetching calendar list:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get events from Google Calendar within a date range
+   */
+  async getEvents(calendarId: string = 'primary', timeMin?: Date, timeMax?: Date): Promise<any[]> {
+    if (!this.isUserAuthenticated()) {
+      throw new Error('Not authenticated with Google Calendar');
+    }
+
+    try {
+      // Set default time range if not provided (next 30 days)
+      const now = new Date();
+      const defaultTimeMin = timeMin || new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)); // 7 days ago
+      const defaultTimeMax = timeMax || new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days from now
+
+      const params = new URLSearchParams({
+        timeMin: defaultTimeMin.toISOString(),
+        timeMax: defaultTimeMax.toISOString(),
+        singleEvents: 'true',
+        orderBy: 'startTime',
+        maxResults: '100' // Limit to prevent huge responses
+      });
+
+      const response = await this.makeApiRequest(`/calendars/${encodeURIComponent(calendarId)}/events?${params}`);
+      return response.items || [];
+    } catch (error) {
+      console.error('Error fetching calendar events:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Filter events that are suitable for import as tasks
+   */
+  filterImportableEvents(events: any[]): any[] {
+    return events.filter(event => {
+      // Skip events created by DayFlow (check source or description)
+      if (event.source?.title === 'DayFlow' || 
+          event.description?.includes('📱 Created in DayFlow')) {
+        return false;
+      }
+
+      // Skip all-day events (they're usually not tasks)
+      if (event.start?.date && !event.start?.dateTime) {
+        return false;
+      }
+
+      // Skip events without titles
+      if (!event.summary || event.summary.trim() === '') {
+        return false;
+      }
+
+      // Skip recurring events that are part of a series (focus on main events)
+      if (event.recurringEventId) {
+        return false;
+      }
+
+      // Skip declined events
+      if (event.status === 'cancelled') {
+        return false;
+      }
+
+      // Skip events the user has declined
+      if (event.attendees) {
+        const userEmail = event.organizer?.email;
+        const userAttendee = event.attendees.find((attendee: any) => attendee.email === userEmail);
+        if (userAttendee && userAttendee.responseStatus === 'declined') {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }
+
+  /**
+   * Convert Google Calendar event to DayFlow task format
+   */
+  private eventToTask(event: any, boardId?: number): Omit<Task, 'id' | 'createdAt'> {
+    // Parse start time
+    const startTime = event.start?.dateTime || event.start?.date;
+    const endTime = event.end?.dateTime || event.end?.date;
+    
+    // Calculate duration in minutes
+    let timeEstimate = 60; // Default 1 hour
+    if (startTime && endTime) {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      timeEstimate = Math.max(15, Math.round((end.getTime() - start.getTime()) / (1000 * 60)));
+    }
+
+    // Extract description and clean it
+    let description = event.description || '';
+    
+    // Try to extract DayFlow-like information if it exists
+    let priority: 1 | 2 | 3 | 4 = 2; // Default medium
+    let category = '';
+    let tags: string[] = [];
+
+    // Parse DayFlow-style descriptions if they exist
+    if (description.includes('🔥 Priority:')) {
+      const priorityMatch = description.match(/🔥 Priority: (Low|Medium|High|Critical)/);
+      if (priorityMatch) {
+        const priorityMap: Record<string, 1 | 2 | 3 | 4> = {
+          'Low': 1, 'Medium': 2, 'High': 3, 'Critical': 4
+        };
+        priority = priorityMap[priorityMatch[1]] || 2;
+      }
+    }
+
+    if (description.includes('🏷️ Category:')) {
+      const categoryMatch = description.match(/🏷️ Category: ([^\n]+)/);
+      if (categoryMatch) {
+        category = categoryMatch[1].trim();
+      }
+    }
+
+    if (description.includes('🏷️ Tags:')) {
+      const tagsMatch = description.match(/🏷️ Tags: ([^\n]+)/);
+      if (tagsMatch) {
+        tags = tagsMatch[1].split(',').map((tag: string) => tag.trim()).filter(Boolean);
+      }
+    }
+
+    // Clean description by removing DayFlow metadata
+    description = description
+      .replace(/📋 Board: [^\n]+\n?/g, '')
+      .replace(/⏱️ Time Estimate: [^\n]+\n?/g, '')
+      .replace(/🔥 Priority: [^\n]+\n?/g, '')
+      .replace(/🏷️ Category: [^\n]+\n?/g, '')
+      .replace(/📊 Status: [^\n]+\n?/g, '')
+      .replace(/🏷️ Tags: [^\n]+\n?/g, '')
+      .replace(/📈 Progress: [^\n]+\n?/g, '')
+      .replace(/⏰ Time Spent: [^\n]+\n?/g, '')
+      .replace(/📱 Created in DayFlow\n?/g, '')
+      .replace(/📝 /g, '')
+      .trim();
+
+    // Determine status based on event timing
+    const now = new Date();
+    const eventStart = new Date(startTime);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const eventDate = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate());
+    
+    let status: Task['status'] = 'backlog';
+    if (eventDate.getTime() === today.getTime()) {
+      status = 'today';
+    } else if (eventDate > today) {
+      // Check if it's this week
+      const daysDiff = Math.ceil((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff <= 7) {
+        status = 'this-week';
+      }
+    } else {
+      // Past events are considered done
+      status = 'done';
+    }
+
+    return {
+      title: event.summary.trim(),
+      description,
+      timeEstimate,
+      priority,
+      status,
+      position: 0, // Will be set properly when added
+      scheduledDate: startTime ? new Date(startTime).toISOString() : undefined,
+      startDate: startTime ? new Date(startTime).toISOString() : undefined,
+      dueDate: endTime ? new Date(endTime).toISOString() : undefined,
+      category,
+      tags,
+      boardId,
+      progressPercentage: status === 'done' ? 100 : 0,
+      timeSpent: 0,
+      labels: [],
+      attachments: [],
+      // Store the original Google Calendar event ID to prevent re-import
+      googleCalendarEventId: event.id,
+      googleCalendarSynced: true
+    };
+  }
+
+  /**
+   * Import events from Google Calendar as tasks
+   */
+  async importEvents(
+    calendarId: string = 'primary', 
+    boardId?: number, 
+    timeMin?: Date, 
+    timeMax?: Date
+  ): Promise<Omit<Task, 'id' | 'createdAt'>[]> {
+    if (!this.isUserAuthenticated()) {
+      throw new Error('Not authenticated with Google Calendar');
+    }
+
+    try {
+      console.log('🔄 Fetching events from Google Calendar...');
+      const events = await this.getEvents(calendarId, timeMin, timeMax);
+      
+      console.log(`📅 Found ${events.length} events`);
+      const importableEvents = this.filterImportableEvents(events);
+      
+      console.log(`✅ ${importableEvents.length} events suitable for import`);
+      const tasks = importableEvents.map(event => this.eventToTask(event, boardId));
+      
+      return tasks;
+    } catch (error) {
+      console.error('❌ Failed to import events from Google Calendar:', error);
       throw error;
     }
   }

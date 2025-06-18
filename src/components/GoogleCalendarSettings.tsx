@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserPreferences, Board } from '../types';
-import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
-import { GoogleCalendarConfig } from '../lib/googleCalendar';
+import { UserPreferences } from '../types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,11 +12,16 @@ import { Label } from '@/components/ui/label';
 import { Save } from 'lucide-react';
 
 interface GoogleCalendarSettingsProps {
-  onTaskUpdate?: (taskId: number, updates: any) => Promise<void>;
-  config: GoogleCalendarConfig;
   userPreferences?: UserPreferences | null;
   onUpdateUserPreferences?: (updates: Partial<UserPreferences>) => Promise<void>;
-  boards: Board[];
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  calendars: any[];
+  handleAuthCallback: (code: string) => Promise<void>;
+  disconnect: () => Promise<void>;
+  setSelectedCalendarId: (id: string) => void;
+  authenticate: () => void;
 }
 
 // Filter out system calendars that users typically don't want to sync tasks to
@@ -43,11 +46,16 @@ const isUserCalendar = (calendar: any) => {
 };
 
 export function GoogleCalendarSettings({ 
-  onTaskUpdate, 
-  config, 
   userPreferences, 
   onUpdateUserPreferences,
-  boards
+  isAuthenticated,
+  isLoading,
+  error,
+  calendars,
+  handleAuthCallback,
+  disconnect,
+  setSelectedCalendarId,
+  authenticate,
 }: GoogleCalendarSettingsProps) {
   // Local state for form values
   const [autoSync, setAutoSync] = useState(false);
@@ -55,17 +63,6 @@ export function GoogleCalendarSettings({
   const [selectedCalendar, setSelectedCalendar] = useState<string>('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-
-  const {
-    isAuthenticated,
-    isLoading,
-    error,
-    calendars,
-    handleAuthCallback,
-    disconnect,
-    setSelectedCalendarId,
-    authenticate,
-  } = useGoogleCalendar(config, onTaskUpdate, boards);
 
   // Filter calendars to show only user calendars
   const userCalendars = calendars.filter(isUserCalendar);
@@ -169,7 +166,7 @@ export function GoogleCalendarSettings({
   };
 
   return (
-    <Card className="w-full max-w-2xl">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Calendar className="h-5 w-5" />

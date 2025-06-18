@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ArrowLeft, Save, User, Palette, Calendar, List, CalendarDays, Shield, Key, Mail, Eye, EyeOff, AlertTriangle, LayoutDashboard } from 'lucide-react';
 import { UserPreferences, Profile, Task, Board } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
-import { GoogleCalendarSettings } from '@/components/GoogleCalendarSettings';
+import { GoogleCalendarIntegration } from '@/components/GoogleCalendarIntegration';
 import { appConfig } from '@/lib/config';
 import {
 	Sidebar,
@@ -43,6 +43,8 @@ interface SettingsPageProps {
 	onSignOut?: () => Promise<{ error: any }>;
 	onUpdatePassword?: (newPassword: string) => Promise<{ data: any; error: any }>;
 	onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void>;
+	onAddTask?: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
+	tasks?: Task[];
 	boards: Board[];
 }
 
@@ -121,7 +123,7 @@ function SettingsSidebar({ activeSection, onSectionChange, onBackToBoards }: { a
 	);
 }
 
-export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpdatePreferences, onUpdateProfile, onSignOut, onUpdatePassword, onUpdateTask, boards }: SettingsPageProps) {
+export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpdatePreferences, onUpdateProfile, onSignOut, onUpdatePassword, onUpdateTask, onAddTask, tasks, boards }: SettingsPageProps) {
 	const { setTheme } = useTheme();
 	const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
 	const [isLoading, setIsLoading] = useState(false);
@@ -304,6 +306,8 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 							preferences={localPreferences}
 							onUpdatePreference={updatePreference}
 							onUpdateTask={onUpdateTask}
+							onAddTask={onAddTask}
+							tasks={tasks}
 							boards={boards}
 						/>
 					)}
@@ -784,21 +788,15 @@ function DateTimeSection({ preferences, onUpdatePreference }: { preferences: Par
 }
 
 // Calendar Section Component
-function CalendarSection({ preferences, onUpdatePreference, onUpdateTask, boards }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void; onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void>; boards: Board[] }) {
+function CalendarSection({ preferences, onUpdatePreference, onUpdateTask, onAddTask, tasks, boards }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void; onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void>; onAddTask?: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>; tasks?: Task[]; boards: Board[] }) {
 	const zoomLevels = [
-		{ value: 0, label: 'Compact', description: '1 hour per 60px' },
-		{ value: 1, label: 'Comfortable', description: '1 hour per 80px' },
-		{ value: 2, label: 'Spacious', description: '1 hour per 120px' },
-		{ value: 3, label: 'Detailed', description: '30 min per 80px' },
+		{ value: 0, label: 'Compact' },
+		{ value: 1, label: 'Comfortable'},
+		{ value: 2, label: 'Spacious'},
+		{ value: 3, label: 'Detailed'},
 	];
 
-	// Create a function to handle Google Calendar preference updates
-	const handleGoogleCalendarUpdate = async (updates: Partial<UserPreferences>) => {
-		// Update each preference individually to trigger the proper state management
-		for (const [key, value] of Object.entries(updates)) {
-			onUpdatePreference(key as keyof UserPreferences, value);
-		}
-	};
+
 
 	return (
 		<div className='space-y-6'>
@@ -850,7 +848,6 @@ function CalendarSection({ preferences, onUpdatePreference, onUpdateTask, boards
 								>
 									<div className='flex flex-col items-start'>
 										<span className='font-medium'>{level.label}</span>
-										<span className='text-xs text-muted-foreground'>{level.description}</span>
 									</div>
 								</SelectItem>
 							))}
@@ -860,13 +857,20 @@ function CalendarSection({ preferences, onUpdatePreference, onUpdateTask, boards
 			</Card>
 
 			{/* Google Calendar Integration */}
-			{onUpdateTask && (
-				<GoogleCalendarSettings
+			{onUpdateTask && onAddTask && tasks && (
+				<GoogleCalendarIntegration
+					tasks={tasks}
 					onTaskUpdate={onUpdateTask}
+					onAddTask={onAddTask}
 					config={appConfig.googleCalendar}
-					userPreferences={preferences as UserPreferences}
-					onUpdateUserPreferences={handleGoogleCalendarUpdate}
 					boards={boards}
+					userPreferences={preferences as UserPreferences | null}
+					onUpdateUserPreferences={async (updates: Partial<UserPreferences>) => {
+						// Convert the updates object to individual key-value calls
+						for (const [key, value] of Object.entries(updates)) {
+							onUpdatePreference(key as keyof UserPreferences, value);
+						}
+					}}
 				/>
 			)}
 		</div>

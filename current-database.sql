@@ -13,6 +13,17 @@ CREATE TABLE public.boards (
   CONSTRAINT boards_pkey PRIMARY KEY (id),
   CONSTRAINT boards_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.google_calendar_tokens (
+  id uuid NOT NULL,
+  access_token text NOT NULL,
+  refresh_token text NOT NULL,
+  expires_at timestamp with time zone NOT NULL,
+  scope text NOT NULL DEFAULT 'https://www.googleapis.com/auth/calendar'::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT google_calendar_tokens_pkey PRIMARY KEY (id),
+  CONSTRAINT google_calendar_tokens_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
   first_name text,
@@ -61,8 +72,8 @@ CREATE TABLE public.subtasks (
   completed_at timestamp with time zone,
   user_id uuid NOT NULL,
   CONSTRAINT subtasks_pkey PRIMARY KEY (id),
-  CONSTRAINT subtasks_parent_task_id_fkey FOREIGN KEY (parent_task_id) REFERENCES public.tasks(id),
-  CONSTRAINT subtasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+  CONSTRAINT subtasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT subtasks_parent_task_id_fkey FOREIGN KEY (parent_task_id) REFERENCES public.tasks(id)
 );
 CREATE TABLE public.tasks (
   id bigint NOT NULL DEFAULT nextval('tasks_id_seq'::regclass),
@@ -93,11 +104,13 @@ CREATE TABLE public.tasks (
   recurring_days_of_week ARRAY DEFAULT '{}'::integer[],
   recurring_days_of_month ARRAY DEFAULT '{}'::integer[],
   recurring_months_of_year ARRAY DEFAULT '{}'::integer[],
+  google_calendar_event_id text,
+  google_calendar_synced boolean DEFAULT false,
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
+  CONSTRAINT tasks_parent_task_id_fkey FOREIGN KEY (parent_task_id) REFERENCES public.tasks(id),
   CONSTRAINT tasks_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES auth.users(id),
   CONSTRAINT tasks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT tasks_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id),
-  CONSTRAINT tasks_parent_task_id_fkey FOREIGN KEY (parent_task_id) REFERENCES public.tasks(id)
+  CONSTRAINT tasks_board_id_fkey FOREIGN KEY (board_id) REFERENCES public.boards(id)
 );
 CREATE TABLE public.user_preferences (
   id uuid NOT NULL,
@@ -115,6 +128,10 @@ CREATE TABLE public.user_preferences (
   calendar_default_zoom integer DEFAULT 1 CHECK (calendar_default_zoom >= 0 AND calendar_default_zoom <= 3),
   calendar_default_view text DEFAULT '3-day'::text CHECK (calendar_default_view = ANY (ARRAY['3-day'::text, 'week'::text])),
   board_default_view text DEFAULT 'compact'::text CHECK (board_default_view = ANY (ARRAY['grid'::text, 'compact'::text, 'list'::text])),
+  google_calendar_enabled boolean DEFAULT false,
+  google_calendar_selected_calendar text,
+  google_calendar_auto_sync boolean DEFAULT false,
+  google_calendar_sync_only_scheduled boolean DEFAULT false,
   CONSTRAINT user_preferences_pkey PRIMARY KEY (id),
   CONSTRAINT user_preferences_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );

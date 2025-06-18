@@ -11,7 +11,7 @@ export interface UseGoogleCalendarReturn {
   selectedCalendarId: string;
   authenticate: () => void;
   handleAuthCallback: (code: string) => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
   syncTask: (task: Task) => Promise<void>;
   unsyncTask: (task: Task) => Promise<void>;
   setSelectedCalendarId: (calendarId: string) => void;
@@ -38,7 +38,12 @@ export function useGoogleCalendar(
 
   const loadCalendars = useCallback(async () => {
     const service = getGoogleCalendarService();
-    if (!service || !service.isUserAuthenticated()) {
+    if (!service) {
+      console.log('Cannot load calendars: service not initialized');
+      return;
+    }
+    
+    if (!service.isUserAuthenticated()) {
       console.log('Cannot load calendars: service not authenticated');
       return;
     }
@@ -96,13 +101,33 @@ export function useGoogleCalendar(
       
       setIsAuthenticated(isServiceAuthenticated);
       
+      // Load calendars directly here instead of calling loadCalendars to avoid dependency issues
       if (isServiceAuthenticated) {
-        await loadCalendars();
+        try {
+          setIsLoading(true);
+          setError(null);
+          console.log('Loading calendars...');
+          const calendarList = await service.getCalendarList();
+          console.log('Calendars loaded:', calendarList);
+          setCalendars(calendarList);
+        } catch (err) {
+          console.error('Failed to load calendars:', err);
+          
+          // Check if it's an authentication error (expired tokens)
+          if (err instanceof Error && err.message.includes('Authentication expired')) {
+            setError('Your Google Calendar session has expired. Please reconnect to continue.');
+            setIsAuthenticated(false);
+          } else {
+            setError('Failed to load calendars. Please try reconnecting.');
+          }
+        } finally {
+          setIsLoading(false);
+        }
       }
     };
 
     initializeService();
-  }, [config, loadCalendars]);
+  }, [config]);
 
   const getAuthUrl = useCallback(() => {
     const service = getGoogleCalendarService();

@@ -1,32 +1,39 @@
 import { useState, useEffect } from 'react';
-import { Task, Board } from '../types';
+import { Task, Board, UserPreferences } from '../types';
 import { GoogleCalendarSettings } from './GoogleCalendarSettings';
+import { GoogleCalendarImport } from './GoogleCalendarImport';
+import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { appConfig } from '../lib/config';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Settings, Zap, AlertCircle, CheckCircle, Cloud, ExternalLink } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Calendar, Zap, AlertCircle, CheckCircle, Cloud, ExternalLink, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { GoogleCalendarConfig } from '../lib/googleCalendar';
 
 interface GoogleCalendarIntegrationProps {
   tasks: Task[];
   onTaskUpdate: (id: number, updates: Partial<Task>) => Promise<void>;
+  onAddTask: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
   onManualSyncTask?: (task: Task) => Promise<void>;
   onManualUnsyncTask?: (task: Task) => Promise<void>;
   config: GoogleCalendarConfig;
   boards: Board[];
+  userPreferences?: UserPreferences | null;
+  onUpdateUserPreferences?: (updates: Partial<UserPreferences>) => Promise<void>;
 }
 
 export function GoogleCalendarIntegration({ 
   tasks, 
   onTaskUpdate, 
+  onAddTask,
   onManualSyncTask,
   onManualUnsyncTask,
-  boards
+  boards,
+  userPreferences,
+  onUpdateUserPreferences
 }: GoogleCalendarIntegrationProps) {
   const [isConfigured, setIsConfigured] = useState(false);
   const [syncStats, setSyncStats] = useState({
@@ -40,11 +47,17 @@ export function GoogleCalendarIntegration({
     await onTaskUpdate(taskId, updates);
   };
 
-  const isGoogleCalendarConnected = () => {
-    // This would normally check the Google Calendar service
-    // For now, return false as a placeholder
-    return false;
-  };
+  // Google Calendar hook for import functionality
+  const {
+    isAuthenticated,
+    calendars,
+    isLoading,
+    error,
+    handleAuthCallback,
+    disconnect,
+    setSelectedCalendarId,
+    authenticate,
+  } = useGoogleCalendar(appConfig.googleCalendar, handleTaskUpdate);
 
   // Check if Google Calendar is properly configured
   useEffect(() => {
@@ -135,7 +148,7 @@ export function GoogleCalendarIntegration({
 
   if (!isConfigured) {
     return (
-      <Card className="w-full max-w-2xl mx-auto">
+      <Card className="w-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-orange-500" />
@@ -196,198 +209,215 @@ VITE_GOOGLE_REDIRECT_URI=http://localhost:1420`}
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="settings">
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
-          </TabsTrigger>
-          <TabsTrigger value="sync">
-            <Zap className="h-4 w-4 mr-2" />
+    <div className="space-y-6">
+      {/* Connection Settings */}
+      <GoogleCalendarSettings 
+        userPreferences={userPreferences}
+        onUpdateUserPreferences={onUpdateUserPreferences}
+        isAuthenticated={isAuthenticated}
+        isLoading={isLoading}
+        error={error}
+        calendars={calendars}
+        handleAuthCallback={handleAuthCallback}
+        disconnect={disconnect}
+        setSelectedCalendarId={setSelectedCalendarId}
+        authenticate={authenticate}
+      />
+
+      {/* Import Section */}
+      {isAuthenticated ? (
+        <GoogleCalendarImport
+          calendars={calendars}
+          boards={boards}
+          tasks={tasks}
+          onAddTask={onAddTask}
+        />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              Import from Google Calendar
+            </CardTitle>
+            <CardDescription>
+              Connect to Google Calendar to import existing events as tasks
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Please connect to Google Calendar above to use import features.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sync Manager Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5" />
             Sync Manager
-          </TabsTrigger>
-          <TabsTrigger value="overview">
-            <Calendar className="h-4 w-4 mr-2" />
-            Overview
-          </TabsTrigger>
-        </TabsList>
-
-                 <TabsContent value="settings" className="space-y-4">
-           <GoogleCalendarSettings 
-             config={appConfig.googleCalendar} 
-             onTaskUpdate={handleTaskUpdate}
-             boards={boards}
-           />
-         </TabsContent>
-
-        <TabsContent value="sync" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5" />
-                Sync Manager
-              </CardTitle>
-              <CardDescription>
-                Manage synchronization between your tasks and Google Calendar
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Sync Statistics */}
-              <div className="grid grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {syncStats.totalScheduledTasks}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Scheduled Tasks
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {syncStats.syncedTasks}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Synced to Calendar
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-orange-600">
-                      {syncStats.unsyncedTasks}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Not Synced
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Separator />
-
-              {/* Bulk Actions */}
-              <div className="space-y-4">
-                <h4 className="font-medium">Bulk Actions</h4>
-                <div className="flex gap-4">
-                  <Button 
-                    onClick={handleBulkSync}
-                    disabled={!isGoogleCalendarConnected() || syncStats.unsyncedTasks === 0}
-                    className="flex-1"
-                  >
-                    <Cloud className="h-4 w-4 mr-2" />
-                    Sync All Unsynced Tasks
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={handleBulkUnsync}
-                    disabled={!isGoogleCalendarConnected() || syncStats.syncedTasks === 0}
-                    className="flex-1"
-                  >
-                    <Cloud className="h-4 w-4 mr-2" />
-                    Remove All from Calendar
-                  </Button>
+          </CardTitle>
+          <CardDescription>
+            Manage synchronization between your tasks and Google Calendar
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Sync Statistics */}
+          <div className="grid grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {syncStats.totalScheduledTasks}
                 </div>
-              </div>
-
-              {!isGoogleCalendarConnected() && (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Connect to Google Calendar in the Settings tab to use sync features.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="overview" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Integration Overview
-              </CardTitle>
-              <CardDescription>
-                How the Google Calendar integration works with your tasks
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Connection Status */}
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${isGoogleCalendarConnected() ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <span className="font-medium">Google Calendar</span>
+                <div className="text-sm text-muted-foreground">
+                  Scheduled Tasks
                 </div>
-                <Badge variant={isGoogleCalendarConnected() ? 'default' : 'secondary'}>
-                  {isGoogleCalendarConnected() ? 'Connected' : 'Not Connected'}
-                </Badge>
-              </div>
-
-              <Separator />
-
-              {/* Features */}
-              <div className="space-y-4">
-                <h4 className="font-medium">Features</h4>
-                <div className="grid gap-3">
-                  {[
-                    {
-                      icon: CheckCircle,
-                      title: 'Automatic Sync',
-                      description: 'Tasks are automatically synced when scheduled or updated',
-                      enabled: true
-                    },
-                    {
-                      icon: CheckCircle,
-                      title: 'Manual Control',
-                      description: 'Right-click any task to manually sync or unsync',
-                      enabled: true
-                    },
-                    {
-                      icon: CheckCircle,
-                      title: 'Bulk Operations',
-                      description: 'Sync or unsync multiple tasks at once',
-                      enabled: true
-                    },
-                    {
-                      icon: CheckCircle,
-                      title: 'Smart Filtering',
-                      description: 'Only scheduled tasks are synced by default',
-                      enabled: true
-                    },
-                  ].map((feature, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                      <feature.icon className="h-5 w-5 text-green-600 mt-0.5" />
-                      <div>
-                        <div className="font-medium">{feature.title}</div>
-                        <div className="text-sm text-muted-foreground">{feature.description}</div>
-                      </div>
-                    </div>
-                  ))}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {syncStats.syncedTasks}
                 </div>
-              </div>
+                <div className="text-sm text-muted-foreground">
+                  Synced to Calendar
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {syncStats.unsyncedTasks}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Not Synced
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-              <Separator />
+          <Separator />
 
-              {/* Usage Tips */}
-              <div className="space-y-4">
-                <h4 className="font-medium">Usage Tips</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• Schedule tasks with specific dates and times for automatic sync</li>
-                  <li>• Use the context menu (right-click) to manually sync individual tasks</li>
-                  <li>• Task updates (title, description, time) automatically sync to Google Calendar</li>
-                  <li>• Deleting a task will remove it from Google Calendar</li>
-                  <li>• Use the Sync Manager to handle multiple tasks at once</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          {/* Bulk Actions */}
+          <div className="space-y-4">
+            <h4 className="font-medium">Bulk Actions</h4>
+            <div className="flex gap-4">
+              <Button 
+                onClick={handleBulkSync}
+                disabled={!isAuthenticated || syncStats.unsyncedTasks === 0}
+                className="flex-1"
+              >
+                <Cloud className="h-4 w-4 mr-2" />
+                Sync All Unsynced Tasks
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={handleBulkUnsync}
+                disabled={!isAuthenticated || syncStats.syncedTasks === 0}
+                className="flex-1"
+              >
+                <Cloud className="h-4 w-4 mr-2" />
+                Remove All from Calendar
+              </Button>
+            </div>
+          </div>
+
+          {!isAuthenticated && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Connect to Google Calendar above to use sync features.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Overview Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Integration Overview
+          </CardTitle>
+          <CardDescription>
+            How the Google Calendar integration works with your tasks
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Connection Status */}
+          <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${isAuthenticated ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="font-medium">Google Calendar</span>
+            </div>
+            <Badge variant={isAuthenticated ? 'default' : 'secondary'}>
+              {isAuthenticated ? 'Connected & Persistent' : 'Not Connected'}
+            </Badge>
+          </div>
+
+          <Separator />
+
+          {/* Features */}
+          <div className="space-y-4">
+            <h4 className="font-medium">Features</h4>
+            <div className="grid gap-3">
+              {[
+                {
+                  icon: CheckCircle,
+                  title: 'Automatic Sync',
+                  description: 'Tasks are automatically synced when scheduled or updated',
+                  enabled: true
+                },
+                {
+                  icon: CheckCircle,
+                  title: 'Manual Control',
+                  description: 'Right-click any task to manually sync or unsync',
+                  enabled: true
+                },
+                {
+                  icon: CheckCircle,
+                  title: 'Bulk Operations',
+                  description: 'Sync or unsync multiple tasks at once',
+                  enabled: true
+                },
+                {
+                  icon: CheckCircle,
+                  title: 'Smart Filtering',
+                  description: 'Only scheduled tasks are synced by default',
+                  enabled: true
+                },
+              ].map((feature, index) => (
+                <div key={index} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                  <feature.icon className="h-5 w-5 text-green-600 mt-0.5" />
+                  <div>
+                    <div className="font-medium">{feature.title}</div>
+                    <div className="text-sm text-muted-foreground">{feature.description}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Usage Tips */}
+          <div className="space-y-4">
+            <h4 className="font-medium">Usage Tips</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>• Schedule tasks with specific dates and times for automatic sync</li>
+              <li>• Use the context menu (right-click) to manually sync individual tasks</li>
+              <li>• Task updates (title, description, time) automatically sync to Google Calendar</li>
+              <li>• Deleting a task will remove it from Google Calendar</li>
+              <li>• Use the Sync Manager to handle multiple tasks at once</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 } 
