@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Task, UserPreferences, Board } from '../types';
+import { UserPreferences, Board } from '../types';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { GoogleCalendarConfig } from '../lib/googleCalendar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

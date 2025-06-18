@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Task } from '../types';
+import { Task, Board } from '../types';
 import { GoogleCalendarSettings } from './GoogleCalendarSettings';
 import { appConfig } from '../lib/config';
 import { Button } from '@/components/ui/button';
@@ -18,13 +18,15 @@ interface GoogleCalendarIntegrationProps {
   onManualSyncTask?: (task: Task) => Promise<void>;
   onManualUnsyncTask?: (task: Task) => Promise<void>;
   config: GoogleCalendarConfig;
+  boards: Board[];
 }
 
 export function GoogleCalendarIntegration({ 
   tasks, 
   onTaskUpdate, 
   onManualSyncTask,
-  onManualUnsyncTask
+  onManualUnsyncTask,
+  boards
 }: GoogleCalendarIntegrationProps) {
   const [isConfigured, setIsConfigured] = useState(false);
   const [syncStats, setSyncStats] = useState({
@@ -215,6 +217,7 @@ VITE_GOOGLE_REDIRECT_URI=http://localhost:1420`}
            <GoogleCalendarSettings 
              config={appConfig.googleCalendar} 
              onTaskUpdate={handleTaskUpdate}
+             boards={boards}
            />
          </TabsContent>
 
