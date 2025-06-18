@@ -3,9 +3,9 @@ import { Task, Board } from '@/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { TaskContextMenu } from '@/components/task/TaskContextMenu';
-import { TaskDisplay } from '@/components/task/TaskDisplay';
 import { cn } from '@/lib/utils';
 import { Edit } from 'lucide-react';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 
 interface TaskListItemProps {
 	task: Task;
@@ -34,6 +34,7 @@ export function TaskListItem({
 	userPreferences,
 	isDone = false
 }: TaskListItemProps) {
+	const { formatDate } = useUserPreferences(userPreferences);
 	const [isEditingTime, setIsEditingTime] = useState(false);
 	const [tempTimeEstimate, setTempTimeEstimate] = useState(task.timeEstimate.toString());
 
@@ -70,11 +71,11 @@ export function TaskListItem({
 		}
 	};
 
-	const priorityColors: Record<Task['priority'], string> = {
-		1: 'border-l-green-500',
-		2: 'border-l-yellow-500',
-		3: 'border-l-orange-500',
-		4: 'border-l-red-500',
+	const priorityTextColors: Record<Task['priority'], string> = {
+		1: 'text-green-500',
+		2: 'text-yellow-500',
+		3: 'text-orange-500',
+		4: 'text-red-500',
 	};
 
 	return (
@@ -92,66 +93,77 @@ export function TaskListItem({
 		>
 			<div
 				className={cn(
-					'flex items-center mb-3 px-2 py-4 bg-background rounded-md shadow-sm hover:bg-muted cursor-pointer border-l-4 transition-all duration-200',
-					priorityColors[task.priority || 1],
+					'grid items-center mb-3 px-4 py-2 bg-background rounded-md shadow-sm hover:bg-muted cursor-pointer transition-all duration-200 gap-x-2',
 					task.status === 'done' ? 'opacity-60' : ''
 				)}
+				style={{ gridTemplateColumns: '2rem 1fr 8rem 8rem 6rem 8rem 3rem' }}
 				onClick={handleItemClick}
 			>
+				{/* Checkbox */}
 				<Checkbox
 					checked={task.status === 'done'}
 					onCheckedChange={handleCheckboxChange}
 					onClick={e => e.stopPropagation()}
-					className='mr-3'
+					className='mr-2'
 					aria-label={`Mark task ${task.title} as ${task.status === 'done' ? 'incomplete' : 'complete'}`}
 				/>
-				
-				<div className='flex-1'>
-					<TaskDisplay
-						task={task}
-						boardInfo={boardInfo}
-						userPreferences={userPreferences}
-						showBoardInfo={!!boardInfo}
-						showDates={true}
-						showRecurring={true}
+
+				{/* Title */}
+				<span className='truncate font-medium text-left'>{task.title}</span>
+
+				{/* Board Name */}
+				{boardInfo && (
+					<span className='text-sm text-muted-foreground text-center'>
+						{boardInfo.name}
+					</span>
+				)}
+
+				{/* Due Date */}
+				<span className='text-sm text-muted-foreground text-center'>
+					{task.dueDate ? formatDate(task.dueDate) : '--'}
+				</span>
+
+				{/* Priority */}
+				<span
+					className={cn('font-medium text-center', priorityTextColors[task.priority])}
+					title={`Priority: ${task.priority}`}
+				>
+					{task.priority}
+				</span>
+
+				{/* Time Estimate */}
+				{isEditingTime ? (
+					<input
+						placeholder='--'
+						type='number'
+						value={tempTimeEstimate}
+						onChange={e => setTempTimeEstimate(e.target.value)}
+						onBlur={handleTimeEstimateSubmit}
+						onKeyDown={handleTimeEstimateKeyDown}
+						className='text-sm text-muted-foreground bg-transparent border-none outline-none w-full p-0 focus:text-foreground text-center'
+						autoFocus
+						min='0'
 					/>
-				</div>
-				
-				<div className='flex flex-col items-end ml-2 text-xs text-muted-foreground'>
-					{/* Time estimate */}
-					{isEditingTime ? (
-						<input
-							placeholder='--'
-							type='number'
-							value={tempTimeEstimate}
-							onChange={e => setTempTimeEstimate(e.target.value)}
-							onBlur={handleTimeEstimateSubmit}
-							onKeyDown={handleTimeEstimateKeyDown}
-							className='text-xs text-muted-foreground bg-transparent border-none outline-none w-12 p-0 focus:text-foreground mb-1'
-							autoFocus
-							min='0'
-						/>
-					) : (
-						<button
-							onClick={handleTimeEstimateClick}
-							className={cn('text-xs text-muted-foreground hover:text-foreground transition-colors duration-200 font-medium mb-1', isDone && 'text-muted-foreground/60')}
-							title='Click to edit time estimate'
-						>
-							{task.timeEstimate > 0 ? `${task.timeEstimate} min` : '--'}
-						</button>
-					)}
-					
-					{/* Edit button */}
-					<Button
-						size='sm'
-						variant='ghost'
-						className='h-6 w-6 p-0 text-muted-foreground hover:text-foreground'
-						onClick={handleEditClick}
-						title='Edit task'
+				) : (
+					<button
+						onClick={e => { e.stopPropagation(); handleTimeEstimateClick(e); }}
+						className={cn('text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 font-medium text-center', isDone && 'text-muted-foreground/60')}
+						title='Click to edit time estimate'
 					>
-						<Edit className='h-3 w-3' />
-					</Button>
-				</div>
+						{task.timeEstimate > 0 ? `${task.timeEstimate} min` : '--'}
+					</button>
+				)}
+
+				{/* Edit Action */}
+				<Button
+					size='sm'
+					variant='ghost'
+					className='p-1 text-muted-foreground hover:text-foreground justify-self-center'
+					onClick={handleEditClick}
+					title='Edit task'
+				>
+					<Edit className='h-4 w-4' />
+				</Button>
 			</div>
 		</TaskContextMenu>
 	);

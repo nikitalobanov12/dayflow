@@ -86,7 +86,20 @@ export function CompactListView({
 				{groupedTasks.today.length > 0 && (
 					<div className='mb-6'>
 						<h3 className='text-lg font-semibold mb-3 text-foreground border-b border-border pb-2'>Today ({groupedTasks.today.length})</h3>
-						<div className='space-y-3'>
+						{/* Header row */}
+						<div
+							className='grid items-center px-4 py-2 gap-x-2 text-xs font-semibold text-muted-foreground bg-background rounded-md'
+							style={{ gridTemplateColumns: '2rem 1fr 8rem 8rem 6rem 8rem 3rem' }}
+						>
+							<span></span>
+							<span className='text-left'>Title</span>
+							<span className='text-center'>Board</span>
+							<span className='text-center'>Due</span>
+							<span className='text-center'>Priority</span>
+							<span className='text-center'>Estimate</span>
+							<span className='text-center'>Action</span>
+						</div>
+						<div className='space-y-3 mt-1'>
 							{groupedTasks.today.map(task => (
 								<TaskListItem
 									key={task.id}
@@ -110,7 +123,20 @@ export function CompactListView({
 				{groupedTasks.thisWeek.length > 0 && (
 					<div className='mb-6'>
 						<h3 className='text-lg font-semibold mb-3 text-foreground border-b border-border pb-2'>This Week ({groupedTasks.thisWeek.length})</h3>
-						<div className='space-y-3'>
+						{/* Header row */}
+						<div
+							className='grid items-center px-4 py-2 gap-x-2 text-xs font-semibold text-muted-foreground bg-background rounded-md'
+							style={{ gridTemplateColumns: '2rem 1fr 8rem 8rem 6rem 8rem 3rem' }}
+						>
+							<span></span>
+							<span className='text-left'>Title</span>
+							<span className='text-center'>Board</span>
+							<span className='text-center'>Due</span>
+							<span className='text-center'>Priority</span>
+							<span className='text-center'>Estimate</span>
+							<span className='text-center'>Action</span>
+						</div>
+						<div className='space-y-3 mt-1'>
 							{groupedTasks.thisWeek.map(task => (
 								<TaskListItem
 									key={task.id}
@@ -134,7 +160,20 @@ export function CompactListView({
 				{groupedTasks.backlog.length > 0 && (
 					<div className='mb-6'>
 						<h3 className='text-lg font-semibold mb-3 text-foreground border-b border-border pb-2'>Backlog ({groupedTasks.backlog.length})</h3>
-						<div className='space-y-3'>
+						{/* Header row */}
+						<div
+							className='grid items-center px-4 py-2 gap-x-2 text-xs font-semibold text-muted-foreground bg-background rounded-md'
+							style={{ gridTemplateColumns: '2rem 1fr 8rem 8rem 6rem 8rem 3rem' }}
+						>
+							<span></span>
+							<span className='text-left'>Title</span>
+							<span className='text-center'>Board</span>
+							<span className='text-center'>Due</span>
+							<span className='text-center'>Priority</span>
+							<span className='text-center'>Estimate</span>
+							<span className='text-center'>Action</span>
+						</div>
+						<div className='space-y-3 mt-1'>
 							{groupedTasks.backlog.map(task => (
 								<TaskListItem
 									key={task.id}
@@ -158,7 +197,20 @@ export function CompactListView({
 				{groupedTasks.done.length > 0 && (
 					<div className='mb-6'>
 						<h3 className='text-lg font-semibold mb-3 text-foreground border-b border-border pb-2'>Done ({groupedTasks.done.length})</h3>
-						<div className='space-y-3'>
+						{/* Header row */}
+						<div
+							className='grid items-center px-4 py-2 gap-x-2 text-xs font-semibold text-muted-foreground bg-background rounded-md'
+							style={{ gridTemplateColumns: '2rem 1fr 8rem 8rem 6rem 8rem 3rem' }}
+						>
+							<span></span>
+							<span className='text-left'>Title</span>
+							<span className='text-center'>Board</span>
+							<span className='text-center'>Due</span>
+							<span className='text-center'>Priority</span>
+							<span className='text-center'>Estimate</span>
+							<span className='text-center'>Action</span>
+						</div>
+						<div className='space-y-3 mt-1'>
 							{groupedTasks.done.map(task => (
 								<TaskListItem
 									key={task.id}
