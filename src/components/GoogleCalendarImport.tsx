@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Task, Board } from '../types';
 import { useGoogleCalendarImport } from '../hooks/useGoogleCalendarImport';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,10 @@ export function GoogleCalendarImport({
   const [showPreview, setShowPreview] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [dateRange, setDateRange] = useState<'week' | 'month' | 'custom'>('month');
+  const [includeGoogleTasks, setIncludeGoogleTasks] = useState(true);
+  const [selectedTaskList, setSelectedTaskList] = useState('@default');
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
+  const [taskLists, setTaskLists] = useState<any[]>([]);
 
   const {
     isLoading,
@@ -39,8 +43,39 @@ export function GoogleCalendarImport({
     previewTasks,
     importEvents,
     confirmImport,
-    clearPreview
+    clearPreview,
+    getTaskLists
   } = useGoogleCalendarImport(onAddTask, tasks);
+
+  // Load Google Task Lists when component mounts
+  useEffect(() => {
+    const loadTaskLists = async () => {
+      if (!includeGoogleTasks) return;
+      
+      try {
+        const lists = await getTaskLists();
+        setTaskLists(lists);
+        console.log(`✅ Loaded ${lists.length} Google Task Lists`);
+      } catch (error) {
+        console.warn('Failed to load task lists:', error);
+        
+        // Check if it's a scope issue
+        if (error instanceof Error && error.message.includes('Google Tasks access not granted')) {
+          // Show a helpful error message to the user
+          toast.error('Google Tasks access not available. Please reconnect to Google Calendar to enable Google Tasks import.');
+        } else if (error instanceof Error && error.message.includes('Authentication expired')) {
+          toast.error('Google authentication expired. Please reconnect to Google Calendar.');
+        } else {
+          console.error('Unexpected error loading task lists:', error);
+        }
+        
+        // Disable Google Tasks option
+        setIncludeGoogleTasks(false);
+      }
+    };
+
+    loadTaskLists();
+  }, [getTaskLists, includeGoogleTasks]);
 
   const handleStartImport = async () => {
     try {
@@ -62,12 +97,13 @@ export function GoogleCalendarImport({
           timeMax = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000));
       }
 
-      const preview = await importEvents(selectedCalendar, selectedBoard, timeMin, timeMax);
+      const preview = await importEvents(selectedCalendar, selectedBoard, timeMin, timeMax, includeGoogleTasks, selectedTaskList, showCompletedTasks);
       
-      if (preview.length === 0) {
-        toast.info('No new events found to import');
-        return;
-      }
+              if (preview.length === 0) {
+          const sourceText = includeGoogleTasks ? 'events or tasks' : 'events';
+          toast.info(`No new ${sourceText} found to import`);
+          return;
+        }
 
       // Select all tasks by default
       setSelectedTasks(new Set(preview.map(task => task.originalEventId)));
@@ -88,7 +124,8 @@ export function GoogleCalendarImport({
       }
 
       await confirmImport(tasksToImport, selectedBoard);
-      toast.success(`Successfully imported ${tasksToImport.length} tasks from Google Calendar`);
+      const sourceText = includeGoogleTasks ? 'Google Calendar & Tasks' : 'Google Calendar';
+      toast.success(`Successfully imported ${tasksToImport.length} items from ${sourceText}`);
       setShowPreview(false);
       setSelectedTasks(new Set());
     } catch (err) {
@@ -152,7 +189,7 @@ export function GoogleCalendarImport({
             Import from Google Calendar
           </CardTitle>
           <CardDescription>
-            Import existing calendar events as tasks in DayFlow. Duplicates and DayFlow-created events are automatically filtered out.
+            Import existing calendar events and Google Tasks into DayFlow. Duplicates and DayFlow-created items are automatically filtered out.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -209,6 +246,75 @@ export function GoogleCalendarImport({
                 <SelectItem value="month">Past & Next Month</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Google Tasks Options */}
+          <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Import Sources</label>
+              <Badge variant="outline">Enhanced Import</Badge>
+            </div>
+            
+            {/* Information Alert */}
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                <strong>Note:</strong> Google Tasks import requires additional permissions. If you connected to Google Calendar before this feature was added, you may need to reconnect in Settings to enable Google Tasks access.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="space-y-3">
+              {/* Google Tasks Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-medium">Include Google Tasks</label>
+                  <p className="text-xs text-muted-foreground">
+                    Import tasks from Google Tasks in addition to calendar events
+                  </p>
+                </div>
+                <Checkbox
+                  checked={includeGoogleTasks}
+                  onCheckedChange={(checked) => setIncludeGoogleTasks(checked === true)}
+                />
+              </div>
+
+              {/* Google Tasks Options (only show when enabled) */}
+              {includeGoogleTasks && (
+                <>
+                  {/* Task List Selection */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Google Task List</label>
+                    <Select value={selectedTaskList} onValueChange={setSelectedTaskList}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select task list" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="@default">My Tasks (Default)</SelectItem>
+                        {taskLists.map((list) => (
+                          <SelectItem key={list.id} value={list.id}>
+                            {list.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Completed Tasks Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label className="text-sm font-medium">Include Completed Tasks</label>
+                      <p className="text-xs text-muted-foreground">
+                        Import tasks that are already marked as completed
+                      </p>
+                    </div>
+                    <Checkbox
+                      checked={showCompletedTasks}
+                      onCheckedChange={(checked) => setShowCompletedTasks(checked === true)}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Error Display */}

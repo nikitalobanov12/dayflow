@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, CheckCircle, AlertCircle, ExternalLink, Unlink } from 'lucide-react';
+import { Calendar, CheckCircle, AlertCircle, ExternalLink, Unlink, Info } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Save } from 'lucide-react';
+import { getGoogleCalendarService } from '../lib/googleCalendar';
 
 interface GoogleCalendarSettingsProps {
   userPreferences?: UserPreferences | null;
@@ -63,6 +64,7 @@ export function GoogleCalendarSettings({
   const [selectedCalendar, setSelectedCalendar] = useState<string>('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [hasTasksScope, setHasTasksScope] = useState<boolean | null>(null);
 
   // Filter calendars to show only user calendars
   const userCalendars = calendars.filter(isUserCalendar);
@@ -85,6 +87,29 @@ export function GoogleCalendarSettings({
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [isAuthenticated, handleAuthCallback]);
+
+  // Check Google Tasks scope when authenticated
+  useEffect(() => {
+    const checkTasksScope = async () => {
+      if (!isAuthenticated) {
+        setHasTasksScope(null);
+        return;
+      }
+
+      try {
+        const service = getGoogleCalendarService();
+        if (service) {
+          const hasScope = await service.hasTasksScope();
+          setHasTasksScope(hasScope);
+        }
+      } catch (error) {
+        console.warn('Failed to check Tasks scope:', error);
+        setHasTasksScope(false);
+      }
+    };
+
+    checkTasksScope();
+  }, [isAuthenticated]);
 
   // Load settings from user preferences
   useEffect(() => {
@@ -182,10 +207,24 @@ export function GoogleCalendarSettings({
           <div className="flex items-center gap-2">
             <span className="font-medium">Connection Status</span>
             {isAuthenticated ? (
-              <Badge variant="default" className="flex items-center gap-1">
-                <CheckCircle className="h-3 w-3" />
-                Connected & Persistent
-              </Badge>
+              <div className="flex gap-2">
+                <Badge variant="default" className="flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3" />
+                  Connected & Persistent
+                </Badge>
+                {hasTasksScope === false && (
+                  <Badge variant="destructive" className="flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    No Tasks Access
+                  </Badge>
+                )}
+                {hasTasksScope === true && (
+                  <Badge variant="outline" className="flex items-center gap-1 text-green-700 border-green-200 bg-green-50">
+                    <CheckCircle className="h-3 w-3" />
+                    Tasks Enabled
+                  </Badge>
+                )}
+              </div>
             ) : (
               <Badge variant="secondary" className="flex items-center gap-1">
                 <AlertCircle className="h-3 w-3" />
@@ -233,6 +272,17 @@ export function GoogleCalendarSettings({
             <AlertDescription>
               <strong>One-time setup:</strong> Connect your Google Calendar once and your tasks will automatically sync forever. 
               No need to reconnect or worry about expired sessions.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Google Tasks scope warning */}
+        {isAuthenticated && hasTasksScope === false && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Google Tasks Import:</strong> Your connection doesn't have access to Google Tasks. 
+              To enable importing from Google Tasks, please disconnect and reconnect to grant additional permissions.
             </AlertDescription>
           </Alert>
         )}

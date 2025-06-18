@@ -18,9 +18,10 @@ export interface UseGoogleCalendarImportReturn {
   isLoading: boolean;
   error: string | null;
   previewTasks: CalendarImportPreview[];
-  importEvents: (calendarId: string, boardId?: number, timeMin?: Date, timeMax?: Date) => Promise<CalendarImportPreview[]>;
+  importEvents: (calendarId: string, boardId?: number, timeMin?: Date, timeMax?: Date, includeGoogleTasks?: boolean, taskListId?: string, showCompletedTasks?: boolean) => Promise<CalendarImportPreview[]>;
   confirmImport: (tasks: CalendarImportPreview[], boardId?: number) => Promise<void>;
   clearPreview: () => void;
+  getTaskLists: () => Promise<any[]>;
 }
 
 export function useGoogleCalendarImport(
@@ -40,7 +41,10 @@ export function useGoogleCalendarImport(
     calendarId: string, 
     boardId?: number, 
     timeMin?: Date, 
-    timeMax?: Date
+    timeMax?: Date,
+    includeGoogleTasks: boolean = true,
+    taskListId: string = '@default',
+    showCompletedTasks: boolean = false
   ): Promise<CalendarImportPreview[]> => {
     const service = getGoogleCalendarService();
     
@@ -54,8 +58,8 @@ export function useGoogleCalendarImport(
     try {
       console.log('🔄 Starting calendar import preview...');
       
-      // Get importable tasks from Google Calendar
-      const importableTasks = await service.importEvents(calendarId, boardId, timeMin, timeMax);
+      // Get importable tasks from Google Calendar and Google Tasks
+      const importableTasks = await service.importEvents(calendarId, boardId, timeMin, timeMax, includeGoogleTasks, taskListId, showCompletedTasks);
       
       // Filter out tasks that already exist in DayFlow
       const newTasks = importableTasks.filter(task => 
@@ -152,12 +156,28 @@ export function useGoogleCalendarImport(
     setError(null);
   }, []);
 
+  const getTaskLists = useCallback(async () => {
+    const service = getGoogleCalendarService();
+    
+    if (!service || !service.isUserAuthenticated()) {
+      throw new Error('Not authenticated with Google Tasks');
+    }
+
+    try {
+      return await service.getTaskLists();
+    } catch (error) {
+      console.error('❌ Failed to fetch task lists:', error);
+      throw error;
+    }
+  }, []);
+
   return {
     isLoading,
     error,
     previewTasks,
     importEvents,
     confirmImport,
-    clearPreview
+    clearPreview,
+    getTaskLists
   };
 } 

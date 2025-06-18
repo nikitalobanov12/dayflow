@@ -10,8 +10,9 @@ export interface GoogleCalendarConfig {
 export class GoogleCalendarService {
   private tokens: GoogleCalendarTokens | null = null;
   private readonly CALENDAR_API_BASE = 'https://www.googleapis.com/calendar/v3';
+  private readonly TASKS_API_BASE = 'https://www.googleapis.com/tasks/v1';
   private readonly AUTH_BASE = 'https://accounts.google.com/o/oauth2/v2/auth';
-  private readonly SCOPES = 'https://www.googleapis.com/auth/calendar';
+  private readonly SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks';
   private userId: string | null = null;
   private refreshPromise: Promise<void> | null = null;
 
@@ -574,6 +575,318 @@ export class GoogleCalendarService {
   }
 
   /**
+   * Make authenticated API request to Google Tasks API
+   */
+  private async makeTasksApiRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
+    if (!this.tokens) {
+      throw new Error('Not authenticated with Google Tasks');
+    }
+
+    // Ensure tokens are valid before making request
+    await this.ensureValidTokens();
+
+    const response = await fetch(`${this.TASKS_API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${this.tokens.accessToken}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Tasks API request failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+
+      if (response.status === 401) {
+        // Token might be expired, try refreshing once more
+        try {
+          await this.refreshAccessToken();
+          
+          // Retry the request with refreshed token
+          const retryResponse = await fetch(`${this.TASKS_API_BASE}${endpoint}`, {
+            ...options,
+            headers: {
+              'Authorization': `Bearer ${this.tokens.accessToken}`,
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+          });
+
+          if (!retryResponse.ok) {
+            throw new Error(`Tasks API request failed after refresh: ${retryResponse.status}`);
+          }
+
+          return await retryResponse.json();
+        } catch (refreshError) {
+          console.error('Failed to refresh and retry Tasks request:', refreshError);
+          throw new Error('Authentication expired. Please reconnect to Google Calendar.');
+        }
+      } else {
+        throw new Error(`Tasks API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Check if the current tokens have Google Tasks scope
+   */
+  async hasTasksScope(): Promise<boolean> {
+    if (!this.tokens) {
+      return false;
+    }
+
+    try {
+      // Try to make a simple request to the Tasks API to check if we have permission
+      const response = await fetch(`${this.TASKS_API_BASE}/users/@me/lists?maxResults=1`, {
+        headers: {
+          'Authorization': `Bearer ${this.tokens.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.log('Tasks scope check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get Google Task Lists
+   */
+  async getTaskLists(): Promise<any[]> {
+    if (!this.isUserAuthenticated()) {
+      throw new Error('Not authenticated with Google Tasks');
+    }
+
+    // Check if we have the required Tasks scope
+    const hasScope = await this.hasTasksScope();
+    if (!hasScope) {
+      throw new Error('Google Tasks access not granted. Please reconnect to Google Calendar to enable Google Tasks import.');
+    }
+
+    try {
+      console.log('📋 Fetching Google Task Lists...');
+      const response = await this.makeTasksApiRequest('/users/@me/lists');
+      const taskLists = response.items || [];
+      console.log(`📋 Found ${taskLists.length} task lists`);
+      return taskLists;
+    } catch (error) {
+      console.error('❌ Failed to fetch task lists:', error);
+      // Provide more specific error message
+      if (error instanceof Error && error.message.includes('403')) {
+        throw new Error('Google Tasks access denied. Please reconnect to Google Calendar to grant Tasks permissions.');
+      } else if (error instanceof Error && error.message.includes('401')) {
+        throw new Error('Authentication expired. Please reconnect to Google Calendar.');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get Google Tasks from a specific task list
+   */
+  async getTasks(taskListId: string = '@default', showCompleted: boolean = true, showDeleted: boolean = false): Promise<any[]> {
+    if (!this.isUserAuthenticated()) {
+      throw new Error('Not authenticated with Google Tasks');
+    }
+
+    try {
+      console.log(`📋 Fetching Google Tasks from list: ${taskListId}...`);
+      
+      const params = new URLSearchParams({
+        showCompleted: showCompleted.toString(),
+        showDeleted: showDeleted.toString(),
+        showHidden: 'true',
+        maxResults: '100'
+      });
+
+      const response = await this.makeTasksApiRequest(`/lists/${taskListId}/tasks?${params.toString()}`);
+      const tasks = response.items || [];
+      console.log(`📋 Found ${tasks.length} tasks in list ${taskListId}`);
+      return tasks;
+    } catch (error) {
+      console.error('❌ Failed to fetch tasks:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Filter Google Tasks that are suitable for import
+   */
+  filterImportableTasks(tasks: any[]): any[] {
+    return tasks.filter(task => {
+      // Skip tasks without titles
+      if (!task.title || task.title.trim() === '') {
+        return false;
+      }
+
+      // Skip deleted tasks
+      if (task.deleted) {
+        return false;
+      }
+
+      // Skip subtasks (tasks with parent)
+      if (task.parent) {
+        return false;
+      }
+
+      // Skip tasks that might be created by DayFlow
+      if (task.notes?.includes('📱 Created in DayFlow')) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  /**
+   * Convert Google Task to DayFlow task format
+   */
+  private googleTaskToTask(googleTask: any, boardId?: number): Omit<Task, 'id' | 'createdAt'> {
+    // Parse due date
+    const dueDate = googleTask.due ? new Date(googleTask.due).toISOString() : undefined;
+    
+    // Extract description and clean it
+    let description = googleTask.notes || '';
+    
+    // Try to extract DayFlow-like information if it exists
+    let priority: 1 | 2 | 3 | 4 = 2; // Default medium
+    let category = '';
+    let tags: string[] = [];
+    let timeEstimate = 60; // Default 1 hour
+
+    // Parse DayFlow-style notes if they exist
+    if (description.includes('🔥 Priority:')) {
+      const priorityMatch = description.match(/🔥 Priority: (Low|Medium|High|Critical)/);
+      if (priorityMatch) {
+        const priorityMap: Record<string, 1 | 2 | 3 | 4> = {
+          'Low': 1, 'Medium': 2, 'High': 3, 'Critical': 4
+        };
+        priority = priorityMap[priorityMatch[1]] || 2;
+      }
+    }
+
+    if (description.includes('🏷️ Category:')) {
+      const categoryMatch = description.match(/🏷️ Category: ([^\n]+)/);
+      if (categoryMatch) {
+        category = categoryMatch[1].trim();
+      }
+    }
+
+    if (description.includes('🏷️ Tags:')) {
+      const tagsMatch = description.match(/🏷️ Tags: ([^\n]+)/);
+      if (tagsMatch) {
+        tags = tagsMatch[1].split(',').map((tag: string) => tag.trim()).filter(Boolean);
+      }
+    }
+
+    if (description.includes('⏱️ Time Estimate:')) {
+      const timeMatch = description.match(/⏱️ Time Estimate: (\d+)/);
+      if (timeMatch) {
+        timeEstimate = parseInt(timeMatch[1]) || 60;
+      }
+    }
+
+    // Clean description by removing DayFlow metadata
+    description = description
+      .replace(/📋 Board: [^\n]+\n?/g, '')
+      .replace(/⏱️ Time Estimate: [^\n]+\n?/g, '')
+      .replace(/🔥 Priority: [^\n]+\n?/g, '')
+      .replace(/🏷️ Category: [^\n]+\n?/g, '')
+      .replace(/📊 Status: [^\n]+\n?/g, '')
+      .replace(/🏷️ Tags: [^\n]+\n?/g, '')
+      .replace(/📈 Progress: [^\n]+\n?/g, '')
+      .replace(/⏰ Time Spent: [^\n]+\n?/g, '')
+      .replace(/📱 Created in DayFlow\n?/g, '')
+      .replace(/📝 /g, '')
+      .trim();
+
+    // Determine status based on completion and due date
+    let status: Task['status'] = 'backlog';
+    
+    if (googleTask.status === 'completed') {
+      status = 'done';
+    } else if (dueDate) {
+      const now = new Date();
+      const due = new Date(dueDate);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+      
+      if (dueDay.getTime() === today.getTime()) {
+        status = 'today';
+      } else if (dueDay > today) {
+        // Check if it's this week
+        const daysDiff = Math.ceil((dueDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff <= 7) {
+          status = 'this-week';
+        }
+      } else {
+        // Overdue tasks go to today
+        status = 'today';
+      }
+    }
+
+    return {
+      title: googleTask.title.trim(),
+      description,
+      timeEstimate,
+      priority,
+      status,
+      position: 0, // Will be set properly when added
+      scheduledDate: dueDate,
+      startDate: dueDate,
+      dueDate,
+      category,
+      tags,
+      boardId,
+      progressPercentage: googleTask.status === 'completed' ? 100 : 0,
+      timeSpent: 0,
+      labels: [],
+      attachments: [],
+      // Store the original Google Task ID to prevent re-import
+      googleCalendarEventId: `task_${googleTask.id}`,
+      googleCalendarSynced: false // Tasks are not synced to calendar
+    };
+  }
+
+  /**
+   * Import Google Tasks as DayFlow tasks
+   */
+  async importTasks(
+    taskListId: string = '@default',
+    boardId?: number,
+    showCompleted: boolean = false
+  ): Promise<Omit<Task, 'id' | 'createdAt'>[]> {
+    if (!this.isUserAuthenticated()) {
+      throw new Error('Not authenticated with Google Tasks');
+    }
+
+    try {
+      console.log('🔄 Fetching tasks from Google Tasks...');
+      const tasks = await this.getTasks(taskListId, showCompleted, false);
+      
+      console.log(`📋 Found ${tasks.length} tasks`);
+      const importableTasks = this.filterImportableTasks(tasks);
+      
+      console.log(`✅ ${importableTasks.length} tasks suitable for import`);
+      const dayflowTasks = importableTasks.map(task => this.googleTaskToTask(task, boardId));
+      
+      return dayflowTasks;
+    } catch (error) {
+      console.error('❌ Failed to import tasks from Google Tasks:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Filter events that are suitable for import as tasks
    */
   filterImportableEvents(events: any[]): any[] {
@@ -724,31 +1037,54 @@ export class GoogleCalendarService {
   }
 
   /**
-   * Import events from Google Calendar as tasks
+   * Import both events and tasks from Google Calendar and Google Tasks
    */
   async importEvents(
     calendarId: string = 'primary', 
     boardId?: number, 
     timeMin?: Date, 
-    timeMax?: Date
+    timeMax?: Date,
+    includeGoogleTasks: boolean = true,
+    taskListId: string = '@default',
+    showCompletedTasks: boolean = false
   ): Promise<Omit<Task, 'id' | 'createdAt'>[]> {
     if (!this.isUserAuthenticated()) {
       throw new Error('Not authenticated with Google Calendar');
     }
 
     try {
-      console.log('🔄 Fetching events from Google Calendar...');
+      console.log('🔄 Fetching events and tasks from Google...');
+      
+      const allTasks: Omit<Task, 'id' | 'createdAt'>[] = [];
+
+      // Import Google Calendar Events
+      console.log('📅 Fetching events from Google Calendar...');
       const events = await this.getEvents(calendarId, timeMin, timeMax);
-      
       console.log(`📅 Found ${events.length} events`);
+      
       const importableEvents = this.filterImportableEvents(events);
-      
       console.log(`✅ ${importableEvents.length} events suitable for import`);
-      const tasks = importableEvents.map(event => this.eventToTask(event, boardId));
       
-      return tasks;
+      const eventTasks = importableEvents.map(event => this.eventToTask(event, boardId));
+      allTasks.push(...eventTasks);
+
+      // Import Google Tasks (if enabled)
+      if (includeGoogleTasks) {
+        try {
+          console.log('📋 Fetching tasks from Google Tasks...');
+          const googleTasks = await this.importTasks(taskListId, boardId, showCompletedTasks);
+          console.log(`✅ ${googleTasks.length} Google Tasks suitable for import`);
+          allTasks.push(...googleTasks);
+        } catch (tasksError) {
+          console.warn('⚠️ Failed to import Google Tasks (continuing with Calendar events only):', tasksError);
+          // Continue with just calendar events if tasks fail
+        }
+      }
+
+      console.log(`🎉 Total: ${allTasks.length} items ready for import (${eventTasks.length} events, ${allTasks.length - eventTasks.length} tasks)`);
+      return allTasks;
     } catch (error) {
-      console.error('❌ Failed to import events from Google Calendar:', error);
+      console.error('❌ Failed to import from Google:', error);
       throw error;
     }
   }
