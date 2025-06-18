@@ -1,12 +1,13 @@
 import { useCallback } from 'react';
-import { Task, UserPreferences } from '../types';
+import { Task, UserPreferences, Board } from '../types';
 import { getGoogleCalendarService } from '../lib/googleCalendar';
 
 export function useGoogleCalendarSync(
   originalOnUpdateTask: (id: number, updates: Partial<Task>) => Promise<boolean>,
   originalOnDeleteTask: (id: number) => Promise<boolean>,
   tasks: Task[],
-  userPreferences?: UserPreferences | null
+  userPreferences?: UserPreferences | null,
+  boards?: Board[]
 ) {
 
   // Load settings from user preferences (with localStorage fallback for backward compatibility)
@@ -65,16 +66,25 @@ export function useGoogleCalendarSync(
     return true;
   }, [getSettings]);
 
+  // Helper function to get board information for a task
+  const getBoardForTask = useCallback((task: Task) => {
+    if (!boards || !task.boardId) return undefined;
+    const board = boards.find(b => b.id === task.boardId);
+    return board ? { name: board.name, color: board.color || undefined } : undefined;
+  }, [boards]);
+
   const syncTaskToCalendar = useCallback(async (task: Task) => {
     const googleCalendarService = getGoogleCalendarService();
     const settings = getSettings();
+    const boardInfo = getBoardForTask(task);
     
     console.log('📊 syncTaskToCalendar:', {
       taskId: task.id,
       taskTitle: task.title,
       hasExistingEvent: !!task.googleCalendarEventId,
       calendarId: settings.selectedCalendarId,
-      isAuthenticated: googleCalendarService?.isUserAuthenticated()
+      isAuthenticated: googleCalendarService?.isUserAuthenticated(),
+      boardInfo
     });
     
     if (!googleCalendarService?.isUserAuthenticated()) {
@@ -85,13 +95,13 @@ export function useGoogleCalendarSync(
     try {
       if (task.googleCalendarEventId) {
         console.log('🔄 Updating existing Google Calendar event:', task.googleCalendarEventId);
-        // Update existing event
-        await googleCalendarService.updateEvent(task, task.googleCalendarEventId, settings.selectedCalendarId);
+        // Update existing event with board information
+        await googleCalendarService.updateEvent(task, task.googleCalendarEventId, settings.selectedCalendarId, boardInfo);
         console.log('✅ Successfully updated Google Calendar event');
       } else {
         console.log('➕ Creating new Google Calendar event');
-        // Create new event
-        const eventId = await googleCalendarService.createEvent(task, settings.selectedCalendarId);
+        // Create new event with board information
+        const eventId = await googleCalendarService.createEvent(task, settings.selectedCalendarId, boardInfo);
         console.log('📅 Created event with ID:', eventId);
         if (eventId) {
           // Update the task with the Google Calendar event ID
@@ -109,7 +119,7 @@ export function useGoogleCalendarSync(
         googleCalendarSynced: false,
       });
     }
-  }, [getSettings, originalOnUpdateTask]);
+  }, [getSettings, originalOnUpdateTask, getBoardForTask]);
 
   const removeTaskFromCalendar = useCallback(async (task: Task) => {
     const googleCalendarService = getGoogleCalendarService();

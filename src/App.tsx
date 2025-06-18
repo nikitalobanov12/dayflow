@@ -39,7 +39,7 @@ function App() {
 		deleteTask: syncedDeleteTask,
 		manualSyncTask,
 		manualUnsyncTask
-	} = useGoogleCalendarSync(updateTask, deleteTask, tasks, userPreferences);
+	} = useGoogleCalendarSync(updateTask, deleteTask, tasks, userPreferences, boards);
 
 	const [isOAuthCallback, setIsOAuthCallback] = useState(false);
 
@@ -368,6 +368,7 @@ function App() {
 						onSignOut={signOut}
 						onUpdatePassword={updatePassword}
 						onUpdateTask={handleUpdateTask}
+						boards={boards}
 					/>
 				</div>
 			</div>

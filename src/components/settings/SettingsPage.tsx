@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowLeft, Save, User, Palette, Calendar, List, CalendarDays, Shield, Key, Mail, Eye, EyeOff, AlertTriangle, LayoutDashboard } from 'lucide-react';
-import { UserPreferences, Profile, Task } from '@/types';
+import { UserPreferences, Profile, Task, Board } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GoogleCalendarSettings } from '@/components/GoogleCalendarSettings';
 import { appConfig } from '@/lib/config';
@@ -43,6 +43,7 @@ interface SettingsPageProps {
 	onSignOut?: () => Promise<{ error: any }>;
 	onUpdatePassword?: (newPassword: string) => Promise<{ data: any; error: any }>;
 	onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void>;
+	boards: Board[];
 }
 
 type SettingsSection = 'profile' | 'appearance' | 'datetime' | 'calendar' | 'tasks';
@@ -120,7 +121,7 @@ function SettingsSidebar({ activeSection, onSectionChange, onBackToBoards }: { a
 	);
 }
 
-export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpdatePreferences, onUpdateProfile, onSignOut, onUpdatePassword, onUpdateTask }: SettingsPageProps) {
+export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpdatePreferences, onUpdateProfile, onSignOut, onUpdatePassword, onUpdateTask, boards }: SettingsPageProps) {
 	const { setTheme } = useTheme();
 	const [activeSection, setActiveSection] = useState<SettingsSection>('profile');
 	const [isLoading, setIsLoading] = useState(false);
@@ -303,6 +304,7 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 							preferences={localPreferences}
 							onUpdatePreference={updatePreference}
 							onUpdateTask={onUpdateTask}
+							boards={boards}
 						/>
 					)}
 					{activeSection === 'tasks' && (
@@ -782,7 +784,7 @@ function DateTimeSection({ preferences, onUpdatePreference }: { preferences: Par
 }
 
 // Calendar Section Component
-function CalendarSection({ preferences, onUpdatePreference, onUpdateTask }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void; onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void> }) {
+function CalendarSection({ preferences, onUpdatePreference, onUpdateTask, boards }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void; onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void>; boards: Board[] }) {
 	const zoomLevels = [
 		{ value: 0, label: 'Compact', description: '1 hour per 60px' },
 		{ value: 1, label: 'Comfortable', description: '1 hour per 80px' },
@@ -864,6 +866,7 @@ function CalendarSection({ preferences, onUpdatePreference, onUpdateTask }: { pr
 					config={appConfig.googleCalendar}
 					userPreferences={preferences as UserPreferences}
 					onUpdateUserPreferences={handleGoogleCalendarUpdate}
+					boards={boards}
 				/>
 			)}
 		</div>

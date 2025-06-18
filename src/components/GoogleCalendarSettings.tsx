@@ -1,22 +1,24 @@
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Calendar, CheckCircle, AlertCircle, ExternalLink, Unlink, Save } from 'lucide-react';
+import { Task, UserPreferences, Board } from '../types';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { GoogleCalendarConfig } from '../lib/googleCalendar';
-import { UserPreferences } from '../types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Calendar, CheckCircle, AlertCircle, ExternalLink, Unlink } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
+import { Save } from 'lucide-react';
 
 interface GoogleCalendarSettingsProps {
   onTaskUpdate?: (taskId: number, updates: any) => Promise<void>;
   config: GoogleCalendarConfig;
   userPreferences?: UserPreferences | null;
   onUpdateUserPreferences?: (updates: Partial<UserPreferences>) => Promise<void>;
+  boards: Board[];
 }
 
 // Filter out system calendars that users typically don't want to sync tasks to
@@ -44,7 +46,8 @@ export function GoogleCalendarSettings({
   onTaskUpdate, 
   config, 
   userPreferences, 
-  onUpdateUserPreferences 
+  onUpdateUserPreferences,
+  boards
 }: GoogleCalendarSettingsProps) {
   // Local state for form values
   const [autoSync, setAutoSync] = useState(false);
@@ -62,7 +65,7 @@ export function GoogleCalendarSettings({
     disconnect,
     setSelectedCalendarId,
     authenticate,
-  } = useGoogleCalendar(config, onTaskUpdate);
+  } = useGoogleCalendar(config, onTaskUpdate, boards);
 
   // Filter calendars to show only user calendars
   const userCalendars = calendars.filter(isUserCalendar);

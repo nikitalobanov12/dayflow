@@ -300,7 +300,7 @@ export class GoogleCalendarService {
   /**
    * Convert task to Google Calendar event format
    */
-  private taskToCalendarEvent(task: Task) {
+  private taskToCalendarEvent(task: Task, board?: { name: string; color?: string }) {
     const startDateTime = task.scheduledDate || task.startDate;
     
     if (!startDateTime) {
@@ -311,9 +311,28 @@ export class GoogleCalendarService {
     const startDate = new Date(startDateTime);
     const endDate = new Date(startDate.getTime() + (task.timeEstimate * 60 * 1000)); // Add time estimate
 
+    // Enhanced title with board information
+    const boardPrefix = board?.name ? `[${board.name}] ` : '';
+    const enhancedTitle = `${boardPrefix}${task.title}`;
+
+    // Enhanced description with comprehensive task information
+    const taskDetails = [
+      board?.name ? `📋 Board: ${board.name}` : '',
+      task.description ? `📝 ${task.description}` : '',
+      `⏱️ Time Estimate: ${task.timeEstimate} minutes`,
+      task.priority ? `🔥 Priority: ${this.getPriorityText(task.priority)}` : '',
+      task.category ? `🏷️ Category: ${task.category}` : '',
+      task.status ? `📊 Status: ${this.getStatusText(task.status)}` : '',
+      task.tags && task.tags.length > 0 ? `🏷️ Tags: ${task.tags.join(', ')}` : '',
+      task.progressPercentage > 0 ? `📈 Progress: ${task.progressPercentage}%` : '',
+      task.timeSpent > 0 ? `⏰ Time Spent: ${task.timeSpent} minutes` : '',
+      '',
+      '📱 Created in DayFlow'
+    ].filter(Boolean).join('\n');
+
     const event = {
-      summary: task.title,
-      description: task.description || '',
+      summary: enhancedTitle,
+      description: taskDetails,
       start: {
         dateTime: startDate.toISOString(),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -326,21 +345,81 @@ export class GoogleCalendarService {
         title: 'DayFlow',
         url: window.location.origin,
       },
+      // Add color mapping if board has a color
+      ...(board?.color && this.getCalendarColorId(board.color) && {
+        colorId: this.getCalendarColorId(board.color)
+      }),
     };
 
     return event;
   }
 
   /**
+   * Get priority text representation
+   */
+  private getPriorityText(priority: number): string {
+    const priorityMap: Record<number, string> = {
+      1: 'Low',
+      2: 'Medium', 
+      3: 'High',
+      4: 'Critical'
+    };
+    return priorityMap[priority] || 'Medium';
+  }
+
+  /**
+   * Get status text representation
+   */
+  private getStatusText(status: string): string {
+    const statusMap: Record<string, string> = {
+      'backlog': 'Backlog',
+      'this-week': 'This Week',
+      'today': 'Today',
+      'done': 'Done'
+    };
+    return statusMap[status] || status;
+  }
+
+  /**
+   * Map board colors to Google Calendar color IDs
+   */
+  private getCalendarColorId(boardColor: string): string | null {
+    // Google Calendar color mapping - these are the available color IDs
+    const colorMap: Record<string, string> = {
+      // Basic colors
+      '#1f2937': '8', // Gray
+      '#dc2626': '11', // Red
+      '#ea580c': '6', // Orange
+      '#ca8a04': '5', // Yellow
+      '#16a34a': '10', // Green
+      '#0ea5e9': '9', // Blue
+      '#7c3aed': '3', // Purple
+      '#db2777': '4', // Pink
+      
+      // Additional mappings for common Tailwind colors
+      '#ef4444': '11', // red-500
+      '#f97316': '6', // orange-500
+      '#eab308': '5', // yellow-500
+      '#22c55e': '10', // green-500
+      '#3b82f6': '9', // blue-500
+      '#8b5cf6': '3', // violet-500
+      '#ec4899': '4', // pink-500
+      '#6b7280': '8', // gray-500
+    };
+    
+    return colorMap[boardColor.toLowerCase()] || null;
+  }
+
+  /**
    * Create a Google Calendar event from a task
    */
-  async createEvent(task: Task, calendarId: string = 'primary'): Promise<string | null> {
+  async createEvent(task: Task, calendarId: string = 'primary', board?: { name: string; color?: string }): Promise<string | null> {
     if (!this.isUserAuthenticated()) {
       throw new Error('Not authenticated with Google Calendar');
     }
 
     try {
-      const event = this.taskToCalendarEvent(task);
+      const event = this.taskToCalendarEvent(task, board);
       
       const response = await this.makeApiRequest(`/calendars/${calendarId}/events`, {
         method: 'POST',
@@ -357,13 +436,13 @@ export class GoogleCalendarService {
   /**
    * Update a Google Calendar event
    */
-  async updateEvent(task: Task, eventId: string, calendarId: string = 'primary'): Promise<void> {
+  async updateEvent(task: Task, eventId: string, calendarId: string = 'primary', board?: { name: string; color?: string }): Promise<void> {
     if (!this.isUserAuthenticated()) {
       throw new Error('Not authenticated with Google Calendar');
     }
 
     try {
-      const event = this.taskToCalendarEvent(task);
+      const event = this.taskToCalendarEvent(task, board);
       
       await this.makeApiRequest(`/calendars/${calendarId}/events/${eventId}`, {
         method: 'PUT',

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Task } from '../types';
+import { Task, Board } from '../types';
 import { getGoogleCalendarService, initializeGoogleCalendar, GoogleCalendarConfig } from '../lib/googleCalendar';
 import supabase from '../utils/supabase';
 
@@ -20,13 +20,21 @@ export interface UseGoogleCalendarReturn {
 
 export function useGoogleCalendar(
   config: GoogleCalendarConfig,
-  onTaskUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>
+  onTaskUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>,
+  boards?: Board[]
 ): UseGoogleCalendarReturn {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [calendars, setCalendars] = useState<any[]>([]);
   const [selectedCalendarId, setSelectedCalendarId] = useState('primary');
+
+  // Helper function to get board information for a task
+  const getBoardForTask = useCallback((task: Task) => {
+    if (!boards || !task.boardId) return undefined;
+    const board = boards.find(b => b.id === task.boardId);
+    return board ? { name: board.name, color: board.color || undefined } : undefined;
+  }, [boards]);
 
   const loadCalendars = useCallback(async () => {
     const service = getGoogleCalendarService();
@@ -187,15 +195,16 @@ export function useGoogleCalendar(
 
     try {
       let eventId: string | null = null;
+      const boardInfo = getBoardForTask(task);
 
       // Update existing event or create new one
       if (task.googleCalendarEventId) {
         console.log('🔄 Updating existing Google Calendar event:', task.googleCalendarEventId);
-        await service.updateEvent(task, task.googleCalendarEventId, selectedCalendarId);
+        await service.updateEvent(task, task.googleCalendarEventId, selectedCalendarId, boardInfo);
         eventId = task.googleCalendarEventId;
       } else {
         console.log('➕ Creating new Google Calendar event');
-        eventId = await service.createEvent(task, selectedCalendarId);
+        eventId = await service.createEvent(task, selectedCalendarId, boardInfo);
       }
 
       // Update task with Google Calendar info
@@ -216,7 +225,7 @@ export function useGoogleCalendar(
       }
       throw error;
     }
-  }, [selectedCalendarId, onTaskUpdate]);
+  }, [selectedCalendarId, onTaskUpdate, getBoardForTask]);
 
   const unsyncTask = useCallback(async (task: Task) => {
     const service = getGoogleCalendarService();
