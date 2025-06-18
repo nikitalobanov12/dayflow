@@ -1,23 +1,42 @@
 # DayFlow
 
-High-performance hybrid task manager built with Tauri 2.0, React 18, and TypeScript. Features real-time drag-and-drop kanban boards, advanced sprint modes with dynamic window management, and PostgreSQL-backed persistence via Supabase.
+**High-performance hybrid task manager** built with Tauri 2.0, React 18, and TypeScript. Features real-time drag-and-drop kanban boards, advanced sprint modes with dynamic window management, Google Calendar integration, recurring tasks, and PostgreSQL-backed persistence via Supabase.
 
-> **Cross-Platform Ready**: Works as both a native desktop application and a modern web app with the same codebase. Desktop users get enhanced sprint modes and window controls, while web users enjoy full task management functionality.
+> **🚀 Cross-Platform Ready**: Works as both a native desktop application and a modern web app with the same codebase. Desktop users get enhanced sprint modes and window controls, while web users enjoy full task management functionality.
 
-## [Install Desktop App](https://dayflow-landing-page.vercel.app/) | [Try Web App](https://dayflow-web.vercel.app/)
+## Quick Start
 
-## Architecture Overview
+### [📱 Install Desktop App](https://dayflow-landing-page.vercel.app/) | [🌐 Try Web App](https://dayflow-web.vercel.app/)
+
+### Development Setup
+
+```bash
+# Install dependencies
+bun install
+
+# Start development (choose one)
+bun run dev          # Desktop app with Tauri
+bun run dev:web      # Web app only
+bun run tauri dev    # Desktop with hot reload
+
+# Build (choose one)
+bun run build        # Desktop app
+bun run build:web    # Web app
+```
+
+## 🏗️ Architecture Overview
 
 ### Tech Stack
 
--   **Runtime**: Tauri 2.0 (Desktop) + Modern Web Browsers
--   **Frontend**: React 18 + TypeScript 5.6 + Vite 6.0
--   **Database**: PostgreSQL via Supabase (unified for web & desktop)
--   **Authentication**: Supabase Auth with real-time sync
--   **UI**: Tailwind CSS v4 + shadcn/ui components
--   **State**: Custom React hooks with optimistic updates
--   **DnD**: @dnd-kit with real-time persistence
--   **Build**: Hybrid deployment (native + web)
+- **Runtime**: Tauri 2.0 (Desktop) + Modern Web Browsers
+- **Frontend**: React 18 + TypeScript 5.6 + Vite 6.0
+- **Database**: PostgreSQL via Supabase (unified for web & desktop)
+- **Authentication**: Supabase Auth with real-time sync
+- **UI**: Tailwind CSS v4 + shadcn/ui components
+- **State**: Custom React hooks with optimistic updates
+- **DnD**: @dnd-kit with real-time persistence
+- **Package Manager**: Bun for fast dependency management
+- **Build**: Hybrid deployment (native + web)
 
 ### Hybrid Architecture
 
@@ -31,57 +50,52 @@ export const isTauri = (): boolean => {
 
 **Unified Database**: `src/hooks/useSupabaseDatabase.ts`
 
--   Single codebase for web and desktop
--   Real-time synchronization across devices
--   Optimistic updates for instant UI responses
--   PostgreSQL performance with Supabase convenience
+- Single codebase for web and desktop
+- Real-time synchronization across devices
+- Optimistic updates for instant UI responses
+- PostgreSQL performance with Supabase convenience
 
-## Core Features
+## ✨ Core Features
 
-### 1. Real-Time Kanban System
+### 📋 Real-Time Kanban System
 
 **Implementation**: `src/components/kanban/`
 
--   **4-column workflow**: `backlog` → `this-week` → `today` → `done`
--   **Drag & Drop**: `@dnd-kit/core` with sortable contexts and collision detection
--   **Position tracking**: Integer-based ordering within columns via PostgreSQL
--   **Real-time sync**: Supabase real-time subscriptions across all devices
--   **Optimistic updates**: Immediate UI feedback with database synchronization
--   **Time aggregation**: Column-level time estimates with HH:MM formatting
+- **4-column workflow**: `Backlog` → `This Week` → `Today` → `Done`
+- **Drag & Drop**: `@dnd-kit/core` with sortable contexts and collision detection
+- **Position tracking**: Integer-based ordering within columns via PostgreSQL
+- **Real-time sync**: Supabase real-time subscriptions across all devices
+- **Optimistic updates**: Immediate UI feedback with database synchronization
+- **Time aggregation**: Column-level time estimates with HH:MM formatting
+- **Bulk operations**: Multi-select for batch editing and status updates
 
 ```typescript
 // Real-time task reordering with Supabase
 const reorderTasksInColumn = async (taskIds: number[], status: Task['status']) => {
 	const updates = taskIds.map((id, index) => ({ id, position: index }));
-	await Promise.all(updates.map(update => supabase.from('tasks').update({ position: update.position }).eq('id', update.id)));
+	await Promise.all(updates.map(update => 
+		supabase.from('tasks').update({ position: update.position }).eq('id', update.id)
+	));
 };
 ```
 
-### 2. Sprint Mode - Desktop Exclusive
+### ⚡ Sprint Mode - Desktop Exclusive
 
 **Implementation**: `src/components/sprint/SprintMode.tsx`
 
 Enhanced productivity features available only in the desktop app:
 
--   **Fullscreen**: Complete sprint interface with task progression
--   **Sidebar**: 220px always-on-top panel for multitasking
--   **Focus**: Minimal 220x60px timer overlay
+- **3 View Modes**:
+  - **Fullscreen**: Complete sprint interface with task progression
+  - **Sidebar**: 220px always-on-top panel for multitasking
+  - **Focus**: Minimal 220x60px timer overlay
 
-**Platform Detection**:
-
-```typescript
-// Sprint button only shows on desktop
-{
-	status === 'today' && tasks.length > 0 && onStartSprint && isTauri() && <Button onClick={onStartSprint}>Start Sprint</Button>;
-}
-```
-
-**Advanced Features**:
-
--   Dynamic window resizing via Tauri APIs
--   Always-on-top maintenance with interval checks
--   Window decoration control (title bar toggle)
--   Cross-session view mode persistence
+**Advanced Window Management**:
+- Dynamic window resizing via Tauri APIs
+- Always-on-top maintenance with interval checks
+- Window decoration control (title bar toggle)
+- Multi-workspace visibility for maximum focus
+- Cross-session view mode persistence
 
 ```typescript
 // Dynamic window management
@@ -90,47 +104,144 @@ useEffect(() => {
 		const currentWindow = await getCurrentWindow();
 		await currentWindow.setSize(new LogicalSize(220, 400));
 		await currentWindow.setAlwaysOnTop(true);
-		await currentWindow.setDecorations(false);
+		await currentWindow.setVisibleOnAllWorkspaces(true);
 	};
 	if (viewMode === 'sidebar') setupWindow();
 }, [viewMode]);
 ```
 
-### 3. High-Performance Timer System
+### ⏱️ Advanced Timer System
 
 **Implementation**: `src/components/timer/Timer.tsx` + `src/hooks/useTimer.ts`
 
--   **Multiple modes**: Pomodoro (25min), countdown (custom), stopwatch
--   **Platform aware**: Available in both web and desktop versions
--   **Precision timing**: `setInterval` with millisecond accuracy
--   **State persistence**: Timer state maintained across mode switches
--   **Auto-completion**: Automatic task progression on timer completion
+- **Multiple timer modes**: Pomodoro (25min), custom countdown, stopwatch
+- **Platform aware**: Available in both web and desktop versions
+- **Task integration**: Automatic time logging linked to specific tasks
+- **Session tracking**: Detailed time entry logs with billable hour support
+- **Break management**: Smart break notifications between work sessions
+- **Precision timing**: Millisecond accuracy with proper cleanup
 
 ```typescript
-// Precise timer implementation with cleanup
-useEffect(() => {
-	if (isRunning) {
-		startTimeRef.current = Date.now() - timer.elapsedTime * 1000;
-		intervalRef.current = setInterval(() => {
-			const elapsed = Math.floor((Date.now() - startTimeRef.current!) / 1000);
-			setTimer(prev => ({ ...prev, elapsedTime: elapsed }));
-		}, 1000);
-	}
-	return () => clearInterval(intervalRef.current);
-}, [isRunning]);
+// Precise timer implementation
+const useTimer = () => {
+	useEffect(() => {
+		if (isRunning) {
+			startTimeRef.current = Date.now() - timer.elapsedTime * 1000;
+			intervalRef.current = setInterval(() => {
+				const elapsed = Math.floor((Date.now() - startTimeRef.current!) / 1000);
+				setTimer(prev => ({ ...prev, elapsedTime: elapsed }));
+			}, 1000);
+		}
+		return () => clearInterval(intervalRef.current);
+	}, [isRunning]);
+};
 ```
 
-### 4. Board Management System
+### 📅 Google Calendar Integration
+
+**Implementation**: `src/hooks/useGoogleCalendar.ts` + `src/lib/googleCalendar.ts`
+
+- **Bidirectional sync**: Tasks automatically sync to Google Calendar when scheduled
+- **Google Tasks import**: Import existing Google Tasks with full metadata preservation
+- **Smart filtering**: Sync only scheduled tasks or all tasks based on preferences
+- **Manual control**: Right-click any task to manually sync/unsync
+- **Bulk operations**: Sync or unsync multiple tasks simultaneously
+- **Event import**: Import Google Calendar events as tasks with time blocking
+- **Authentication**: Secure OAuth2 flow with token refresh handling
+
+```typescript
+// Google Calendar service integration
+const syncTask = async (task: Task) => {
+	const service = getGoogleCalendarService();
+	if (task.scheduledDate && !task.googleCalendarEventId) {
+		const eventId = await service.createEvent({
+			summary: task.title,
+			description: task.description,
+			start: { dateTime: task.scheduledDate },
+			end: { dateTime: addMinutes(new Date(task.scheduledDate), task.timeEstimate) }
+		});
+		await onTaskUpdate(task.id, { googleCalendarEventId: eventId });
+	}
+};
+```
+
+### 🔄 Recurring Tasks
+
+**Implementation**: `src/lib/recurring-tasks.ts`
+
+- **Flexible patterns**: Daily, weekly, monthly, yearly recurrence
+- **Custom intervals**: Every N days/weeks/months/years
+- **Specific scheduling**: Weekly tasks on specific days, monthly on specific dates
+- **End conditions**: Set end dates or let tasks recur indefinitely
+- **Instance tracking**: Individual completion tracking for each recurring instance
+- **Smart generation**: Automatic creation of future instances within view range
+
+```typescript
+// Recurring task generation
+export async function generateRecurringInstances(
+	task: Task,
+	startDate: Date,
+	endDate: Date
+): Promise<Task[]> {
+	if (!task.recurring) return [task];
+	
+	const instances: Task[] = [];
+	const { pattern, interval, endDate: recurringEndDate } = task.recurring;
+	
+	// Generate instances based on pattern and interval
+	// Handle weekly with specific days, monthly with specific dates, etc.
+}
+```
+
+### 📝 Advanced Task Management
+
+**Subtasks & Dependencies**: `src/components/subtasks/`
+
+- **Hierarchical subtasks**: Break down complex tasks into manageable pieces
+- **Progress tracking**: Visual progress indicators based on subtask completion
+- **Task dependencies**: 4 dependency types (finish-to-start, start-to-start, etc.)
+- **Dependency visualization**: Clear indicators and blocking notifications
+- **Drag-and-drop reordering**: Organize subtasks with smooth interactions
+
+**Rich Task Properties**:
+
+- **Priority levels**: 4-tier system (Low, Medium, High, Critical) with color coding
+- **Time tracking**: Estimated vs. actual time spent with detailed logging
+- **Progress tracking**: Percentage completion with visual progress bars
+- **Scheduling**: Due dates, start dates, and scheduled dates with calendar integration
+- **Categorization**: Custom categories, tags, and color-coded labels
+- **Rich descriptions**: Markdown support for detailed task documentation
+- **File attachments**: Support for images, documents, and links
+
+### 📊 Multiple View Modes
+
+**Calendar Views**: `src/components/calendar/`
+
+- **Multiple layouts**: 3-day, weekly, and monthly calendar views
+- **Zoom levels**: 4 zoom levels for different detail requirements
+- **Time blocking**: Visual time allocation with drag-and-drop scheduling
+- **Conflict detection**: Automatic detection of scheduling conflicts
+- **Compact view**: Dense calendar layout for overview purposes
+
+**List Views**: `src/components/list/`
+
+- **Compact list**: Dense table view for quick scanning
+- **Detailed list**: Full task information with inline editing
+- **Custom sorting**: Sort by priority, due date, creation date, or alphabetically
+- **Filtering**: Advanced filters by status, priority, tags, and dates
+
+### 🎨 Board Management System
 
 **Implementation**: `src/components/boards/`
 
--   **Multiple boards**: Organize tasks into different projects/contexts
--   **Default board**: "All Tasks" view aggregates across all boards
--   **Custom themes**: Color and icon customization per board
--   **User isolation**: Each user sees only their own boards and tasks
--   **Real-time sync**: Board changes sync instantly across devices
+- **Multiple boards**: Organize tasks into different projects/contexts
+- **Board customization**: Custom names, colors, icons, and descriptions
+- **Default board**: "All Tasks" view aggregates across all boards
+- **Board switching**: Quick navigation between different project boards
+- **User isolation**: Each user sees only their own boards and tasks
+- **Real-time sync**: Board changes sync instantly across devices
 
-## Database & Authentication
+## 🛠️ Database & Authentication
 
 ### Supabase Integration
 
@@ -139,7 +250,7 @@ useEffect(() => {
 **PostgreSQL Schema**:
 
 ```sql
--- Tasks table with real-time capabilities
+-- Enhanced tasks table with all features
 CREATE TABLE tasks (
   id BIGSERIAL PRIMARY KEY,
   title TEXT NOT NULL,
@@ -148,23 +259,56 @@ CREATE TABLE tasks (
   status TEXT DEFAULT 'backlog',
   position INTEGER DEFAULT 0,
   scheduled_date TIMESTAMPTZ,
+  due_date TIMESTAMPTZ,
+  start_date TIMESTAMPTZ,
   tags TEXT[],
+  priority INTEGER DEFAULT 2,
+  category TEXT,
+  progress_percentage INTEGER DEFAULT 0,
+  time_spent INTEGER DEFAULT 0,
+  recurring_pattern JSONB,
+  recurring_instance_id TEXT,
+  google_calendar_event_id TEXT,
+  google_calendar_synced BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
   user_id UUID REFERENCES auth.users(id),
   board_id BIGINT REFERENCES boards(id)
 );
 
--- Boards table for organization
-CREATE TABLE boards (
+-- Subtasks table
+CREATE TABLE subtasks (
   id BIGSERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
+  parent_task_id BIGINT REFERENCES tasks(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
   description TEXT,
-  color TEXT,
-  icon TEXT,
+  is_completed BOOLEAN DEFAULT false,
+  position INTEGER DEFAULT 0,
+  time_estimate INTEGER DEFAULT 15,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  user_id UUID REFERENCES auth.users(id),
-  is_default BOOLEAN DEFAULT false
+  completed_at TIMESTAMPTZ,
+  user_id UUID REFERENCES auth.users(id)
+);
+
+-- User preferences table
+CREATE TABLE user_preferences (
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  theme TEXT DEFAULT 'system',
+  language TEXT DEFAULT 'en',
+  date_format TEXT DEFAULT 'MM/DD/YYYY',
+  time_format TEXT DEFAULT '12h',
+  week_starts_on INTEGER DEFAULT 0,
+  auto_save BOOLEAN DEFAULT true,
+  show_completed_tasks BOOLEAN DEFAULT false,
+  task_sort_by TEXT DEFAULT 'priority',
+  task_sort_order TEXT DEFAULT 'asc',
+  calendar_default_zoom INTEGER DEFAULT 1,
+  calendar_default_view TEXT DEFAULT '3-day',
+  board_default_view TEXT DEFAULT 'compact',
+  google_calendar_enabled BOOLEAN DEFAULT false,
+  google_calendar_auto_sync BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
@@ -172,10 +316,11 @@ CREATE TABLE boards (
 
 **Supabase Auth Integration**:
 
--   Email/password authentication
--   Real-time session management
--   Automatic user context for all database operations
--   Cross-device synchronization
+- Secure email/password authentication
+- Real-time session management
+- Automatic user context for all database operations
+- Cross-device synchronization
+- Row Level Security (RLS) for data isolation
 
 ```typescript
 // Automatic user context in database operations
@@ -192,6 +337,31 @@ const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'userId'>) => {
 };
 ```
 
+## 🚀 Performance & UX Features
+
+### Optimistic Updates Pattern
+
+**Critical Implementation**: Never refresh after operations
+
+```typescript
+// ✅ CORRECT: Optimistic update pattern
+const updateTask = async (id: number, updates: Partial<Task>) => {
+	// 1. Update local state immediately
+	setTasks(prev => prev.map(task => 
+		task.id === id ? { ...task, ...updates } : task
+	));
+	
+	try {
+		// 2. Sync with database
+		await supabase.from('tasks').update(updates).eq('id', id);
+	} catch (error) {
+		// 3. Revert only on error
+		console.error('Failed to update task:', error);
+		await loadTasks(); // Only refresh on error
+	}
+};
+```
+
 ### Performance Optimizations
 
 1. **Real-time Subscriptions**: Live updates across all connected clients
@@ -199,270 +369,126 @@ const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'userId'>) => {
 3. **Indexed Queries**: PostgreSQL indexes for fast sorting and filtering
 4. **Row Level Security**: Automatic user isolation at database level
 5. **Connection Pooling**: Supabase handles connection management
+6. **Virtual scrolling**: Smooth performance with large task lists
+7. **Lazy loading**: Components and routes loaded on-demand
+8. **Memoization**: Expensive calculations cached with useMemo/useCallback
 
-```typescript
-// Optimized batch reordering
-const reorderTasksInColumn = async (taskIds: number[], status: Task['status']) => {
-	try {
-		await db.execute('BEGIN TRANSACTION');
-		for (let i = 0; i < taskIds.length; i++) {
-			await db.execute('UPDATE tasks SET position = ? WHERE id = ? AND status = ?', [i, taskIds[i], status]);
-		}
-		await db.execute('COMMIT');
-	} catch (error) {
-		await db.execute('ROLLBACK');
-		throw error;
-	}
-};
-```
+### User Experience Features
 
-## Component Architecture
+- **Smooth animations**: 300ms transitions with cubic-bezier easing
+- **Context menus**: Right-click anywhere for quick actions
+- **Keyboard shortcuts**: Full keyboard navigation support
+- **Drag handles**: Clear visual indicators for draggable elements
+- **Loading states**: Skeleton screens and progress indicators
+- **Error boundaries**: Graceful error handling and recovery
+- **Offline support**: PWA capabilities for web version
 
-### State Management Pattern
+## 🎨 Theming & Customization
 
-**Custom hooks** with React patterns:
+### Design System
 
-```typescript
-// Centralized database operations
-export const useDatabase = () => {
-	const [tasks, setTasks] = useState<Task[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
+- **OKLCH Color System**: Modern color space for better gradients and accessibility
+- **Plus Jakarta Sans**: Custom font for clean, modern typography
+- **Theme Support**: Light, dark, and system-synchronized themes
+- **Responsive Design**: Optimized for all screen sizes and devices
+- **Custom Properties**: CSS variables for consistent theming
 
-	// Optimistic updates with error handling
-	const moveTask = async (id: number, newStatus: Task['status']) => {
-		setTasks(prev => prev.map(task => (task.id === id ? { ...task, status: newStatus } : task)));
-
-		try {
-			await db.execute('UPDATE tasks SET status = ? WHERE id = ?', [newStatus, id]);
-		} catch (error) {
-			loadTasks(); // Revert on error
-		}
-	};
-};
-```
-
-### Type Safety
-
-**Strict TypeScript** with comprehensive interfaces:
-
-```typescript
-interface Task {
-	id: number;
-	title: string;
-	description: string;
-	timeEstimate: number; // minutes
-	status: 'backlog' | 'this-week' | 'today' | 'done';
-	position: number;
-	scheduledDate?: string;
-	createdAt: string;
-	completedAt?: string;
-	tags?: string[];
-}
-
-interface SprintConfiguration {
-	timerType: 'pomodoro' | 'countdown' | 'stopwatch';
-	selectedTasks: Task[];
-	taskOrder: number[];
-	pomodoroMinutes?: number;
-	countdownMinutes?: number;
+```css
+/* OKLCH color system example */
+:root {
+	--primary-50: oklch(0.985 0.0122 179.15);
+	--primary-500: oklch(0.7033 0.1179 180.36);
+	--primary-950: oklch(0.2757 0.0383 189.38);
 }
 ```
 
-## Development Workflow
+### User Preferences
 
-### Project Structure
+- **Date/time formats**: Multiple format options with localization
+- **Week configuration**: Start week on Sunday or Monday
+- **Task sorting**: Sort by priority, due date, creation date, or alphabetically
+- **Auto-save**: Configurable auto-save intervals
+- **Visibility controls**: Show/hide completed tasks
+- **Calendar defaults**: Set preferred zoom levels and view modes
+- **Board view preferences**: Grid, compact, or list layouts
+
+## 📱 Platform Features
+
+### Desktop Exclusive (Tauri)
+
+- **Sprint Mode**: Advanced window management and focus modes
+- **Always-on-top**: Persistent overlay windows
+- **Window controls**: Custom title bar and decorations
+- **File system access**: Local file operations and storage
+- **Native notifications**: System-level notification integration
+- **Tray integration**: System tray icon and context menu
+
+### Web Features
+
+- **Progressive Web App**: Offline functionality and installability
+- **Push notifications**: Web notifications for reminders
+- **Responsive design**: Touch-friendly interface for mobile
+- **Browser integration**: Deep linking and URL routing
+- **Fullscreen API**: Immersive focus modes
+
+## 🔧 Development Guidelines
+
+### Code Quality Standards
+
+- **TypeScript Strict Mode**: Full type coverage with strict checking
+- **Optimistic Updates**: Never call refresh functions after CRUD operations
+- **Platform Awareness**: Use `isTauri()` for platform-specific features
+- **Error Boundaries**: Graceful error handling throughout the app
+- **Security First**: Input validation and SQL injection prevention
+
+### File Organization
 
 ```
-├── src/
-│   ├── components/
-│   │   ├── kanban/          # Drag-drop task management
-│   │   ├── sprint/          # Focus mode implementations
-│   │   ├── timer/           # Timer logic & UI
-│   │   └── ui/              # shadcn/ui components
-│   ├── hooks/
-│   │   ├── useDatabase.ts   # SQLite operations
-│   │   └── useTimer.ts      # Timer state management
-│   └── types/index.ts       # TypeScript definitions
-├── src-tauri/
-│   ├── src/main.rs          # Tauri backend
-│   ├── Cargo.toml           # Rust dependencies
-│   └── tauri.conf.json      # App configuration
-└── package.json             # Frontend dependencies
+src/
+├── components/          # UI components
+│   ├── kanban/         # Kanban board components
+│   ├── calendar/       # Calendar view components
+│   ├── sprint/         # Sprint mode components
+│   ├── timer/          # Timer components
+│   ├── subtasks/       # Subtask management
+│   └── ui/             # shadcn/ui components
+├── hooks/              # Custom React hooks
+├── lib/                # Utilities and platform detection
+├── types/              # TypeScript type definitions
+├── contexts/           # React contexts
+└── utils/              # Pure utility functions
 ```
 
-### Performance Considerations
-
-1. **Bundle Size**: Tauri's Rust backend keeps JavaScript minimal
-2. **Memory Usage**: SQLite in-process with efficient queries
-3. **Rendering**: React.memo for task cards, useCallback for handlers
-4. **Native APIs**: Direct OS integration via Tauri plugins
-5. **Cross-Platform**: Single codebase for Windows/macOS/Linux
-
-### Build Configuration
-
-**Vite + Tauri** optimized build:
-
--   TypeScript compilation with strict mode
--   Tailwind CSS purging for minimal bundle
--   Tauri bundling with platform-specific installers
--   Icon generation for all platforms (Windows ICO, macOS ICNS, Linux PNG)
-
-## Development Setup
-
-### Prerequisites
-
--   **Node.js** 18+ and npm/yarn/bun
--   **Rust** 1.70+ (for Tauri desktop development)
--   **Supabase Account** for database and authentication
-
-### Environment Configuration
-
-Create `.env` file in the project root:
-
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### Installation
+### Build Commands
 
 ```bash
-# Install dependencies
-npm install
+# Development
+bun run dev          # Desktop development
+bun run dev:web      # Web development
+bun run tauri dev    # Desktop with hot reload
 
-# Install Tauri CLI (for desktop development only)
-npm install -g @tauri-apps/cli
+# Production builds
+bun run build        # Desktop application
+bun run build:web    # Web application
+
+# Testing and validation
+bun run build        # Always run after changes to check for errors
+bun run lint         # Code linting
+bun run type-check   # TypeScript validation
 ```
 
-### Development Commands
+## 🤝 Contributing
 
-```bash
-# Web development (browser)
-npm run dev:web          # Start web dev server
-npm run build:web        # Build for web deployment
-npm run preview:web      # Preview web build
+1. **Follow the established patterns** - refer to existing components
+2. **Use the type system effectively** - leverage TypeScript fully
+3. **Implement optimistic updates** - never refresh after operations
+4. **Test both platforms** - ensure web and desktop compatibility
+5. **Run build command** - always check for TypeScript errors before committing
 
-# Desktop development (Tauri)
-npm run tauri dev        # Start desktop app in dev mode
-npm run tauri build      # Build desktop app for production
+## 📄 License
 
-# Standard commands
-npm run dev             # Default Vite dev server (Tauri mode)
-npm run build           # Build for Tauri (desktop)
-npm run preview         # Preview production build
-```
-
-### Database Setup
-
-1. **Create Supabase Project**:
-
-    - Go to [supabase.com](https://supabase.com) and create a new project
-    - Copy your project URL and anon key to `.env`
-
-2. **Run SQL Schema**:
-
-    ```sql
-    -- Tasks table
-    CREATE TABLE tasks (
-      id BIGSERIAL PRIMARY KEY,
-      title TEXT NOT NULL,
-      description TEXT,
-      time_estimate INTEGER DEFAULT 30,
-      status TEXT DEFAULT 'backlog',
-      position INTEGER DEFAULT 0,
-      scheduled_date TIMESTAMPTZ,
-      tags TEXT[],
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      completed_at TIMESTAMPTZ,
-      user_id UUID REFERENCES auth.users(id),
-      board_id BIGINT REFERENCES boards(id)
-    );
-
-    -- Boards table
-    CREATE TABLE boards (
-      id BIGSERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      description TEXT,
-      color TEXT,
-      icon TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      user_id UUID REFERENCES auth.users(id),
-      is_default BOOLEAN DEFAULT false
-    );
-
-    -- Enable Row Level Security
-    ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE boards ENABLE ROW LEVEL SECURITY;
-
-    -- Create policies for user isolation
-    CREATE POLICY "Users can only see their own tasks" ON tasks
-      FOR ALL USING (auth.uid() = user_id);
-
-    CREATE POLICY "Users can only see their own boards" ON boards
-      FOR ALL USING (auth.uid() = user_id);
-
-    -- Enable real-time subscriptions
-    ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
-    ALTER PUBLICATION supabase_realtime ADD TABLE boards;
-    ```
-
-### Deployment
-
-#### Web Deployment
-
-```bash
-npm run build:web
-# Deploy dist-web/ to Vercel, Netlify, or any static host
-```
-
-#### Desktop Distribution
-
-```bash
-npm run tauri build
-# Outputs to src-tauri/target/release/bundle/
-# Includes installers for current platform
-```
-
-### Platform-Specific Features
-
-**Web Version Features**:
-
--   ✅ Full kanban task management
--   ✅ Real-time sync across devices
--   ✅ Authentication and user accounts
--   ✅ Board management
--   ✅ Basic timer functionality
--   ❌ Sprint modes (desktop exclusive)
--   ❌ Window controls (desktop exclusive)
-
-**Desktop Version Features**:
-
--   ✅ All web features +
--   ✅ Enhanced sprint modes with window management
--   ✅ Always-on-top timer overlays
--   ✅ Native window controls and theming
--   ✅ Fullscreen focus modes
--   ✅ Custom title bar
-
-### Development Tips
-
--   **Hot Reload**: Use `npm run dev:web` for faster iteration
--   **Platform Testing**: Test both web and desktop modes regularly
--   **Environment Variables**: Use `IS_BROWSER` for platform-specific code
--   **Database**: All changes automatically sync via Supabase real-time
--   **Debugging**: Web dev tools work in both browser and Tauri WebView
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Test both web and desktop builds
-4. Submit a pull request
-
-For major changes, please open an issue first to discuss what you would like to change.
+**DayFlow** - Where productivity meets performance. Built for professionals who demand both power and simplicity in their task management workflow.
