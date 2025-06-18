@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import supabase from '@/utils/supabase';
-import { Task, TaskRow, Board, BoardRow, Subtask } from '@/types';
+import { Task, TaskRow, Board, BoardRow, Subtask, RecurringConfig, RecurringPattern } from '@/types';
 
 // Subtask database row interface
 interface SubtaskRow {
@@ -103,43 +103,55 @@ const convertTaskUpdatesToDb = (updates: Partial<Task>): any => {
 	return dbUpdates;
 };
 
-// Helper functions to convert between database rows and application types
-const convertTaskFromDb = (row: TaskRow): Task => ({
-	id: row.id,
-	title: row.title,
-	description: row.description || '',
-	timeEstimate: row.time_estimate,
-	status: row.status as Task['status'],
-	position: row.position,
-	scheduledDate: row.scheduled_date || undefined,
-	createdAt: row.created_at,
-	completedAt: row.completed_at || undefined,
-	tags: row.tags || [],
-	userId: row.user_id,
-	boardId: row.board_id || undefined, // New properties - use database values if available, otherwise defaults
-	priority: (row as any).priority || 2,
-	dueDate: (row as any).due_date || undefined,
-	startDate: (row as any).start_date || undefined,
-	category: (row as any).category || undefined,
-	progressPercentage: (row as any).progress_percentage || 0,
-	timeSpent: (row as any).time_spent || 0,
-	assigneeId: (row as any).assignee_id || undefined,
-	parentTaskId: (row as any).parent_task_id || undefined,
-	labels: [],
-	attachments: [],
-	// Google Calendar integration fields
-	googleCalendarEventId: (row as any).google_calendar_event_id || undefined,
-	googleCalendarSynced: (row as any).google_calendar_synced || false,
-	// Map recurring fields
-	recurring: (row as any).recurring_pattern ? {
-		pattern: (row as any).recurring_pattern,
-		interval: (row as any).recurring_interval || 1,
-		daysOfWeek: (row as any).recurring_days_of_week || [],
-		daysOfMonth: (row as any).recurring_days_of_month || [],
-		monthsOfYear: (row as any).recurring_months_of_year || [],
-		endDate: (row as any).recurring_end_date || undefined
-	} : undefined
-});
+// Helper function to convert database task to application task
+const convertTaskFromDb = (dbTask: any): Task => {
+	// Handle recurring pattern conversion with safety checks
+	let recurring: RecurringConfig | undefined = undefined;
+	if (dbTask.recurring_pattern && dbTask.recurring_pattern !== 'none' && dbTask.recurring_pattern !== null) {
+		// Only create recurring config if we have a valid pattern
+		const validPatterns = ['daily', 'weekly', 'monthly', 'yearly'];
+		if (validPatterns.includes(dbTask.recurring_pattern)) {
+			recurring = {
+				pattern: dbTask.recurring_pattern as RecurringPattern,
+				interval: dbTask.recurring_interval || 1,
+				daysOfWeek: dbTask.recurring_days_of_week || [],
+				daysOfMonth: dbTask.recurring_days_of_month || [],
+				monthsOfYear: dbTask.recurring_months_of_year || [],
+				endDate: dbTask.recurring_end_date || undefined,
+			};
+		} else {
+			console.warn('Invalid recurring pattern found in database:', dbTask.recurring_pattern);
+		}
+	}
+
+	return {
+		id: dbTask.id,
+		title: dbTask.title || '',
+		description: dbTask.description || '',
+		timeEstimate: dbTask.time_estimate || 0,
+		status: dbTask.status || 'backlog',
+		position: dbTask.position || 0,
+		scheduledDate: dbTask.scheduled_date || undefined,
+		startDate: dbTask.start_date || undefined,
+		dueDate: dbTask.due_date || undefined,
+		tags: dbTask.tags || [],
+		createdAt: dbTask.created_at || new Date().toISOString(),
+		completedAt: dbTask.completed_at || undefined,
+		userId: dbTask.user_id || '',
+		boardId: dbTask.board_id || undefined,
+		priority: dbTask.priority || 2,
+		category: dbTask.category || '',
+		progressPercentage: dbTask.progress_percentage || 0,
+		timeSpent: dbTask.time_spent || 0,
+		labels: [], // Not in database yet
+		attachments: [], // Not in database yet
+		assigneeId: dbTask.assignee_id || undefined,
+		parentTaskId: dbTask.parent_task_id || undefined,
+		googleCalendarEventId: dbTask.google_calendar_event_id || undefined,
+		googleCalendarSynced: dbTask.google_calendar_synced || false,
+		recurring,
+	};
+};
 
 const convertTaskToDb = (task: Omit<Task, 'id' | 'createdAt' | 'userId'>, userId: string): Omit<TaskRow, 'id' | 'created_at'> =>
 	({

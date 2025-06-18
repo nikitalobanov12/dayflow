@@ -117,6 +117,8 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 	// State to force re-render when recurring instances are updated
 	const [recurringInstancesVersion, setRecurringInstancesVersion] = useState(0);
 	const [events, setEvents] = useState<CalendarEvent[]>([]);
+	const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+
 	// Helper function to format time according to user preference
 	const formatTime = (date: Date) => {
 		const timeFormat = userPreferences?.timeFormat || '12h';
@@ -181,66 +183,114 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 	// Generate calendar events
 	useEffect(() => {
 		const generateEvents = async () => {
-			// First filter by board if not viewing all tasks
-			const boardFilteredTasks = isAllTasksBoard ? tasks : tasks.filter(task => task.boardId === board.id);
+			try {
+				// First filter by board if not viewing all tasks
+				const boardFilteredTasks = isAllTasksBoard ? tasks : tasks.filter(task => task.boardId === board.id);
 
-			const filteredTasks = filterTasks(boardFilteredTasks);
-			const allEvents: CalendarEvent[] = [];
+				const filteredTasks = filterTasks(boardFilteredTasks);
+				const allEvents: CalendarEvent[] = [];
 
-			for (const task of filteredTasks.filter(task => task.scheduledDate || task.startDate || task.dueDate)) {
-				// Generate recurring instances if the task is recurring
-				const instances = task.recurring ? await generateRecurringInstances(task, startOfDay(visibleDates[0]), endOfDay(visibleDates[visibleDates.length - 1])) : [task];
+				// Limit the number of tasks we process to prevent performance issues
+				const tasksToProcess = filteredTasks.filter(task => task.scheduledDate || task.startDate || task.dueDate).slice(0, 100);
 
-				instances.forEach(instance => {
-					let start: Date;
-					let end: Date;
+				for (const task of tasksToProcess) {
+					try {
+						// Generate recurring instances if the task is recurring
+						let instances: Task[] = [task];
+						
+						if (task.recurring) {
+							// Add safety limit for recurring instances
+							const maxInstances = 100;
+							const allInstances = await generateRecurringInstances(
+								task, 
+								startOfDay(visibleDates[0]), 
+								endOfDay(visibleDates[visibleDates.length - 1])
+							);
+							instances = allInstances.slice(0, maxInstances);
+						}
 
-					if (instance.scheduledDate) {
-						start = new Date(instance.scheduledDate);
-					} else if (instance.startDate) {
-						start = new Date(instance.startDate);
-					} else if (instance.dueDate) {
-						start = new Date(instance.dueDate);
-					} else {
-						start = new Date();
+						instances.forEach(instance => {
+							let start: Date;
+							let end: Date;
+
+							if (instance.scheduledDate) {
+								start = new Date(instance.scheduledDate);
+							} else if (instance.startDate) {
+								start = new Date(instance.startDate);
+							} else if (instance.dueDate) {
+								start = new Date(instance.dueDate);
+							} else {
+								start = new Date();
+							}
+
+							// Validate the date
+							if (isNaN(start.getTime())) {
+								console.warn('Invalid date for task:', instance.title);
+								return;
+							}
+
+							// Calculate end time based on time estimate
+							end = new Date(start);
+							if (instance.timeEstimate && instance.timeEstimate > 0) {
+								end = addMinutes(start, instance.timeEstimate);
+							} else {
+								end = addMinutes(start, 60); // Default 1 hour
+							}
+
+							// If task has both start and due date, use them
+							if (instance.startDate && instance.dueDate) {
+								const startDateObj = new Date(instance.startDate);
+								const endDateObj = new Date(instance.dueDate);
+								if (!isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime())) {
+									start = startDateObj;
+									end = endDateObj;
+								}
+							}
+
+							allEvents.push({
+								id: instance.id,
+								task: instance,
+								start,
+								end,
+								title: instance.title || 'Untitled Task',
+							});
+						});
+					} catch (error) {
+						console.error('Error processing task:', task.title, error);
+						// Continue with next task instead of failing completely
 					}
+				}
 
-					// Calculate end time based on time estimate
-					end = new Date(start);
-					if (instance.timeEstimate && instance.timeEstimate > 0) {
-						end = addMinutes(start, instance.timeEstimate);
-					} else {
-						end = addMinutes(start, 60); // Default 1 hour
+				// Filter events to only show those within visible dates
+				const filteredEvents = allEvents.filter(event => {
+					try {
+						return visibleDates.some(date => 
+							isSameDay(event.start, date) || 
+							isSameDay(event.end, date) || 
+							(event.start <= startOfDay(date) && event.end >= endOfDay(date))
+						);
+					} catch (error) {
+						console.error('Error filtering event:', event.title, error);
+						return false;
 					}
-
-					// If task has both start and due date, use them
-					if (instance.startDate && instance.dueDate) {
-						start = new Date(instance.startDate);
-						end = new Date(instance.dueDate);
-					}
-
-					allEvents.push({
-						id: instance.id,
-						task: instance,
-						start,
-						end,
-						title: instance.title,
-					});
 				});
+
+				setEvents(filteredEvents);
+			} catch (error) {
+				console.error('Error generating calendar events:', error);
+				setEvents([]);
+			} finally {
+				setIsLoadingEvents(false);
 			}
-
-			// Filter events to only show those within visible dates
-			const filteredEvents = allEvents.filter(event => {
-				return visibleDates.some(date => isSameDay(event.start, date) || isSameDay(event.end, date) || (event.start <= startOfDay(date) && event.end >= endOfDay(date)));
-			});
-
-			setEvents(filteredEvents);
 		};
 
-		generateEvents().catch(error => {
-			console.error('Error generating calendar events:', error);
-			setEvents([]);
-		});
+		// Add a small delay to prevent blocking the UI
+		const timeoutId = setTimeout(() => {
+			setIsLoadingEvents(true);
+			generateEvents();
+		}, 10);
+
+		return () => clearTimeout(timeoutId);
 	}, [tasks, filterTasks, visibleDates, isAllTasksBoard, board.id, recurringInstancesVersion]);
 	// Get unscheduled tasks
 	const unscheduledTasks = useMemo(() => {
@@ -1110,9 +1160,18 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 					</div>
 					{/* Calendar Body */}
 					<div
-						className='flex-1 overflow-y-auto min-h-0'
+						className='flex-1 overflow-y-auto min-h-0 relative'
 						ref={calendarContainerRef}
 					>
+						{/* Loading indicator */}
+						{isLoadingEvents && (
+							<div className='absolute inset-0 bg-background/50 flex items-center justify-center z-50'>
+								<div className='flex items-center gap-2 text-sm text-muted-foreground'>
+									<div className='w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin' />
+									Loading events...
+								</div>
+							</div>
+						)}
 						<div className='flex min-h-full'>
 							{/* Time Labels */}
 							<div className='w-16 border-r border-border bg-muted/10'>

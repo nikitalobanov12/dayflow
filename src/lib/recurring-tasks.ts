@@ -26,115 +26,146 @@ export async function generateRecurringInstances(
 ): Promise<Task[]> {
   if (!task.recurring) return [task];
 
-  const instances: Task[] = [];
-  const { pattern, interval, endDate: recurringEndDate } = task.recurring;
-  const stopDate = recurringEndDate ? new Date(recurringEndDate) : endDate;
-  
-  // Get completion status from database if not provided
-  const completionMap = completedInstances || await recurringInstanceDatabase.getCompletionMap(task.id);
-  
-  // Start from the original task's scheduled date, not the view start date
-  const originalDate = task.scheduledDate ? new Date(task.scheduledDate) : new Date();
-
-  if (pattern === 'weekly' && task.recurring.daysOfWeek?.length) {
-    // Special handling for weekly tasks with specific days of the week
-    const startOfWeekDate = new Date(originalDate);
-    startOfWeekDate.setDate(startOfWeekDate.getDate() - startOfWeekDate.getDay()); // Go to Sunday of that week
+  try {
+    const instances: Task[] = [];
+    const { pattern, interval, endDate: recurringEndDate } = task.recurring;
+    const stopDate = recurringEndDate ? new Date(recurringEndDate) : endDate;
     
-    let currentWeekStart = new Date(startOfWeekDate);
-    
-    // Move to the first week that intersects with our view range
-    while (addDays(currentWeekStart, 6) < startDate) {
-      currentWeekStart = addWeeks(currentWeekStart, interval);
+    // Safety checks
+    if (!pattern || !interval || interval < 1) {
+      console.warn('Invalid recurring pattern:', task.recurring);
+      return [task];
     }
+
+    // Add a maximum safety limit to prevent infinite loops
+    const MAX_INSTANCES = 365; // Max 1 year worth of daily instances
+    let instanceCount = 0;
     
-    while (currentWeekStart <= endDate && currentWeekStart <= stopDate) {
-      // For each specified day of the week in this week
-      for (const dayOfWeek of task.recurring.daysOfWeek) {
-        const instanceDate = addDays(currentWeekStart, dayOfWeek);
-        
-        // Only add if it's within our date range and after the original task date
-        if (instanceDate >= startDate && 
-            instanceDate <= endDate && 
-            instanceDate <= stopDate &&
-            instanceDate >= originalDate) {
-          const instance = createTaskInstance(task, instanceDate, completionMap);
-          instances.push(instance);
-        }
+    // Get completion status from database if not provided
+    const completionMap = completedInstances || await recurringInstanceDatabase.getCompletionMap(task.id);
+    
+    // Start from the original task's scheduled date, not the view start date
+    const originalDate = task.scheduledDate ? new Date(task.scheduledDate) : new Date();
+
+    if (pattern === 'weekly' && task.recurring.daysOfWeek?.length) {
+      // Special handling for weekly tasks with specific days of the week
+      const startOfWeekDate = new Date(originalDate);
+      startOfWeekDate.setDate(startOfWeekDate.getDate() - startOfWeekDate.getDay()); // Go to Sunday of that week
+      
+      let currentWeekStart = new Date(startOfWeekDate);
+      
+      // Move to the first week that intersects with our view range
+      while (addDays(currentWeekStart, 6) < startDate && instanceCount < MAX_INSTANCES) {
+        currentWeekStart = addWeeks(currentWeekStart, interval);
+        instanceCount++;
       }
       
-      // Move to next week interval
-      currentWeekStart = addWeeks(currentWeekStart, interval);
-      
-      // Stop if we've reached the recurring end date
-      if (recurringEndDate && currentWeekStart > new Date(recurringEndDate)) {
-        break;
-      }
-    }
-  } else {
-    // Original logic for daily, monthly, yearly, and weekly without specific days
-    let currentDate = new Date(originalDate);
-
-    // First, add instances before the view start date if the original task is before it
-    if (originalDate < startDate) {
-      // Calculate how many intervals we need to skip to get to the first instance in the view
-      let tempDate = new Date(originalDate);
-      while (tempDate < startDate && tempDate < stopDate) {
-        if (tempDate >= startDate && isValidRecurrenceDate(tempDate, task.recurring)) {
-          const instance = createTaskInstance(task, tempDate, completionMap);
-          instances.push(instance);
+      while (currentWeekStart <= endDate && currentWeekStart <= stopDate && instanceCount < MAX_INSTANCES) {
+        // For each specified day of the week in this week
+        for (const dayOfWeek of task.recurring.daysOfWeek) {
+          if (instanceCount >= MAX_INSTANCES) break;
+          
+          const instanceDate = addDays(currentWeekStart, dayOfWeek);
+          
+          // Only add if it's within our date range and after the original task date
+          if (instanceDate >= startDate && 
+              instanceDate <= endDate && 
+              instanceDate <= stopDate &&
+              instanceDate >= originalDate) {
+            const instance = createTaskInstance(task, instanceDate, completionMap);
+            instances.push(instance);
+            instanceCount++;
+          }
         }
         
+        // Move to next week interval
+        currentWeekStart = addWeeks(currentWeekStart, interval);
+        
+        // Stop if we've reached the recurring end date
+        if (recurringEndDate && currentWeekStart > new Date(recurringEndDate)) {
+          break;
+        }
+      }
+    } else {
+      // Original logic for daily, monthly, yearly, and weekly without specific days
+      let currentDate = new Date(originalDate);
+
+      // First, add instances before the view start date if the original task is before it
+      if (originalDate < startDate) {
+        // Calculate how many intervals we need to skip to get to the first instance in the view
+        let tempDate = new Date(originalDate);
+        while (tempDate < startDate && tempDate < stopDate && instanceCount < MAX_INSTANCES) {
+          if (tempDate >= startDate && isValidRecurrenceDate(tempDate, task.recurring)) {
+            const instance = createTaskInstance(task, tempDate, completionMap);
+            instances.push(instance);
+            instanceCount++;
+          }
+          
+          // Move to next occurrence
+          switch (pattern) {
+            case 'daily':
+              tempDate = addDays(tempDate, interval);
+              break;
+            case 'weekly':
+              tempDate = addWeeks(tempDate, interval);
+              break;
+            case 'monthly':
+              tempDate = addMonths(tempDate, interval);
+              break;
+            case 'yearly':
+              tempDate = addYears(tempDate, interval);
+              break;
+            default:
+              console.warn('Unknown recurring pattern:', pattern);
+              return [task];
+          }
+        }
+        currentDate = new Date(tempDate);
+      }
+
+      // Generate instances within the visible date range
+      while (currentDate <= endDate && currentDate <= stopDate && instanceCount < MAX_INSTANCES) {
+        if (isValidRecurrenceDate(currentDate, task.recurring)) {
+          const instance = createTaskInstance(task, currentDate, completionMap);
+          instances.push(instance);
+          instanceCount++;
+        }
+
         // Move to next occurrence
         switch (pattern) {
           case 'daily':
-            tempDate = addDays(tempDate, interval);
+            currentDate = addDays(currentDate, interval);
             break;
           case 'weekly':
-            tempDate = addWeeks(tempDate, interval);
+            currentDate = addWeeks(currentDate, interval);
             break;
           case 'monthly':
-            tempDate = addMonths(tempDate, interval);
+            currentDate = addMonths(currentDate, interval);
             break;
           case 'yearly':
-            tempDate = addYears(tempDate, interval);
+            currentDate = addYears(currentDate, interval);
+            break;
+          default:
+            console.warn('Unknown recurring pattern:', pattern);
             break;
         }
+
+        // Stop if we've reached the recurring end date
+        if (recurringEndDate && currentDate > new Date(recurringEndDate)) {
+          break;
+        }
       }
-      currentDate = new Date(tempDate);
     }
 
-    // Generate instances within the visible date range
-    while (currentDate <= endDate && currentDate <= stopDate) {
-      if (isValidRecurrenceDate(currentDate, task.recurring)) {
-        const instance = createTaskInstance(task, currentDate, completionMap);
-        instances.push(instance);
-      }
-
-      // Move to next occurrence
-      switch (pattern) {
-        case 'daily':
-          currentDate = addDays(currentDate, interval);
-          break;
-        case 'weekly':
-          currentDate = addWeeks(currentDate, interval);
-          break;
-        case 'monthly':
-          currentDate = addMonths(currentDate, interval);
-          break;
-        case 'yearly':
-          currentDate = addYears(currentDate, interval);
-          break;
-      }
-
-      // Stop if we've reached the recurring end date
-      if (recurringEndDate && currentDate > new Date(recurringEndDate)) {
-        break;
-      }
+    if (instanceCount >= MAX_INSTANCES) {
+      console.warn('Reached maximum instance limit for recurring task:', task.title);
     }
+
+    return instances;
+  } catch (error) {
+    console.error('Error generating recurring instances:', error);
+    return [task]; // Return just the original task on error
   }
-
-  return instances;
 }
 
 function isValidRecurrenceDate(date: Date, config: RecurringConfig): boolean {
