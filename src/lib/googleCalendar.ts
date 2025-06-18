@@ -1,4 +1,4 @@
-import { Task, GoogleCalendarTokens, GoogleCalendarTokensRow } from '../types';
+import { Task, GoogleCalendarTokens } from '../types';
 import supabase from '../utils/supabase';
 
 export interface GoogleCalendarConfig {

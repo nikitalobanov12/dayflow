@@ -48,7 +48,6 @@ function App() {
 		const urlParams = new URLSearchParams(window.location.search);
 		const code = urlParams.get('code');
 		const state = urlParams.get('state');
-		const scope = urlParams.get('scope');
 
 		// Check if this is a Supabase OAuth callback (has state parameter)
 		if (code && state) {

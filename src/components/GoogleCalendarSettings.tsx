@@ -62,7 +62,6 @@ export function GoogleCalendarSettings({
     disconnect,
     setSelectedCalendarId,
     authenticate,
-    getAuthUrl,
   } = useGoogleCalendar(config, onTaskUpdate);
 
   // Filter calendars to show only user calendars
