@@ -1,9 +1,8 @@
 import { GoogleCalendarConfig } from './googleCalendar';
 
-// Google Calendar API Configuration for client-side OAuth
+// Google Calendar API Configuration - client secret handled securely server-side
 export const googleCalendarConfig: GoogleCalendarConfig = {
   clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
-  clientSecret: '', // Not used in client-side OAuth flows
   redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || 'http://localhost:1420',
 };
 

@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Calendar, CheckCircle, AlertCircle, ExternalLink, Unlink, Save } from 'lucide-react';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
-import { GoogleCalendarConfig, getGoogleCalendarService } from '../lib/googleCalendar';
+import { GoogleCalendarConfig } from '../lib/googleCalendar';
 import { UserPreferences } from '../types';
 
 interface GoogleCalendarSettingsProps {
@@ -62,20 +62,28 @@ export function GoogleCalendarSettings({
     disconnect,
     setSelectedCalendarId,
     authenticate,
+    getAuthUrl,
   } = useGoogleCalendar(config, onTaskUpdate);
 
   // Filter calendars to show only user calendars
   const userCalendars = calendars.filter(isUserCalendar);
 
-  // Check for stored authorization code from OAuth callback
+  // Check for OAuth callback in URL parameters
   useEffect(() => {
-    const storedAuthCode = localStorage.getItem('google_calendar_auth_code');
-    if (storedAuthCode && !isAuthenticated) {
-      console.log('Found stored Google Calendar auth code, processing automatically...');
-      // Clear the stored code immediately
-      localStorage.removeItem('google_calendar_auth_code');
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const error = urlParams.get('error');
+    
+    if (code && !isAuthenticated) {
+      console.log('Found OAuth authorization code in URL, processing...');
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
       // Process the code
-      handleAuthCallback(storedAuthCode);
+      handleAuthCallback(code);
+    } else if (error) {
+      console.error('OAuth error:', error);
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [isAuthenticated, handleAuthCallback]);
 
@@ -136,12 +144,11 @@ export function GoogleCalendarSettings({
     }
   };
 
-  const handleConnect = async () => {
-    console.log('Connecting to Google Calendar with GIS...');
-    await authenticate();
+  const handleConnect = () => {
+    console.log('Starting Google Calendar OAuth flow...');
+    // This will redirect to Google's OAuth page
+    authenticate();
   };
-
-  // Removed handleAuthCodeSubmit as GIS doesn't require manual code input
 
   const handleCalendarChange = (calendarId: string) => {
     setSelectedCalendar(calendarId);
@@ -159,16 +166,6 @@ export function GoogleCalendarSettings({
     }
   };
 
-  const handleClearAuthData = () => {
-    // Clear all authentication data for debugging
-    const service = getGoogleCalendarService();
-    if (service) {
-      service.clearAllAuthData();
-    }
-    // Force page reload to reset all state
-    window.location.reload();
-  };
-
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
@@ -177,7 +174,7 @@ export function GoogleCalendarSettings({
           Google Calendar Integration
         </CardTitle>
         <CardDescription>
-          Sync your scheduled tasks with Google Calendar to keep everything in one place.
+          Connect once and your scheduled tasks will automatically sync with Google Calendar forever.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -188,7 +185,7 @@ export function GoogleCalendarSettings({
             {isAuthenticated ? (
               <Badge variant="default" className="flex items-center gap-1">
                 <CheckCircle className="h-3 w-3" />
-                Connected
+                Connected & Persistent
               </Badge>
             ) : (
               <Badge variant="secondary" className="flex items-center gap-1">
@@ -198,99 +195,100 @@ export function GoogleCalendarSettings({
             )}
           </div>
           
-          <div className="flex gap-2">
-            {isAuthenticated ? (
-              <Button variant="outline" onClick={handleDisconnect} size="sm">
-                <Unlink className="h-4 w-4 mr-2" />
-                Disconnect
-              </Button>
-            ) : (
-              <Button onClick={handleConnect} disabled={isLoading} size="sm">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Connect to Google Calendar
-              </Button>
-            )}
-            
-            {/* Debug button for development */}
-            {import.meta.env.DEV && (
-              <Button variant="ghost" size="sm" onClick={handleClearAuthData} className="text-orange-600 hover:text-orange-700">
-                Clear Auth Data
-              </Button>
-            )}
-          </div>
+          {isAuthenticated ? (
+            <Button
+              variant="outline"
+              onClick={handleDisconnect}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <Unlink className="h-4 w-4" />
+              Disconnect
+            </Button>
+          ) : (
+            <Button
+              onClick={handleConnect}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <ExternalLink className="h-4 w-4" />
+              {isLoading ? 'Connecting...' : 'Connect to Google Calendar'}
+            </Button>
+          )}
         </div>
-
-        {/* GIS handles authentication through popup - no manual input needed */}
 
         {/* Error Display */}
         {error && (
-          <Alert variant="destructive">
+          <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription className="text-sm">
+              {error}
+            </AlertDescription>
           </Alert>
         )}
 
+        {/* Information about persistent connection */}
+        {!isAuthenticated && (
+          <Alert>
+            <Calendar className="h-4 w-4" />
+            <AlertDescription>
+              <strong>One-time setup:</strong> Connect your Google Calendar once and your tasks will automatically sync forever. 
+              No need to reconnect or worry about expired sessions.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Connection Settings - Only show when authenticated */}
         {isAuthenticated && (
           <>
             <Separator />
             
             {/* Calendar Selection */}
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Select Calendar</Label>
-              {/* Debug info */}
-              {import.meta.env.DEV && (
-                <div className="text-xs text-muted-foreground">
-                  Debug: {userCalendars.length} user calendars loaded (filtered from {calendars.length} total)
-                  {userCalendars.length > 0 && (
-                    <pre className="mt-1 text-xs bg-muted p-2 rounded">
-                      {JSON.stringify(userCalendars.map(cal => ({ id: cal.id, summary: cal.summary })), null, 2)}
-                    </pre>
-                  )}
-                </div>
-              )}
-              <Select value={selectedCalendar} onValueChange={handleCalendarChange}>
+              <Label htmlFor="calendar-select" className="text-sm font-medium">
+                Target Calendar
+              </Label>
+              <Select
+                value={selectedCalendar}
+                onValueChange={handleCalendarChange}
+                disabled={isLoading}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a calendar..." />
+                  <SelectValue placeholder="Select a calendar for syncing tasks" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userCalendars.length === 0 ? (
-                    <SelectItem value="loading" disabled>
-                      {calendars.length === 0 ? 'Loading calendars...' : 'No user calendars found'}
+                  {userCalendars.map((calendar) => (
+                    <SelectItem key={calendar.id} value={calendar.id}>
+                      <div className="flex items-center justify-between w-full">
+                        <span>{calendar.summary}</span>
+                        {calendar.primary && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            Primary
+                          </Badge>
+                        )}
+                      </div>
                     </SelectItem>
-                  ) : (
-                    userCalendars.map((calendar) => (
-                      <SelectItem key={calendar.id} value={calendar.id}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: calendar.backgroundColor || '#3b82f6' }}
-                          />
-                          {calendar.summary || calendar.id}
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Your scheduled tasks will be synced to this calendar. System calendars (like holidays) are filtered out.
+                {userCalendars.length} calendars available
               </p>
             </div>
 
-            <Separator />
-
             {/* Sync Settings */}
             <div className="space-y-4">
-              <h4 className="text-sm font-medium">Sync Settings</h4>
-              
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-sm">Auto-sync tasks</Label>
+                  <Label htmlFor="auto-sync" className="text-sm font-medium">
+                    Auto-sync
+                  </Label>
                   <p className="text-xs text-muted-foreground">
-                    Automatically sync tasks when they are scheduled or updated
+                    Automatically sync tasks to Google Calendar when scheduled
                   </p>
                 </div>
                 <Switch
+                  id="auto-sync"
                   checked={autoSync}
                   onCheckedChange={setAutoSync}
                 />
@@ -298,12 +296,15 @@ export function GoogleCalendarSettings({
 
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-sm">Sync only scheduled tasks</Label>
+                  <Label htmlFor="sync-only-scheduled" className="text-sm font-medium">
+                    Sync only scheduled tasks
+                  </Label>
                   <p className="text-xs text-muted-foreground">
-                    Only sync tasks that have a specific date and time
+                    Only sync tasks that have a scheduled date or time
                   </p>
                 </div>
                 <Switch
+                  id="sync-only-scheduled"
                   checked={syncOnlyScheduled}
                   onCheckedChange={setSyncOnlyScheduled}
                 />
@@ -318,40 +319,21 @@ export function GoogleCalendarSettings({
                   <p className="text-sm text-muted-foreground">
                     You have unsaved changes
                   </p>
-                  <Button 
-                    onClick={saveSettings} 
+                  <Button
+                    onClick={saveSettings}
                     disabled={saveStatus === 'saving'}
-                    size="sm"
+                    variant="default"
                     className="flex items-center gap-2"
                   >
                     <Save className="h-4 w-4" />
                     {saveStatus === 'saving' ? 'Saving...' : 
                      saveStatus === 'saved' ? 'Saved!' : 
-                     saveStatus === 'error' ? 'Error' : 'Save Settings'}
+                     saveStatus === 'error' ? 'Error - Try Again' : 'Save Settings'}
                   </Button>
                 </div>
               </>
             )}
-
-            <Separator />
-
-            {/* Usage Instructions */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">How it works</h4>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                <li>• When you schedule a task with a specific date and time, it will appear in your Google Calendar</li>
-                <li>• Task updates (title, description, time) will sync automatically if auto-sync is enabled</li>
-                <li>• Deleting a scheduled task will remove it from Google Calendar</li>
-                <li>• You can manually sync individual tasks from the task context menu</li>
-              </ul>
-            </div>
           </>
-        )}
-
-        {isLoading && (
-          <div className="flex items-center justify-center py-4">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-          </div>
         )}
       </CardContent>
     </Card>

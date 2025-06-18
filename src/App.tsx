@@ -54,10 +54,7 @@ function App() {
 		if (code && state) {
 			setIsOAuthCallback(true);
 		}
-		// Check if this is a Google Calendar OAuth callback (has calendar scope)
-		else if (code && scope && scope.includes('calendar')) {
-			handleGoogleCalendarCallback(code);
-		}
+		// Google Calendar OAuth callbacks are now handled directly in GoogleCalendarSettings component
 	}, []);
 
 	const handleAuthComplete = () => {
@@ -66,18 +63,7 @@ function App() {
 		window.history.replaceState({}, document.title, window.location.pathname);
 	};
 
-	const handleGoogleCalendarCallback = async (code: string) => {
-		console.log('Detected Google Calendar OAuth callback with code:', code.substring(0, 10) + '...');
-		
-		// Store the code in localStorage temporarily so the settings page can pick it up
-		localStorage.setItem('google_calendar_auth_code', code);
-		
-		// Clear the URL parameters
-		window.history.replaceState({}, document.title, window.location.pathname);
-		
-		// Show a success message or redirect to settings
-		console.log('Google Calendar authorization code stored. Please go to Settings > Calendar to complete the connection.');
-	};
+	// OAuth callback is now handled directly in GoogleCalendarSettings component
 
 	// Wrapper functions to match component signatures
 	const handleAddBoard = async (board: Omit<Board, 'id' | 'createdAt' | 'userId'>) => {

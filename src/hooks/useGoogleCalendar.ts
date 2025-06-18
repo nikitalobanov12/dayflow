@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Task } from '../types';
 import { getGoogleCalendarService, initializeGoogleCalendar, GoogleCalendarConfig } from '../lib/googleCalendar';
+import supabase from '../utils/supabase';
 
 export interface UseGoogleCalendarReturn {
   isAuthenticated: boolean;
@@ -14,7 +15,7 @@ export interface UseGoogleCalendarReturn {
   syncTask: (task: Task) => Promise<void>;
   unsyncTask: (task: Task) => Promise<void>;
   setSelectedCalendarId: (calendarId: string) => void;
-  getAuthUrl: () => Promise<string | null>;
+  getAuthUrl: () => string;
 }
 
 export function useGoogleCalendar(
@@ -50,8 +51,6 @@ export function useGoogleCalendar(
         setIsAuthenticated(false);
       } else {
         setError('Failed to load calendars. Please try reconnecting.');
-        // If loading calendars fails and it's not an auth error, keep authenticated status
-        // This allows users to retry without re-authenticating
       }
     } finally {
       setIsLoading(false);
@@ -60,30 +59,58 @@ export function useGoogleCalendar(
 
   // Initialize Google Calendar service and check for stored tokens
   useEffect(() => {
-    const service = initializeGoogleCalendar(config);
-    
-    // Check if we have stored tokens and they're valid
-    const hasStoredTokens = service.loadStoredTokens();
-    const isServiceAuthenticated = service.isUserAuthenticated();
-    
-    console.log('Google Calendar initialization:', {
-      hasStoredTokens,
-      isServiceAuthenticated,
-      config: {
-        hasClientId: !!config.clientId,
-        hasClientSecret: !!config.clientSecret,
-        redirectUri: config.redirectUri
+    const initializeService = async () => {
+      const service = initializeGoogleCalendar(config);
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.log('No authenticated user found');
+        return;
       }
-    });
-    
-    setIsAuthenticated(isServiceAuthenticated);
-    
-    if (isServiceAuthenticated) {
-      loadCalendars();
-    }
+
+      // Set user ID for token management
+      service.setUserId(user.id);
+      
+      // Check if we have stored tokens and they're valid
+      const hasStoredTokens = await service.loadStoredTokens();
+      const isServiceAuthenticated = service.isUserAuthenticated();
+      
+      console.log('Google Calendar initialization:', {
+        hasStoredTokens,
+        isServiceAuthenticated,
+        userId: user.id,
+        config: {
+          hasClientId: !!config.clientId,
+          redirectUri: config.redirectUri
+        }
+      });
+      
+      setIsAuthenticated(isServiceAuthenticated);
+      
+      if (isServiceAuthenticated) {
+        await loadCalendars();
+      }
+    };
+
+    initializeService();
   }, [config, loadCalendars]);
 
-  const authenticate = useCallback(async () => {
+  const getAuthUrl = useCallback(() => {
+    const service = getGoogleCalendarService();
+    if (!service) {
+      throw new Error('Google Calendar service not initialized');
+    }
+    return service.getAuthUrl();
+  }, []);
+
+  const authenticate = useCallback(() => {
+    const authUrl = getAuthUrl();
+    // Open Google OAuth URL in current window
+    window.location.href = authUrl;
+  }, [getAuthUrl]);
+
+  const handleAuthCallback = useCallback(async (code: string) => {
     const service = getGoogleCalendarService();
     if (!service) {
       setError('Google Calendar service not initialized');
@@ -91,12 +118,24 @@ export function useGoogleCalendar(
     }
 
     try {
-      setIsLoading(true); 
+      setIsLoading(true);
       setError(null);
-      console.log('Starting Google Calendar authentication...');
+      console.log('Processing Google Calendar authorization code...');
       
-      // For GIS, we call authenticate directly (no URL needed)
-      await service.authenticate();
+      // Ensure user ID is set before exchanging tokens
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      console.log('User authenticated, setting user ID:', user.id);
+      
+      // Set user ID for token management
+      service.setUserId(user.id);
+      
+      // Exchange the authorization code for tokens
+      console.log('Calling exchangeCodeForTokens...');
+      await service.exchangeCodeForTokens(code);
       
       const isServiceAuthenticated = service.isUserAuthenticated();
       console.log('Authentication result:', isServiceAuthenticated);
@@ -104,6 +143,7 @@ export function useGoogleCalendar(
       
       if (isServiceAuthenticated) {
         await loadCalendars();
+        console.log('✅ Google Calendar connected successfully');
       }
     } catch (error) {
       console.error('Authentication failed:', error);
@@ -114,23 +154,25 @@ export function useGoogleCalendar(
     }
   }, [loadCalendars]);
 
-  const handleAuthCallback = useCallback(async (_code: string) => {
-    // Note: With GIS, this function is no longer used for authentication
-    // GIS handles authentication through popups automatically
-    // This is kept for backward compatibility but logs a deprecation notice
-    console.log('handleAuthCallback called but not needed with GIS - authentication handled automatically');
-  }, []);
-
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback(async () => {
     const service = getGoogleCalendarService();
     if (!service) return;
 
-    console.log('Disconnecting from Google Calendar');
-    service.disconnect();
-    setIsAuthenticated(false);
-    setCalendars([]);
-    setSelectedCalendarId('primary');
-    setError(null);
+    try {
+      setIsLoading(true);
+      console.log('Disconnecting from Google Calendar');
+      await service.disconnect();
+      setIsAuthenticated(false);
+      setCalendars([]);
+      setSelectedCalendarId('primary');
+      setError(null);
+      console.log('✅ Google Calendar disconnected successfully');
+    } catch (error) {
+      console.error('Failed to disconnect from Google Calendar:', error);
+      setError('Failed to disconnect from Google Calendar');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const syncTask = useCallback(async (task: Task) => {
@@ -144,16 +186,15 @@ export function useGoogleCalendar(
     }
 
     try {
-      setIsLoading(true);
-      
       let eventId: string | null = null;
-      
+
+      // Update existing event or create new one
       if (task.googleCalendarEventId) {
-        // Update existing event
+        console.log('🔄 Updating existing Google Calendar event:', task.googleCalendarEventId);
         await service.updateEvent(task, task.googleCalendarEventId, selectedCalendarId);
         eventId = task.googleCalendarEventId;
       } else {
-        // Create new event
+        console.log('➕ Creating new Google Calendar event');
         eventId = await service.createEvent(task, selectedCalendarId);
       }
 
@@ -163,15 +204,17 @@ export function useGoogleCalendar(
           googleCalendarEventId: eventId,
           googleCalendarSynced: true,
         });
+        console.log('✅ Successfully linked task to Google Calendar event');
       }
-
-      setError(null);
-    } catch (err) {
-      console.error('Failed to sync task:', err);
-      setError('Failed to sync task with Google Calendar');
-      throw err;
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error('❌ Failed to sync task to Google Calendar:', error);
+      // Update task to mark sync as failed
+      if (onTaskUpdate) {
+        await onTaskUpdate(task.id, {
+          googleCalendarSynced: false,
+        });
+      }
+      throw error;
     }
   }, [selectedCalendarId, onTaskUpdate]);
 
@@ -182,12 +225,10 @@ export function useGoogleCalendar(
     }
 
     if (!task.googleCalendarEventId) {
-      return; // Nothing to unsync
+      throw new Error('Task is not synced with Google Calendar');
     }
 
     try {
-      setIsLoading(true);
-      
       // Delete the event from Google Calendar
       await service.deleteEvent(task.googleCalendarEventId, selectedCalendarId);
 
@@ -198,26 +239,11 @@ export function useGoogleCalendar(
           googleCalendarSynced: false,
         });
       }
-
-      setError(null);
-    } catch (err) {
-      console.error('Failed to unsync task:', err);
-      setError('Failed to remove task from Google Calendar');
-      throw err;
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error('❌ Failed to remove task from Google Calendar:', error);
+      throw error;
     }
   }, [selectedCalendarId, onTaskUpdate]);
-
-  const getAuthUrl = useCallback(async () => {
-    const service = getGoogleCalendarService();
-    try {
-      return service ? await service.getAuthUrl() : null;
-    } catch (error) {
-      console.error('Failed to generate auth URL:', error);
-      return null;
-    }
-  }, []);
 
   return {
     isAuthenticated,

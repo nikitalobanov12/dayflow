@@ -1,229 +1,204 @@
-import { Task } from '../types';
+import { Task, GoogleCalendarTokens, GoogleCalendarTokensRow } from '../types';
+import supabase from '../utils/supabase';
 
 export interface GoogleCalendarConfig {
   clientId: string;
-  clientSecret: string; // Not used in GIS flow
   redirectUri: string;
-}
-
-interface GoogleTokens {
-  access_token: string;
-  refresh_token?: string;
-  expires_in?: number;
-  token_type?: string;
-}
-
-// Type definitions for Google Identity Services
-declare global {
-  interface Window {
-    google: {
-      accounts: {
-        oauth2: {
-          initTokenClient: (config: any) => any;
-        };
-      };
-    };
-  }
+  // clientSecret removed - now handled server-side
 }
 
 export class GoogleCalendarService {
-  private tokens: GoogleTokens | null = null;
-  private isAuthenticated = false;
+  private tokens: GoogleCalendarTokens | null = null;
   private readonly CALENDAR_API_BASE = 'https://www.googleapis.com/calendar/v3';
-  private tokenClient: any = null;
-  private isGISLoaded = false;
+  private readonly AUTH_BASE = 'https://accounts.google.com/o/oauth2/v2/auth';
+  private readonly SCOPES = 'https://www.googleapis.com/auth/calendar';
+  private userId: string | null = null;
+  private refreshPromise: Promise<void> | null = null;
 
   constructor(private config: GoogleCalendarConfig) {}
 
   /**
-   * Load Google Identity Services script
+   * Set the current user ID for token management
    */
-  private async loadGIS(): Promise<void> {
-    if (this.isGISLoaded) return;
-
-    return new Promise((resolve, reject) => {
-      // Check if script already exists
-      if (document.getElementById('google-identity-script')) {
-        this.isGISLoaded = true;
-        resolve();
-        return;
-      }
-
-      // Create and load the script
-      const script = document.createElement('script');
-      script.id = 'google-identity-script';
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.onload = () => {
-        this.isGISLoaded = true;
-        console.log('Google Identity Services loaded successfully');
-        resolve();
-      };
-      script.onerror = () => {
-        console.error('Failed to load Google Identity Services');
-        reject(new Error('Failed to load Google Identity Services'));
-      };
-      document.head.appendChild(script);
-    });
+  setUserId(userId: string): void {
+    this.userId = userId;
   }
 
   /**
-   * Initialize the token client
+   * Generate OAuth 2.0 authorization URL
    */
-  private async initializeTokenClient(): Promise<void> {
-    await this.loadGIS();
+  getAuthUrl(): string {
+    const params = new URLSearchParams({
+      client_id: this.config.clientId,
+      redirect_uri: this.config.redirectUri,
+      scope: this.SCOPES,
+      response_type: 'code',
+      access_type: 'offline', // Critical: This ensures we get a refresh token
+      prompt: 'consent', // Force consent to ensure refresh token
+      include_granted_scopes: 'true',
+    });
 
-    if (typeof window.google === 'undefined') {
-      throw new Error('Google Identity Services not available');
+    return `${this.AUTH_BASE}?${params.toString()}`;
+  }
+
+  /**
+   * Exchange authorization code for tokens using secure backend
+   */
+  async exchangeCodeForTokens(code: string): Promise<void> {
+    if (!this.userId) {
+      throw new Error('User ID must be set before exchanging tokens');
     }
 
-    this.tokenClient = window.google.accounts.oauth2.initTokenClient({
-      client_id: this.config.clientId,
-      scope: 'https://www.googleapis.com/auth/calendar',
-      callback: (tokenResponse: any) => {
-        console.log('Token response received:', {
-          hasAccessToken: !!tokenResponse.access_token,
-          hasError: !!tokenResponse.error,
-          expiresIn: tokenResponse.expires_in
-        });
-
-        if (tokenResponse.error) {
-          console.error('GIS authentication error:', tokenResponse.error);
-          this.handleAuthError(tokenResponse.error);
-          return;
-        }
-
-        // Store the tokens
-        this.tokens = {
-          access_token: tokenResponse.access_token,
-          expires_in: tokenResponse.expires_in,
-          token_type: 'Bearer'
-        };
-        this.isAuthenticated = true;
-
-        // Store in localStorage for persistence
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('google_calendar_tokens', JSON.stringify(this.tokens));
-          console.log('Tokens stored successfully');
-        }
-
-        // Trigger a custom event to notify components
-        window.dispatchEvent(new CustomEvent('google-auth-success'));
-      },
-    });
-
-    console.log('Google Identity Services token client initialized');
-  }
-
-  /**
-   * Handle authentication errors
-   */
-  private handleAuthError(error: any): void {
-    console.error('Google authentication error:', error);
-    this.isAuthenticated = false;
-    this.tokens = null;
-    window.dispatchEvent(new CustomEvent('google-auth-error', { detail: error }));
-  }
-
-  /**
-   * Get the authorization URL - for GIS, we trigger the popup directly
-   */
-  async getAuthUrl(): Promise<string> {
-    // GIS doesn't use URLs, but we return a placeholder for compatibility
-    return 'javascript:void(0)'; // This will be ignored as we call authenticate directly
-  }
-
-  /**
-   * Authenticate using Google Identity Services
-   */
-  async authenticate(): Promise<void> {
     try {
-      console.log('Starting Google Calendar authentication with GIS...');
+      console.log('Exchanging authorization code for tokens via secure backend...');
       
-      if (!this.tokenClient) {
-        await this.initializeTokenClient();
+      const { data, error } = await supabase.functions.invoke('google-oauth-exchange', {
+        body: {
+          code,
+          redirectUri: this.config.redirectUri,
+        },
+      });
+
+      if (error) {
+        console.error('Token exchange failed:', error);
+        throw new Error(`Token exchange failed: ${error.message || 'Unknown error'}`);
       }
 
-      return new Promise((resolve, reject) => {
-        // Set up one-time event listeners for this authentication attempt
-        const handleSuccess = () => {
-          window.removeEventListener('google-auth-success', handleSuccess);
-          window.removeEventListener('google-auth-error', handleError);
-          resolve();
-        };
+      if (!data?.success) {
+        console.error('Token exchange response:', data);
+        throw new Error('Token exchange was not successful');
+      }
 
-        const handleError = (event: any) => {
-          window.removeEventListener('google-auth-success', handleSuccess);
-          window.removeEventListener('google-auth-error', handleError);
-          reject(new Error(`Authentication failed: ${event.detail || 'Unknown error'}`));
-        };
+      // Load the newly stored tokens
+      const tokensLoaded = await this.loadStoredTokens();
+      if (!tokensLoaded) {
+        throw new Error('Tokens were not stored properly');
+      }
 
-        window.addEventListener('google-auth-success', handleSuccess);
-        window.addEventListener('google-auth-error', handleError);
-
-        // Request access token - this will show Google's popup
-        console.log('Requesting access token...');
-        this.tokenClient.requestAccessToken({
-          prompt: 'consent', // Force consent screen to get refresh token behavior
-        });
-      });
+      console.log('✅ Google Calendar tokens exchanged and stored successfully');
     } catch (error) {
-      console.error('Error during authentication:', error);
-      this.isAuthenticated = false;
-      this.tokens = null;
+      console.error('❌ Failed to exchange code for tokens:', error);
       throw error;
     }
   }
 
   /**
-   * Load tokens from localStorage
+   * Load tokens from Supabase database
    */
-  loadStoredTokens(): boolean {
-    if (typeof window !== 'undefined') {
-      const storedTokens = localStorage.getItem('google_calendar_tokens');
-      if (storedTokens) {
-        try {
-          const tokens = JSON.parse(storedTokens);
-          
-          // Check if we have required token data
-          if (tokens && tokens.access_token) {
-            this.tokens = tokens;
-            this.isAuthenticated = true; // Restore authenticated state
-            
-            console.log('Restored Google Calendar authentication from stored tokens');
-            
-            // Optionally verify the token by making a quick API call
-            // This will automatically handle expired tokens
-            this.verifyTokenAsync();
-            
-            return true;
-          } else {
-            console.log('Stored tokens are invalid, clearing...');
-            localStorage.removeItem('google_calendar_tokens');
-          }
-        } catch (error) {
-          console.error('Failed to parse stored tokens:', error);
-          localStorage.removeItem('google_calendar_tokens');
-        }
-      }
+  async loadStoredTokens(): Promise<boolean> {
+    if (!this.userId) {
+      console.log('No user ID set, cannot load tokens');
+      return false;
     }
-    
-    this.isAuthenticated = false;
-    this.tokens = null;
-    return false;
+
+    try {
+      const { data, error } = await supabase
+        .from('google_calendar_tokens')
+        .select('*')
+        .eq('id', this.userId)
+        .maybeSingle(); // Use maybeSingle() instead of single() to handle 0 rows gracefully
+
+      if (error) {
+        console.error('Error loading tokens:', error);
+        throw error;
+      }
+
+      if (!data) {
+        console.log('No Google Calendar tokens found for user');
+        this.tokens = null;
+        return false;
+      }
+
+      // Transform database row to client type
+      this.tokens = {
+        id: data.id,
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresAt: data.expires_at,
+        scope: data.scope,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+
+      // Check if tokens are about to expire and refresh if necessary
+      await this.ensureValidTokens();
+
+      console.log('✅ Google Calendar tokens loaded successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to load stored tokens:', error);
+      this.tokens = null;
+      return false;
+    }
   }
 
   /**
-   * Verify stored tokens are still valid (async, non-blocking)
+   * Ensure we have valid, non-expired tokens
    */
-  private async verifyTokenAsync(): Promise<void> {
+  private async ensureValidTokens(): Promise<void> {
+    if (!this.tokens) {
+      throw new Error('No tokens available');
+    }
+
+    const expiresAt = new Date(this.tokens.expiresAt);
+    const now = new Date();
+    const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+    const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+    // Refresh if token expires within 5 minutes
+    if (timeUntilExpiry <= fiveMinutes) {
+      console.log('🔄 Access token expires soon, refreshing...');
+      
+      // Prevent concurrent refresh attempts
+      if (this.refreshPromise) {
+        await this.refreshPromise;
+        return;
+      }
+
+      this.refreshPromise = this.refreshAccessToken();
+      await this.refreshPromise;
+      this.refreshPromise = null;
+    }
+  }
+
+  /**
+   * Refresh access token using secure backend
+   */
+  private async refreshAccessToken(): Promise<void> {
+    if (!this.tokens || !this.userId) {
+      throw new Error('No tokens or user ID available for refresh');
+    }
+
     try {
-      // Make a lightweight API call to verify the token
-      await this.makeApiRequest('/users/me/calendarList?maxResults=1');
-      console.log('Stored tokens verified as valid');
+      console.log('🔄 Refreshing Google Calendar access token via secure backend...');
+
+      const { data, error } = await supabase.functions.invoke('google-oauth-exchange', {
+        method: 'PUT',
+      });
+
+      if (error) {
+        console.error('Token refresh failed:', error);
+        // If refresh fails, user needs to re-authenticate
+        await this.disconnect();
+        throw new Error('Authentication expired. Please reconnect to Google Calendar.');
+      }
+
+      if (!data?.access_token || !data?.expires_at) {
+        throw new Error('Invalid refresh response');
+      }
+
+      // Update local tokens with new access token
+      this.tokens = {
+        ...this.tokens,
+        accessToken: data.access_token,
+        expiresAt: data.expires_at,
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log('✅ Access token refreshed successfully');
     } catch (error) {
-      console.log('Stored tokens are expired or invalid, user will need to re-authenticate');
-      // Don't set isAuthenticated to false immediately - let the user try to use the feature
-      // The error will be handled when they actually try to use Google Calendar features
+      console.error('❌ Failed to refresh access token:', error);
+      throw error;
     }
   }
 
@@ -231,53 +206,56 @@ export class GoogleCalendarService {
    * Check if user is authenticated
    */
   isUserAuthenticated(): boolean {
-    return this.isAuthenticated && this.tokens !== null;
+    return this.tokens !== null && this.userId !== null;
   }
 
   /**
-   * Disconnect from Google Calendar
+   * Disconnect and clear all authentication data
    */
-  disconnect(): void {
-    this.isAuthenticated = false;
+  async disconnect(): Promise<void> {
+    if (this.userId) {
+      try {
+        // Remove tokens from database
+        await supabase
+          .from('google_calendar_tokens')
+          .delete()
+          .eq('id', this.userId);
+      } catch (error) {
+        console.error('Failed to remove tokens from database:', error);
+      }
+    }
+
+    // Clear local tokens
     this.tokens = null;
+    this.refreshPromise = null;
+
+    // Clear localStorage (for backward compatibility)
     if (typeof window !== 'undefined') {
       localStorage.removeItem('google_calendar_tokens');
     }
+
+    console.log('✅ Google Calendar disconnected successfully');
   }
 
   /**
-   * Clear all stored authentication data (for debugging)
-   */
-  clearAllAuthData(): void {
-    console.log('Clearing all Google Calendar authentication data...');
-    this.isAuthenticated = false;
-    this.tokens = null;
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('google_calendar_tokens');
-      console.log('All authentication data cleared');
-    }
-  }
-
-  /**
-   * Make authenticated API request
+   * Make authenticated API request with automatic token refresh
    */
   private async makeApiRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
     if (!this.tokens) {
       throw new Error('Not authenticated with Google Calendar');
     }
 
-    console.log('Making API request to:', `${this.CALENDAR_API_BASE}${endpoint}`);
+    // Ensure tokens are valid before making request
+    await this.ensureValidTokens();
 
     const response = await fetch(`${this.CALENDAR_API_BASE}${endpoint}`, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${this.tokens.access_token}`,
+        'Authorization': `Bearer ${this.tokens.accessToken}`,
         'Content-Type': 'application/json',
         ...options.headers,
       },
     });
-
-    console.log('API response status:', response.status, response.statusText);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -288,64 +266,66 @@ export class GoogleCalendarService {
       });
 
       if (response.status === 401) {
-        console.log('Token expired, user needs to re-authenticate...');
-        this.isAuthenticated = false;
-        this.tokens = null;
-        // Clear stored tokens
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('google_calendar_tokens');
+        // Token might be expired, try refreshing once more
+        try {
+          await this.refreshAccessToken();
+          
+          // Retry the request with refreshed token
+          const retryResponse = await fetch(`${this.CALENDAR_API_BASE}${endpoint}`, {
+            ...options,
+            headers: {
+              'Authorization': `Bearer ${this.tokens.accessToken}`,
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+          });
+
+          if (!retryResponse.ok) {
+            throw new Error(`API request failed after refresh: ${retryResponse.status}`);
+          }
+
+          return await retryResponse.json();
+        } catch (refreshError) {
+          console.error('Failed to refresh and retry request:', refreshError);
+          throw new Error('Authentication expired. Please reconnect to Google Calendar.');
         }
-        throw new Error('Authentication expired. Please reconnect to Google Calendar.');
+      } else {
+        throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
-      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const responseData = await response.json();
-    console.log('API request successful, response data:', responseData);
-    return responseData;
+    return await response.json();
   }
 
   /**
    * Convert task to Google Calendar event format
    */
   private taskToCalendarEvent(task: Task) {
-    const startDate = task.scheduledDate || task.startDate;
-    const endDate = task.dueDate;
+    const startDateTime = task.scheduledDate || task.startDate;
     
-    if (!startDate) {
+    if (!startDateTime) {
       throw new Error('Task must have a scheduled date or start date');
     }
 
-    const start = new Date(startDate);
-    let end = new Date(startDate);
-    
-    // If task has a time estimate, use it for the end time
-    if (task.timeEstimate && task.timeEstimate > 0) {
-      end = new Date(start.getTime() + task.timeEstimate * 60 * 1000);
-    } else if (endDate) {
-      end = new Date(endDate);
-    } else {
-      // Default to 1 hour duration
-      end = new Date(start.getTime() + 60 * 60 * 1000);
-    }
+    // Parse the date and create event times
+    const startDate = new Date(startDateTime);
+    const endDate = new Date(startDate.getTime() + (task.timeEstimate * 60 * 1000)); // Add time estimate
 
     const event = {
       summary: task.title,
-      description: task.description || `Task from DayFlow\n\nPriority: ${task.priority}\nStatus: ${task.status}`,
+      description: task.description || '',
       start: {
-        dateTime: start.toISOString(),
+        dateTime: startDate.toISOString(),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
       end: {
-        dateTime: end.toISOString(),
+        dateTime: endDate.toISOString(),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
-      extendedProperties: {
-        private: {
-          dayflow_task_id: task.id.toString(),
-          dayflow_board_id: task.boardId?.toString() || '',
-        }
-      }
+      source: {
+        title: 'DayFlow',
+        url: window.location.origin,
+      },
     };
 
     return event;
@@ -355,7 +335,7 @@ export class GoogleCalendarService {
    * Create a Google Calendar event from a task
    */
   async createEvent(task: Task, calendarId: string = 'primary'): Promise<string | null> {
-    if (!this.isAuthenticated) {
+    if (!this.isUserAuthenticated()) {
       throw new Error('Not authenticated with Google Calendar');
     }
 
@@ -378,7 +358,7 @@ export class GoogleCalendarService {
    * Update a Google Calendar event
    */
   async updateEvent(task: Task, eventId: string, calendarId: string = 'primary'): Promise<void> {
-    if (!this.isAuthenticated) {
+    if (!this.isUserAuthenticated()) {
       throw new Error('Not authenticated with Google Calendar');
     }
 
@@ -399,7 +379,7 @@ export class GoogleCalendarService {
    * Delete a Google Calendar event
    */
   async deleteEvent(eventId: string, calendarId: string = 'primary'): Promise<void> {
-    if (!this.isAuthenticated) {
+    if (!this.isUserAuthenticated()) {
       throw new Error('Not authenticated with Google Calendar');
     }
 
@@ -414,22 +394,16 @@ export class GoogleCalendarService {
   }
 
   /**
-   * Get user's calendar list
+   * Get list of user's calendars
    */
   async getCalendarList(): Promise<any[]> {
-    if (!this.isAuthenticated) {
+    if (!this.isUserAuthenticated()) {
       throw new Error('Not authenticated with Google Calendar');
     }
 
     try {
-      console.log('Fetching calendar list from Google Calendar API...');
       const response = await this.makeApiRequest('/users/me/calendarList');
-      console.log('Calendar list response:', response);
-      
-      const calendars = response.items || [];
-      console.log('Parsed calendars:', calendars.length, 'calendars found');
-      
-      return calendars;
+      return response.items || [];
     } catch (error) {
       console.error('Error fetching calendar list:', error);
       throw error;
@@ -442,8 +416,6 @@ let googleCalendarService: GoogleCalendarService | null = null;
 
 export function initializeGoogleCalendar(config: GoogleCalendarConfig): GoogleCalendarService {
   googleCalendarService = new GoogleCalendarService(config);
-  // Try to load stored tokens
-  googleCalendarService.loadStoredTokens();
   return googleCalendarService;
 }
 
@@ -453,6 +425,6 @@ export function getGoogleCalendarService(): GoogleCalendarService | null {
 
 export function clearGoogleCalendarAuthData(): void {
   if (googleCalendarService) {
-    googleCalendarService.clearAllAuthData();
+    googleCalendarService.disconnect();
   }
 } 

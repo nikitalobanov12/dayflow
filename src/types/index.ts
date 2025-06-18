@@ -250,6 +250,27 @@ export interface RecurringInstanceRow {
 
 export type BoardViewType = 'kanban' | 'calendar' | 'list';
 
+// Google Calendar token storage for secure, persistent authentication
+export interface GoogleCalendarTokens {
+	id: string; // UUID matching auth.users.id
+	accessToken: string;
+	refreshToken: string;
+	expiresAt: string; // ISO timestamp when access token expires
+	scope: string; // OAuth scopes granted
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface GoogleCalendarTokensRow {
+	id: string;
+	access_token: string;
+	refresh_token: string;
+	expires_at: string;
+	scope: string;
+	created_at: string;
+	updated_at: string;
+}
+
 // Ensure Task and Board types are defined in this file as per project structure.
 // If they are not, this comment serves as a placeholder for their definitions.
 // export interface Task { ... }
