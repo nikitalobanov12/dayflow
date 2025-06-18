@@ -5,7 +5,7 @@ import { KanbanBoardView } from '@/components/boards/KanbanBoardView';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { ListView } from '@/components/list/ListView';
 import { SprintMode } from './components/sprint/SprintMode';
-import { SprintConfig, SprintConfiguration } from '@/components/sprint/SprintConfig';
+import { SprintConfiguration } from '@/components/sprint/SprintConfig';
 import { SettingsPage } from '@/components/settings/SettingsPage';
 import { Auth } from '@/components/ui/auth';
 import { AuthCallback } from '@/components/auth/AuthCallback';
@@ -18,10 +18,46 @@ import { initializeGoogleCalendar, getGoogleCalendarService } from '@/lib/google
 import { appConfig } from '@/lib/config';
 import { Board, Task } from '@/types';
 import './App.css';
+import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
 
 function App() {
 	const { tasks, boards, addTask, deleteTask, duplicateTask, moveTask, updateTask, reorderTasksInColumn, addBoard, updateBoard, deleteBoard, loadTasks, isLoading, user, signOut, signUp, signIn, signInWithGoogle, resetPasswordForEmail, updatePassword } = useSupabaseDatabase();
 	const { userPreferences, userProfile, updateUserPreferences, updateUserProfile } = useUserSettings(user?.id);
+
+	const [editingTask, setEditingTask] = useState<Task | null>(null);
+	const [isEditingTask, setIsEditingTask] = useState(false);
+
+	// Handler for editing task directly (e.g., from upcoming preview)
+	const handleEditTask = (task: Task) => {
+		setEditingTask(task);
+		setIsEditingTask(true);
+	};
+
+	// Handler for saving edited task
+	const handleEditTaskSave = async (id: number, updates: Partial<Task>) => {
+		await updateTask(id, updates);
+		setIsEditingTask(false);
+		setEditingTask(null);
+	};
+
+	// Handler for deleting task from edit dialog
+	const handleEditTaskDelete = async (id: number) => {
+		await deleteTask(id);
+		setIsEditingTask(false);
+		setEditingTask(null);
+	};
+
+	// Handler for duplicating task from edit dialog
+	const handleEditTaskDuplicate = async (task: Task) => {
+		await duplicateTask(task);
+		setIsEditingTask(false);
+		setEditingTask(null);
+	};
+
+	const handleTaskClick = (task: Task) => {
+		// When a task is clicked from the sidebar preview, open its edit dialog
+		handleEditTask(task);
+	};
 
 	// Initialize Google Calendar service when user is authenticated
 	useEffect(() => {
@@ -185,8 +221,19 @@ function App() {
 	};
 	const [currentView, setCurrentView] = useState<'boards' | 'kanban' | 'calendar' | 'list' | 'sprint' | 'settings'>('boards');
 	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
-	const [showSprintConfig, setShowSprintConfig] = useState(false);
 	const [sprintConfig, setSprintConfig] = useState<SprintConfiguration | null>(null);
+
+	const handleTaskComplete = (taskId: number) => {
+		// Handle task completion in sprint mode
+		if (sprintConfig) {
+			const updatedTasks = sprintConfig.selectedTasks.filter((task: Task) => task.id !== taskId);
+			setSprintConfig({ ...sprintConfig, selectedTasks: updatedTasks });
+		}
+	};
+
+	const handleStartSprint = () => {
+		setCurrentView('sprint');
+	};
 
 	// Handle OAuth callback
 	if (isOAuthCallback) {
@@ -225,6 +272,7 @@ function App() {
 			</div>
 		);
 	}
+
 	const handleSelectBoard = async (board: Board) => {
 		setSelectedBoard(board);
 		// If it's the "All Tasks" board, load all tasks, otherwise filter by board
@@ -255,218 +303,162 @@ function App() {
 		await updateTask(taskId, { timeEstimate });
 	};
 
-	const handleStartSprint = () => {
-		setShowSprintConfig(true);
-	};
-
-	const handleSprintConfigSubmit = (config: SprintConfiguration) => {
-		setSprintConfig(config);
-		setShowSprintConfig(false);
-		setCurrentView('sprint');
-	};
-
-	const handleSprintConfigCancel = () => {
-		setShowSprintConfig(false);
-	};
-
-	const handleTaskComplete = (taskId: number) => {
-		// Handle task completion in sprint mode
-		if (sprintConfig) {
-			const updatedTasks = sprintConfig.selectedTasks.filter(task => task.id !== taskId);
-			setSprintConfig({ ...sprintConfig, selectedTasks: updatedTasks });
-		}
-	};
-
-	// Sprint mode view
-	if (currentView === 'sprint') {
-		if (!sprintConfig) {
-			setCurrentView('kanban');
-			return null;
-		}
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<div className='flex-1'>
-					<SprintMode
-						tasks={sprintConfig.selectedTasks}
-						timerType={sprintConfig.timerType}
-						pomodoroMinutes={sprintConfig.pomodoroMinutes}
-						countdownMinutes={sprintConfig.countdownMinutes}
-						onTaskComplete={handleTaskComplete}
-						onExit={() => {
-							setCurrentView('kanban');
-							setSprintConfig(null);
-						}}
-					/>
-				</div>
-			</div>
-		);
-	}
-	// Board selection view
-	if (currentView === 'boards') {
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar title='DayFlow' />
-				<div className='flex-1'>
-					<BoardSelection
-						boards={boards}
-						onSelectBoard={handleSelectBoard}
-						onCreateBoard={handleAddBoard}
-						onUpdateBoard={handleUpdateBoard}
-						onDeleteBoard={handleDeleteBoard}
-						user={user}
-						onSignOut={signOut}
-						onOpenSettings={handleOpenSettings}
-						userPreferences={userPreferences}
-						onUpdateUserPreferences={updateUserPreferences}
-					/>
-				</div>
-			</div>
-		);
-	} // Kanban board view
-	if (currentView === 'kanban' && selectedBoard) {
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar title={`DayFlow - ${selectedBoard.name}`} />{' '}
-				<div className='flex-1'>
-					{' '}
-					<KanbanBoardView
-						board={selectedBoard}
-						tasks={tasks}
-						onBack={handleBackToBoards}
-						onSelectBoard={handleSelectBoard}
-						onMoveTask={handleMoveTask}
-						onAddTask={handleAddTask}
-						onUpdateTask={handleUpdateTask}
-						onDeleteTask={handleDeleteTask}
-						onDuplicateTask={handleDuplicateTask}
-						onReorderTasksInColumn={handleReorderTasksInColumn}
-						onUpdateTimeEstimate={handleUpdateTimeEstimate}
-						onStartSprint={handleStartSprint}
-						isAllTasksBoard={selectedBoard.isDefault}
-						boards={boards}
-						user={user}
-						onSignOut={signOut}
-						onViewChange={handleSelectView}
-						onOpenSettings={handleOpenSettings}
-						userPreferences={userPreferences}
-					/>
-				</div>
-				{showSprintConfig && (
-					<SprintConfig
-						availableTasks={tasks.filter(task => task.status === 'today')}
-						onStartSprint={handleSprintConfigSubmit}
-						onCancel={handleSprintConfigCancel}
-					/>
-				)}
-			</div>
-		);
-	}
-	// Calendar view
-	if (currentView === 'calendar' && selectedBoard) {
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - Calendar`} />
-				<div className='flex-1'>
-					{' '}
-					<CalendarView
-						board={selectedBoard}
-						tasks={tasks}
-						onBack={handleBackToBoards}
-						onSelectBoard={handleSelectBoard}
-						onMoveTask={handleMoveTask}
-						onAddTask={handleAddTask}
-						onUpdateTask={handleUpdateTask}
-						onDeleteTask={handleDeleteTask}
-						onDuplicateTask={handleDuplicateTask}
-						onUpdateTimeEstimate={handleUpdateTimeEstimate}
-						isAllTasksBoard={selectedBoard.isDefault}
-						boards={boards}
-						user={user}
-						onSignOut={signOut}
-						onViewChange={handleSelectView}
-						onOpenSettings={handleOpenSettings}
-						userPreferences={userPreferences}
-						onManualSyncTask={manualSyncTask}
-						onManualUnsyncTask={manualUnsyncTask}
-					/>
-				</div>
-			</div>
-		);
-	}
-
-	// List view
-	if (currentView === 'list' && selectedBoard) {
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar title={`DayFlow - ${selectedBoard.name} - List`} />
-				<div className='flex-1'>
-					{' '}
-					<ListView
-						board={selectedBoard}
-						tasks={tasks}
-						onBack={handleBackToBoards}
-						onSelectBoard={handleSelectBoard}
-						onMoveTask={handleMoveTask}
-						onAddTask={handleAddTask}
-						onUpdateTask={handleUpdateTask}
-						onDeleteTask={handleDeleteTask}
-						onDuplicateTask={handleDuplicateTask}
-						onUpdateTimeEstimate={handleUpdateTimeEstimate}
-						isAllTasksBoard={selectedBoard.isDefault}
-						boards={boards}
-						user={user}
-						onSignOut={signOut}
-						onViewChange={handleSelectView}
-						onOpenSettings={handleOpenSettings}
-						userPreferences={userPreferences || undefined}
-					/>
-				</div>
-			</div>
-		);
-	}
-
-	// Settings view
-	if (currentView === 'settings') {
-		return (
-			<div className='h-screen bg-background flex flex-col'>
-				<CustomTitlebar title='DayFlow - Settings' />
-				<div className='flex-1'>
-					<SettingsPage
-						user={user}
-						userPreferences={userPreferences || undefined}
-						userProfile={userProfile || undefined}
-						onBack={handleBackToBoards}
-						onUpdatePreferences={updateUserPreferences}
-						onUpdateProfile={updateUserProfile}
-						onSignOut={signOut}
-						onUpdatePassword={updatePassword}
-						onUpdateTask={handleUpdateTask}
-						onAddTask={handleAddTask}
-						tasks={tasks}
-						boards={boards}
-					/>
-				</div>
-			</div>
-		);
-	}
-	// Fallback to board selection
+	// Main Application Render
 	return (
 		<div className='h-screen bg-background flex flex-col'>
-			<CustomTitlebar title='DayFlow' />{' '}
+			<CustomTitlebar title={`DayFlow - ${selectedBoard?.name || 'DayFlow'}`} />
 			<div className='flex-1'>
-				<BoardSelection
-					boards={boards}
-					onSelectBoard={handleSelectBoard}
-					onCreateBoard={handleAddBoard}
-					onUpdateBoard={handleUpdateBoard}
-					onDeleteBoard={handleDeleteBoard}
-					user={user}
-					onSignOut={signOut}
-					onOpenSettings={handleOpenSettings}
-					userPreferences={userPreferences}
-					onUpdateUserPreferences={updateUserPreferences}
-				/>
+				{(() => {
+					switch (currentView) {
+						case 'boards':
+							return (
+								<BoardSelection
+									boards={boards}
+									onSelectBoard={handleSelectBoard}
+									onCreateBoard={handleAddBoard}
+									onUpdateBoard={handleUpdateBoard}
+									onDeleteBoard={handleDeleteBoard}
+									user={user}
+									onSignOut={signOut}
+									onOpenSettings={handleOpenSettings}
+									userPreferences={userPreferences}
+									onUpdateUserPreferences={updateUserPreferences}
+									tasks={tasks}
+									onTaskClick={handleTaskClick}
+								/>
+							);
+						case 'kanban':
+							if (!selectedBoard) return null; // Should not happen if logic is correct
+							return (
+								<KanbanBoardView
+									board={selectedBoard}
+									tasks={tasks}
+									onBack={handleBackToBoards}
+									onSelectBoard={handleSelectBoard}
+									onMoveTask={handleMoveTask}
+									onAddTask={handleAddTask}
+									onUpdateTask={handleUpdateTask}
+									onDeleteTask={handleDeleteTask}
+									onDuplicateTask={handleDuplicateTask}
+									onReorderTasksInColumn={handleReorderTasksInColumn}
+									onUpdateTimeEstimate={handleUpdateTimeEstimate}
+									onStartSprint={handleStartSprint}
+									isAllTasksBoard={selectedBoard.isDefault}
+									boards={boards}
+									user={user}
+									onSignOut={signOut}
+									onViewChange={handleSelectView}
+									onOpenSettings={handleOpenSettings}
+									userPreferences={userPreferences}
+									onTaskClick={handleTaskClick}
+								/>
+							);
+						case 'calendar':
+							if (!selectedBoard) return null;
+							return (
+								<CalendarView
+									board={selectedBoard}
+									tasks={tasks}
+									onBack={handleBackToBoards}
+									onSelectBoard={handleSelectBoard}
+									onMoveTask={handleMoveTask}
+									onAddTask={handleAddTask}
+									onUpdateTask={handleUpdateTask}
+									onDeleteTask={handleDeleteTask}
+									onDuplicateTask={handleDuplicateTask}
+									onUpdateTimeEstimate={handleUpdateTimeEstimate}
+									isAllTasksBoard={selectedBoard.isDefault}
+									boards={boards}
+									user={user}
+									onSignOut={signOut}
+									onViewChange={handleSelectView}
+									onOpenSettings={handleOpenSettings}
+									userPreferences={userPreferences}
+									onManualSyncTask={manualSyncTask}
+									onManualUnsyncTask={manualUnsyncTask}
+									onTaskClick={handleTaskClick}
+								/>
+							);
+						case 'list':
+							if (!selectedBoard) return null;
+							return (
+								<ListView
+									board={selectedBoard}
+									tasks={tasks}
+									onBack={handleBackToBoards}
+									onSelectBoard={handleSelectBoard}
+									onMoveTask={handleMoveTask}
+									onAddTask={handleAddTask}
+									onUpdateTask={handleUpdateTask}
+									onDeleteTask={handleDeleteTask}
+									onDuplicateTask={handleDuplicateTask}
+									onUpdateTimeEstimate={handleUpdateTimeEstimate}
+									isAllTasksBoard={selectedBoard.isDefault}
+									boards={boards}
+									user={user}
+									onSignOut={signOut}
+									onViewChange={handleSelectView}
+									onOpenSettings={handleOpenSettings}
+									userPreferences={userPreferences || undefined}
+									onTaskClick={handleTaskClick}
+								/>
+							);
+						case 'sprint':
+							if (!sprintConfig) {
+								setCurrentView('kanban');
+								return null;
+							}
+							return (
+								<SprintMode
+									tasks={sprintConfig.selectedTasks}
+									timerType={sprintConfig.timerType}
+									pomodoroMinutes={sprintConfig.pomodoroMinutes}
+									countdownMinutes={sprintConfig.countdownMinutes}
+									onTaskComplete={handleTaskComplete}
+									onExit={() => {
+										setCurrentView('kanban');
+										setSprintConfig(null);
+									}}
+									boards={boards}
+									onTaskClick={handleTaskClick}
+								/>
+							);
+						case 'settings':
+							return (
+								<SettingsPage
+									user={user}
+									userPreferences={userPreferences || undefined}
+									userProfile={userProfile || undefined}
+									onBack={handleBackToBoards}
+									onUpdatePreferences={updateUserPreferences}
+									onUpdateProfile={updateUserProfile}
+									onSignOut={signOut}
+									onUpdatePassword={updatePassword}
+									onUpdateTask={handleUpdateTask}
+									onAddTask={handleAddTask}
+									tasks={tasks}
+									boards={boards}
+									onTaskClick={handleTaskClick}
+								/>
+							);
+						default:
+							return null;
+					}
+				})()}
 			</div>
+
+			{/* Task edit dialog (overlay) */}
+			<TaskEditDialog
+				task={editingTask}
+				isOpen={isEditingTask}
+				onClose={() => setIsEditingTask(false)}
+				onSave={handleEditTaskSave}
+				onDelete={handleEditTaskDelete}
+				onDuplicate={handleEditTaskDuplicate}
+				boards={boards}
+				userPreferences={userPreferences}
+				isAllTasksBoard={true}
+			/>
 		</div>
 	);
 }

@@ -24,14 +24,46 @@ interface ListViewProps {
 	onViewChange?: (board: Board, viewType: BoardViewType) => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: UserPreferences;
+	onTaskClick?: (task: Task) => void;
 }
 
 export function ListView(props: ListViewProps) {
 	const [isCreatingDetailedTask, setIsCreatingDetailedTask] = useState(false);
+	const [editingTask, setEditingTask] = useState<Task | null>(null);
+	const [isEditingTask, setIsEditingTask] = useState(false);
 
 	// Handler for creating detailed task from header
 	const handleCreateDetailedTaskFromHeader = () => {
 		setIsCreatingDetailedTask(true);
+	};
+
+	// Handler for editing task
+	const handleTaskEdit = (task: Task) => {
+		setEditingTask(task);
+		setIsEditingTask(true);
+	};
+
+	// Handler for saving edited task
+	const handleEditTaskSave = async (id: number, updates: Partial<Task>) => {
+		await props.onUpdateTask(id, updates);
+		setIsEditingTask(false);
+		setEditingTask(null);
+	};
+
+	// Handler for deleting task from edit dialog
+	const handleEditTaskDelete = async (id: number) => {
+		await props.onDeleteTask(id);
+		setIsEditingTask(false);
+		setEditingTask(null);
+	};
+
+	// Handler for duplicating task from edit dialog
+	const handleEditTaskDuplicate = async (task: Task) => {
+		if (props.onDuplicateTask) {
+			await props.onDuplicateTask(task);
+		}
+		setIsEditingTask(false);
+		setEditingTask(null);
 	};
 
 	// Handler for saving detailed task creation
@@ -67,6 +99,7 @@ export function ListView(props: ListViewProps) {
 					boards={props.boards || []}
 					currentBoard={props.board}
 					currentView="list"
+					tasks={props.tasks}
 					onSelectBoard={(selectedBoard: Board) => {
 						if (props.onSelectBoard) {
 							props.onSelectBoard(selectedBoard);
@@ -95,6 +128,10 @@ export function ListView(props: ListViewProps) {
 						// Navigate back to board selection
 						props.onBack();
 					}}
+					onTaskClick={(task: Task) => {
+						// Open the task for editing when clicked from upcoming preview
+						handleTaskEdit(task);
+					}}
 				/>
 				<SidebarInset className='flex flex-col flex-1 overflow-y-auto'>
 					{/* Header for List View */}
@@ -112,6 +149,19 @@ export function ListView(props: ListViewProps) {
 					<CompactListView {...props} />
 				</SidebarInset>
 			</div>
+
+			{/* Edit Task Dialog */}
+			<TaskEditDialog
+				task={editingTask}
+				isOpen={isEditingTask}
+				onClose={() => setIsEditingTask(false)}
+				onSave={handleEditTaskSave}
+				onDelete={handleEditTaskDelete}
+				onDuplicate={props.onDuplicateTask ? handleEditTaskDuplicate : undefined}
+				isAllTasksBoard={props.isAllTasksBoard}
+				boards={props.boards}
+				userPreferences={props.userPreferences}
+			/>
 
 			{/* Create Detailed Task Dialog */}
 			<TaskEditDialog

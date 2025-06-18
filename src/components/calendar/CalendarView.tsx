@@ -23,6 +23,7 @@ interface CalendarViewProps {
 	userPreferences?: any;
 	onManualSyncTask?: (task: Task) => Promise<void>;
 	onManualUnsyncTask?: (task: Task) => Promise<void>;
+	onTaskClick?: (task: Task) => void;
 }
 export function CalendarView(props: CalendarViewProps) {
 	return (
@@ -32,6 +33,7 @@ export function CalendarView(props: CalendarViewProps) {
 					boards={props.boards || []}
 					currentBoard={props.board}
 					currentView="calendar"
+					tasks={props.tasks}
 					onSelectBoard={selectedBoard => {
 						// Use the proper board selection handler if available, otherwise fallback to onBack
 						if (props.onSelectBoard) {
@@ -52,6 +54,12 @@ export function CalendarView(props: CalendarViewProps) {
 					onNavigateToBoards={() => {
 						// Navigate back to board selection
 						props.onBack();
+					}}
+					onTaskClick={(task: Task) => {
+						// For calendar view, we could focus on the task date or open edit dialog
+						// This depends on how CompactCalendarView handles task editing
+						// For now, we'll just pass the task to the calendar component
+						console.log('Task clicked from upcoming preview:', task);
 					}}
 				/>
 				<SidebarInset className='flex flex-col'>

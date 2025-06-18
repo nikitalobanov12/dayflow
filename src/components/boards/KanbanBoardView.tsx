@@ -27,6 +27,7 @@ interface KanbanBoardViewProps {
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: any; // Add user preferences prop
+	onTaskClick?: (task: Task) => void;
 }
 
 export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings, userPreferences }: KanbanBoardViewProps) {
@@ -135,6 +136,7 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 					boards={boards}
 					currentBoard={board}
 					currentView="kanban"
+					tasks={tasks}
 					onSelectBoard={selectedBoard => {
 						// Use the proper board selection handler if available, otherwise fallback to onBack
 						if (onSelectBoard) {
@@ -163,6 +165,10 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 					onNavigateToBoards={() => {
 						// Navigate back to board selection
 						onBack();
+					}}
+					onTaskClick={(task: Task) => {
+						// Open the task for editing when clicked from upcoming preview
+						handleEditTask(task);
 					}}
 				/>
 				<SidebarInset>

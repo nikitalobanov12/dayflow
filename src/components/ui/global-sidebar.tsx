@@ -1,6 +1,8 @@
-import { Plus, Edit, ChevronRight, Calendar, List, Kanban, Layers } from 'lucide-react';
-import { Board, BoardViewType } from '@/types';
+import { Plus, Edit, ChevronRight, Calendar, List, Kanban, Layers, CalendarDays, ListChecks, Layout } from 'lucide-react';
+import { Board, BoardViewType, Task } from '@/types';
 import { renderIcon } from '@/constants/board-constants';
+import { UpcomingTaskPreview } from '@/components/ui/upcoming-task-preview';
+import { getNextUpcomingTask } from '@/utils/taskUtils';
 import {
 	Sidebar,
 	SidebarContent,
@@ -25,12 +27,14 @@ interface GlobalSidebarProps {
 	boards: Board[];
 	currentBoard?: Board | null;
 	currentView?: BoardViewType;
+	tasks?: Task[];
 	onSelectBoard: (board: Board) => void;
 	onSelectBoardView?: (board: Board, view: BoardViewType) => void;
 	onCreateBoard?: () => void;
 	onEditBoard?: (board: Board) => void;
 	onCreateTask?: (board: Board) => void;
 	onNavigateToBoards?: () => void;
+	onTaskClick?: (task: Task) => void;
 }
 
 // Helper function to get view icon
@@ -65,16 +69,19 @@ export function GlobalSidebar({
 	boards, 
 	currentBoard, 
 	currentView,
+	tasks,
 	onSelectBoard, 
 	onSelectBoardView,
 	onCreateBoard, 
 	onEditBoard,
 	onCreateTask,
-	onNavigateToBoards
+	onNavigateToBoards,
+	onTaskClick
 }: GlobalSidebarProps) {
 	const [expandedBoards, setExpandedBoards] = useState<Set<number>>(new Set());
 	const regularBoards = boards.filter(board => !board.isDefault);
 	const allTasksBoard = boards.find(board => board.isDefault);
+	const upcomingTask = tasks ? getNextUpcomingTask(tasks) : null;
 
 	const toggleBoardExpansion = (boardId: number) => {
 		setExpandedBoards(prev => {
@@ -97,6 +104,12 @@ export function GlobalSidebar({
 			onSelectBoardView(board, view);
 		} else {
 			onSelectBoard(board);
+		}
+	};
+
+	const handleQuickNavigation = (view: BoardViewType) => {
+		if (allTasksBoard && onSelectBoardView) {
+			onSelectBoardView(allTasksBoard, view);
 		}
 	};
 
@@ -220,6 +233,18 @@ export function GlobalSidebar({
 						<p className='text-xs text-muted-foreground'>Task Management</p>
 					</div>
 				</div>
+				
+				{/* Upcoming Task Preview */}
+				{upcomingTask && (
+					<div className='px-2 py-3 border-t border-border/50'>
+						<div className='text-xs font-medium text-muted-foreground mb-2'>Next Up</div>
+						<UpcomingTaskPreview 
+							task={upcomingTask} 
+							onClick={onTaskClick}
+							className='w-full'
+						/>
+					</div>
+				)}
 			</SidebarHeader>
 
 			<SidebarContent>
@@ -228,6 +253,37 @@ export function GlobalSidebar({
 					<SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
+							{allTasksBoard && (
+								<>
+									<SidebarMenuItem>
+										<SidebarMenuButton
+											onClick={() => handleQuickNavigation('calendar')}
+											className='gap-2'
+										>
+											<CalendarDays className='h-4 w-4' />
+											<span>My Calendar</span>
+										</SidebarMenuButton>
+									</SidebarMenuItem>
+									<SidebarMenuItem>
+										<SidebarMenuButton
+											onClick={() => handleQuickNavigation('list')}
+											className='gap-2'
+										>
+											<ListChecks className='h-4 w-4' />
+											<span>My Tasks</span>
+										</SidebarMenuButton>
+									</SidebarMenuItem>
+									<SidebarMenuItem>
+										<SidebarMenuButton
+											onClick={() => handleQuickNavigation('kanban')}
+											className='gap-2'
+										>
+											<Layout className='h-4 w-4' />
+											<span>Agenda</span>
+										</SidebarMenuButton>
+									</SidebarMenuItem>
+								</>
+							)}
 							{onNavigateToBoards && (
 								<SidebarMenuItem>
 									<SidebarMenuButton

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Task } from '@/types';
+import type { Task, Board } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { SprintTimerType } from './SprintConfig';
 import { Minimize2, Check, SkipForward, Maximize2, X, Play, Pause } from 'lucide-react';
 import { windowControls } from '@/lib/window-controls';
 import { isTauri } from '@/lib/platform';
+import { GlobalSidebar } from '@/components/ui/global-sidebar';
 
 interface SprintModeProps {
 	tasks: Task[];
@@ -17,11 +18,13 @@ interface SprintModeProps {
 	onTaskComplete: (taskId: number) => void;
 	onExit: () => void;
 	onViewModeChange?: (mode: SprintViewMode) => void;
+	boards: Board[];
+	onTaskClick: (task: Task) => void;
 }
 
 type SprintViewMode = 'fullscreen' | 'sidebar' | 'focus';
 
-export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes, onTaskComplete, onExit, onViewModeChange }: SprintModeProps) {
+export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes, onTaskComplete, onExit, onViewModeChange, boards, onTaskClick }: SprintModeProps) {
 	const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
 	const [completedTasks, setCompletedTasks] = useState<number[]>([]);
 	const [isBreak, setIsBreak] = useState(false);
@@ -469,7 +472,14 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 		</div>
 	);
 	const renderSidebarMode = () => (
-		<div className='fixed left-0 overflow-hidden top-0 w-full bg-background/95 backdrop-blur border-r border-border z-50 overflow-y-auto'>
+		<div className='fixed left-0 top-0 w-full bg-background/95 backdrop-blur border-r border-border z-50 overflow-y-auto'>
+			<GlobalSidebar
+				boards={boards || []}
+				tasks={tasks}
+				onSelectBoard={(_board: Board) => onExit()}
+				onTaskClick={onTaskClick}
+				onNavigateToBoards={() => onExit()}
+			/>
 			<div className='space-y-3'>
 				<div
 					className='flex justify-between items-center p-2 border-b border-border/30'

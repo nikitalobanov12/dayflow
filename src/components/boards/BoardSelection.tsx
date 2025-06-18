@@ -1,4 +1,4 @@
-import { Board, UserPreferences} from '@/types';
+import { Board, Task, UserPreferences} from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 
 interface BoardSelectionProps {
 	boards: Board[];
+	tasks?: Task[];
 	onSelectBoard: (board: Board) => void;
 	onCreateBoard: (board: Omit<Board, 'id' | 'createdAt' | 'userId'>) => Promise<void>;
 	onUpdateBoard: (id: number, updates: Partial<Board>) => Promise<void>;
@@ -28,6 +29,7 @@ interface BoardSelectionProps {
 	onOpenSettings?: () => void;
 	userPreferences?: UserPreferences | null;
 	onUpdateUserPreferences?: (updates: Partial<UserPreferences>) => Promise<void>;
+	onTaskClick?: (task: Task) => void;
 }
 
 // Tailwind CSS color palette for boards
@@ -103,7 +105,7 @@ const getTextColorForBackground = (backgroundColor?: string): string => {
 	return isLightColor(backgroundColor) ? 'text-gray-800' : 'text-white';
 };
 
-export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, onDuplicateBoard, user, onSignOut, onOpenSettings, userPreferences, onUpdateUserPreferences }: BoardSelectionProps) {
+export function BoardSelection({ boards, tasks, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, onDuplicateBoard, user, onSignOut, onOpenSettings, userPreferences, onUpdateUserPreferences }: BoardSelectionProps) {
 	const [isCreating, setIsCreating] = useState(false);
 	const [isEditing, setIsEditing] = useState<Board | null>(null);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -505,6 +507,7 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 			<div className='min-h-screen flex w-full'>
 				<GlobalSidebar
 					boards={boards}
+					tasks={tasks}
 					onSelectBoard={onSelectBoard}
 					onSelectBoardView={(board: Board) => {
 						// Navigate to the board with specific view (this would need to be implemented in parent component)
@@ -515,6 +518,13 @@ export function BoardSelection({ boards, onSelectBoard, onCreateBoard, onUpdateB
 					onCreateTask={(board: Board) => {
 						// For now, just navigate to the board - task creation could be enhanced later
 						onSelectBoard(board);
+					}}
+					onTaskClick={(task: Task) => {
+						// For board selection, navigate to the task's board
+						const taskBoard = boards.find(b => b.id === task.boardId);
+						if (taskBoard) {
+							onSelectBoard(taskBoard);
+						}
 					}}
 				/>
 				<SidebarInset>

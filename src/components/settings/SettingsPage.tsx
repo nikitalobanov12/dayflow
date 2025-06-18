@@ -46,6 +46,7 @@ interface SettingsPageProps {
 	onAddTask?: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
 	tasks?: Task[];
 	boards: Board[];
+	onTaskClick?: (task: Task) => void;
 }
 
 type SettingsSection = 'profile' | 'appearance' | 'datetime' | 'calendar' | 'tasks';

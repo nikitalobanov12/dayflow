@@ -14,21 +14,25 @@ export function Logo({ className = "w-8 h-8" }: LogoProps) {
 			<defs>
 				<style>
 					{`
-						.cls-1 {
-							fill: var(--logo-primary, currentColor);
-						}
-						.cls-2 {
-							fill: var(--logo-secondary, #c2c7c4);
-						}
-						.cls-3 {
-							fill: var(--logo-accent, #334155);
-						}
-						.cls-4 {
-							fill: var(--logo-muted, #4e5657);
-						}
-						.cls-5 {
-							fill: var(--logo-main, currentColor);
-						}
+						  .cls-1 {
+        fill: var(--logo-primary, #6FB3A0);
+      }
+
+      .cls-2 {
+        fill: var(--logo-secondary, #8FC4B0);
+      }
+
+      .cls-3 {
+        fill: var(--logo-accent, #5A9B8A);
+      }
+
+      .cls-4 {
+        fill: var(--logo-muted, #4A8274);
+      }
+
+      .cls-5 {
+        fill: var(--logo-main, #6FB3A0);
+      }
 					`}
 				</style>
 			</defs>
