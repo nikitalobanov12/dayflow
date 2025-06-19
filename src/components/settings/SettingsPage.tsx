@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowLeft, Save, User, Palette, Calendar, List, CalendarDays, Shield, Key, Mail, Eye, EyeOff, AlertTriangle, LayoutDashboard } from 'lucide-react';
+import { ArrowLeft, Save, User, Palette, Calendar, List, CalendarDays, Shield, Key, Mail, Eye, EyeOff, AlertTriangle, LayoutDashboard, Sparkles } from 'lucide-react';
 import { UserPreferences, Profile, Task, Board } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
 import { GoogleCalendarIntegration } from '@/components/GoogleCalendarIntegration';
@@ -49,7 +49,7 @@ interface SettingsPageProps {
 	onTaskClick?: (task: Task) => void;
 }
 
-type SettingsSection = 'profile' | 'appearance' | 'datetime' | 'calendar' | 'tasks';
+type SettingsSection = 'profile' | 'appearance' | 'datetime' | 'calendar' | 'tasks' | 'ai';
 
 // Settings Sidebar Component
 function SettingsSidebar({ activeSection, onSectionChange, onBackToBoards }: { activeSection: SettingsSection; onSectionChange: (section: SettingsSection) => void; onBackToBoards: () => void }) {
@@ -59,6 +59,7 @@ function SettingsSidebar({ activeSection, onSectionChange, onBackToBoards }: { a
 		{ id: 'datetime' as const, name: 'Date & Time', icon: Calendar, description: 'Date, time and timezone settings' },
 		{ id: 'calendar' as const, name: 'Calendar', icon: CalendarDays, description: 'Calendar view and behavior' },
 		{ id: 'tasks' as const, name: 'Tasks', icon: List, description: 'Task management preferences' },
+		{ id: 'ai' as const, name: 'AI Scheduling', icon: Sparkles, description: 'Automatic task scheduling with AI' },
 	];
 
 	return (
@@ -241,6 +242,7 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 			datetime: 'Date & Time',
 			calendar: 'Calendar',
 			tasks: 'Tasks',
+			ai: 'AI Scheduling',
 		};
 		return titles[activeSection];
 	};
@@ -314,6 +316,12 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 					)}
 					{activeSection === 'tasks' && (
 						<TasksSection
+							preferences={localPreferences}
+							onUpdatePreference={updatePreference}
+						/>
+					)}
+					{activeSection === 'ai' && (
+						<AISchedulingSection
 							preferences={localPreferences}
 							onUpdatePreference={updatePreference}
 						/>
@@ -1043,6 +1051,290 @@ function TasksSection({ preferences, onUpdatePreference }: { preferences: Partia
 					<p className='text-xs text-muted-foreground mt-1'>When enabled, completed tasks will remain visible in task lists and calendar</p>
 				</CardContent>
 			</Card>{' '}
+		</div>
+	);
+}
+
+// AI Scheduling Section Component  
+function AISchedulingSection({ preferences, onUpdatePreference }: { preferences: Partial<UserPreferences>; onUpdatePreference: (key: keyof UserPreferences, value: any) => void }) {
+	const daysOfWeek = [
+		{ key: 'monday', label: 'Monday' },
+		{ key: 'tuesday', label: 'Tuesday' },
+		{ key: 'wednesday', label: 'Wednesday' },
+		{ key: 'thursday', label: 'Thursday' },
+		{ key: 'friday', label: 'Friday' },
+		{ key: 'saturday', label: 'Saturday' },
+		{ key: 'sunday', label: 'Sunday' },
+	];
+
+	return (
+		<div className='space-y-6'>
+			<div>
+				<h2 className='text-lg font-semibold mb-2'>AI Scheduling</h2>
+				<p className='text-sm text-muted-foreground'>Configure how AI automatically schedules your tasks.</p>
+			</div>
+
+			{/* Enable AI Scheduling */}
+			<Card>
+				<CardHeader>
+					<CardTitle>AI Scheduling</CardTitle>
+					<CardDescription>Enable automatic task scheduling with Google Gemini AI</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<div className='flex items-center space-x-2'>
+						<Checkbox
+							id='auto-schedule-enabled'
+							checked={preferences.autoScheduleEnabled || false}
+							onCheckedChange={checked => onUpdatePreference('autoScheduleEnabled', checked)}
+						/>
+						<label htmlFor='auto-schedule-enabled' className='text-sm font-medium'>
+							Enable AI Scheduling
+						</label>
+					</div>
+					<p className='text-xs text-muted-foreground mt-2'>
+						When enabled, AI can automatically schedule your tasks based on your preferences and working hours.
+					</p>
+				</CardContent>
+			</Card>
+
+			{/* Working Hours */}
+			<Card>
+				<CardHeader>
+					<CardTitle>Working Hours</CardTitle>
+					<CardDescription>Set your availability for each day of the week</CardDescription>
+				</CardHeader>
+				<CardContent className='space-y-4'>
+					{daysOfWeek.map(day => {
+						const enabledKey = `workingHours${day.key.charAt(0).toUpperCase() + day.key.slice(1)}Enabled` as keyof UserPreferences;
+						const startKey = `workingHours${day.key.charAt(0).toUpperCase() + day.key.slice(1)}Start` as keyof UserPreferences;
+						const endKey = `workingHours${day.key.charAt(0).toUpperCase() + day.key.slice(1)}End` as keyof UserPreferences;
+						
+						const isEnabled = preferences[enabledKey] as boolean;
+						const startTime = preferences[startKey] as string || '09:00';
+						const endTime = preferences[endKey] as string || '17:00';
+
+						return (
+							<div key={day.key} className='flex items-center space-x-4'>
+								<div className='flex items-center space-x-2 w-24'>
+									<Checkbox
+										id={`${day.key}-enabled`}
+										checked={isEnabled}
+										onCheckedChange={checked => onUpdatePreference(enabledKey, checked)}
+									/>
+									<label htmlFor={`${day.key}-enabled`} className='text-sm font-medium'>
+										{day.label}
+									</label>
+								</div>
+								<div className='flex items-center space-x-2'>
+									<Input
+										type='time'
+										value={startTime}
+										onChange={e => onUpdatePreference(startKey, e.target.value)}
+										disabled={!isEnabled}
+										className='w-32'
+									/>
+									<span className='text-sm text-muted-foreground'>to</span>
+									<Input
+										type='time'
+										value={endTime}
+										onChange={e => onUpdatePreference(endKey, e.target.value)}
+										disabled={!isEnabled}
+										className='w-32'
+									/>
+								</div>
+							</div>
+						);
+					})}
+				</CardContent>
+			</Card>
+
+			{/* Scheduling Preferences */}
+			<Card>
+				<CardHeader>
+					<CardTitle>Scheduling Preferences</CardTitle>
+					<CardDescription>Configure how tasks are automatically scheduled</CardDescription>
+				</CardHeader>
+				<CardContent className='space-y-4'>
+					<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+						<div>
+							<label className='text-sm font-medium mb-2 block'>Max Daily Work Hours</label>
+							<Input
+								type='number'
+								min='1'
+								max='16'
+								step='0.5'
+								value={preferences.maxDailyWorkHours || 8}
+								onChange={e => onUpdatePreference('maxDailyWorkHours', parseFloat(e.target.value))}
+							/>
+						</div>
+						<div>
+							<label className='text-sm font-medium mb-2 block'>Buffer Time Between Tasks (minutes)</label>
+							<Input
+								type='number'
+								min='0'
+								max='120'
+								value={preferences.bufferTimeBetweenTasks || 15}
+								onChange={e => onUpdatePreference('bufferTimeBetweenTasks', parseInt(e.target.value))}
+							/>
+						</div>
+						<div>
+							<label className='text-sm font-medium mb-2 block'>Minimum Task Chunk (minutes)</label>
+							<Input
+								type='number'
+								min='15'
+								max='120'
+								value={preferences.minTaskChunkSize || 30}
+								onChange={e => onUpdatePreference('minTaskChunkSize', parseInt(e.target.value))}
+							/>
+						</div>
+						<div>
+							<label className='text-sm font-medium mb-2 block'>Maximum Task Chunk (minutes)</label>
+							<Input
+								type='number'
+								min='30'
+								max='480'
+								value={preferences.maxTaskChunkSize || 120}
+								onChange={e => onUpdatePreference('maxTaskChunkSize', parseInt(e.target.value))}
+							/>
+						</div>
+						<div>
+							<label className='text-sm font-medium mb-2 block'>Focus Time Minimum (minutes)</label>
+							<Input
+								type='number'
+								min='30'
+								max='240'
+								value={preferences.focusTimeMinimumMinutes || 90}
+								onChange={e => onUpdatePreference('focusTimeMinimumMinutes', parseInt(e.target.value))}
+							/>
+						</div>
+						<div>
+							<label className='text-sm font-medium mb-2 block'>Scheduling Lookahead (days)</label>
+							<Input
+								type='number'
+								min='1'
+								max='90'
+								value={preferences.schedulingLookaheadDays || 14}
+								onChange={e => onUpdatePreference('schedulingLookaheadDays', parseInt(e.target.value))}
+							/>
+						</div>
+					</div>
+
+					<div>
+						<label className='text-sm font-medium mb-2 block'>AI Suggestion Style</label>
+						<Select
+							value={preferences.aiSuggestionPreference || 'balanced'}
+							onValueChange={value => onUpdatePreference('aiSuggestionPreference', value)}
+						>
+							<SelectTrigger className='w-48'>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value='conservative'>Conservative</SelectItem>
+								<SelectItem value='balanced'>Balanced</SelectItem>
+								<SelectItem value='aggressive'>Aggressive</SelectItem>
+							</SelectContent>
+						</Select>
+						<p className='text-xs text-muted-foreground mt-1'>
+							Conservative: More realistic time estimates. Balanced: Standard estimates. Aggressive: Optimistic estimates.
+						</p>
+					</div>
+				</CardContent>
+			</Card>
+
+			{/* Advanced Options */}
+			<Card>
+				<CardHeader>
+					<CardTitle>Advanced Options</CardTitle>
+					<CardDescription>Fine-tune AI scheduling behavior</CardDescription>
+				</CardHeader>
+				<CardContent className='space-y-4'>
+					<div className='flex items-center space-x-2'>
+						<Checkbox
+							id='respect-calendar-events'
+							checked={preferences.respectCalendarEvents !== false}
+							onCheckedChange={checked => onUpdatePreference('respectCalendarEvents', checked)}
+						/>
+						<label htmlFor='respect-calendar-events' className='text-sm font-medium'>
+							Respect calendar events
+						</label>
+					</div>
+					<p className='text-xs text-muted-foreground'>
+						Avoid scheduling tasks during existing calendar events.
+					</p>
+
+					<div className='flex items-center space-x-2'>
+						<Checkbox
+							id='allow-overtime-scheduling'
+							checked={preferences.allowOvertimeScheduling || false}
+							onCheckedChange={checked => onUpdatePreference('allowOvertimeScheduling', checked)}
+						/>
+						<label htmlFor='allow-overtime-scheduling' className='text-sm font-medium'>
+							Allow overtime scheduling
+						</label>
+					</div>
+					<p className='text-xs text-muted-foreground'>
+						Allow tasks to be scheduled outside of normal working hours when necessary.
+					</p>
+
+					<div className='flex items-center space-x-2'>
+						<Checkbox
+							id='auto-reschedule-on-conflict'
+							checked={preferences.autoRescheduleOnConflict || false}
+							onCheckedChange={checked => onUpdatePreference('autoRescheduleOnConflict', checked)}
+						/>
+						<label htmlFor='auto-reschedule-on-conflict' className='text-sm font-medium'>
+							Auto-reschedule on conflict
+						</label>
+					</div>
+					<p className='text-xs text-muted-foreground'>
+						Automatically reschedule tasks when conflicts are detected.
+					</p>
+
+					<div className='flex items-center space-x-2'>
+						<Checkbox
+							id='priority-boost-for-overdue'
+							checked={preferences.priorityBoostForOverdue !== false}
+							onCheckedChange={checked => onUpdatePreference('priorityBoostForOverdue', checked)}
+						/>
+						<label htmlFor='priority-boost-for-overdue' className='text-sm font-medium'>
+							Priority boost for overdue tasks
+						</label>
+					</div>
+					<p className='text-xs text-muted-foreground'>
+						Automatically increase priority for tasks that are past their due date.
+					</p>
+
+					<div>
+						<label className='text-sm font-medium mb-2 block'>Deadline Buffer (days)</label>
+						<Input
+							type='number'
+							min='0'
+							max='7'
+							value={preferences.deadlineBufferDays || 1}
+							onChange={e => onUpdatePreference('deadlineBufferDays', parseInt(e.target.value))}
+							className='w-32'
+						/>
+						<p className='text-xs text-muted-foreground mt-1'>
+							Days before deadline to finish tasks.
+						</p>
+					</div>
+
+					<div>
+						<label className='text-sm font-medium mb-2 block'>Context Switch Penalty (minutes)</label>
+						<Input
+							type='number'
+							min='0'
+							max='60'
+							value={preferences.contextSwitchPenaltyMinutes || 10}
+							onChange={e => onUpdatePreference('contextSwitchPenaltyMinutes', parseInt(e.target.value))}
+							className='w-32'
+						/>
+						<p className='text-xs text-muted-foreground mt-1'>
+							Additional time added when switching between different types of tasks.
+						</p>
+					</div>
+				</CardContent>
+			</Card>
 		</div>
 	);
 }

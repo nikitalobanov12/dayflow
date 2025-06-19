@@ -195,9 +195,11 @@
 @layer base {
 	.font-display {
 		font-weight: var(--display-weight);
+		line-height: 140%;
 	  }
 	.font-text {
 		font-weight: var(--text-weight);
+		line-height: 140%
 	}
 
 	* {

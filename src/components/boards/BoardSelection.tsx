@@ -508,6 +508,7 @@ export function BoardSelection({ boards, tasks, onSelectBoard, onCreateBoard, on
 				<GlobalSidebar
 					boards={boards}
 					tasks={tasks}
+					userPreferences={userPreferences || undefined}
 					onSelectBoard={onSelectBoard}
 					onSelectBoardView={(board: Board) => {
 						// Navigate to the board with specific view (this would need to be implemented in parent component)
@@ -533,6 +534,8 @@ export function BoardSelection({ boards, tasks, onSelectBoard, onCreateBoard, on
 						subtitle="Organize your projects and workflows"
 						viewMode={viewMode}
 						boardCount={regularBoards.length}
+						tasks={tasks || []}
+						userPreferences={userPreferences || undefined}
 						onViewModeChange={handleViewModeChange}
 						user={user}
 						onSignOut={onSignOut}

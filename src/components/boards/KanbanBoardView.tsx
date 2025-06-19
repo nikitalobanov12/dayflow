@@ -137,6 +137,7 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 					currentBoard={board}
 					currentView="kanban"
 					tasks={tasks}
+					userPreferences={userPreferences}
 					onSelectBoard={selectedBoard => {
 						// Use the proper board selection handler if available, otherwise fallback to onBack
 						if (onSelectBoard) {
@@ -177,6 +178,9 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 						subtitle={board.description}
 						board={board}
 						currentView='kanban'
+						tasks={tasks}
+						boards={boards}
+						userPreferences={userPreferences}
 						onViewChange={onViewChange}
 						onCreateDetailedTask={handleCreateDetailedTaskFromHeader}
 						user={user}

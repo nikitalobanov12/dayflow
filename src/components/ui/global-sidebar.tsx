@@ -1,5 +1,6 @@
 import { Plus, Edit, ChevronRight, Calendar, List, Kanban, Layers, CalendarDays, ListChecks, Layout } from 'lucide-react';
-import { Board, BoardViewType, Task } from '@/types';
+import { Board, BoardViewType, Task, UserPreferences } from '@/types';
+import { AISchedulerButton } from '@/components/ai/AISchedulerButton';
 import { renderIcon } from '@/constants/board-constants';
 import { UpcomingTaskPreview } from '@/components/ui/upcoming-task-preview';
 import { getNextUpcomingTask } from '@/utils/taskUtils';
@@ -28,6 +29,7 @@ interface GlobalSidebarProps {
 	currentBoard?: Board | null;
 	currentView?: BoardViewType;
 	tasks?: Task[];
+	userPreferences?: UserPreferences;
 	onSelectBoard: (board: Board) => void;
 	onSelectBoardView?: (board: Board, view: BoardViewType) => void;
 	onCreateBoard?: () => void;
@@ -70,6 +72,7 @@ export function GlobalSidebar({
 	currentBoard, 
 	currentView,
 	tasks,
+	userPreferences,
 	onSelectBoard, 
 	onSelectBoardView,
 	onCreateBoard, 
@@ -283,6 +286,22 @@ export function GlobalSidebar({
 										</SidebarMenuButton>
 									</SidebarMenuItem>
 								</>
+							)}
+							{/* AI Scheduler Button */}
+							{tasks && userPreferences && (
+								<SidebarMenuItem>
+									<div className='p-1'>
+										<AISchedulerButton
+											tasks={tasks}
+											boards={boards}
+											userPreferences={userPreferences}
+											variant='outline'
+											size='sm'
+											showDropdown={false}
+											className='w-full justify-start'
+										/>
+									</div>
+								</SidebarMenuItem>
 							)}
 							{onNavigateToBoards && (
 								<SidebarMenuItem>

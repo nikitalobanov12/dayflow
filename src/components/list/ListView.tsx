@@ -100,6 +100,7 @@ export function ListView(props: ListViewProps) {
 					currentBoard={props.board}
 					currentView="list"
 					tasks={props.tasks}
+					userPreferences={props.userPreferences}
 					onSelectBoard={(selectedBoard: Board) => {
 						if (props.onSelectBoard) {
 							props.onSelectBoard(selectedBoard);
@@ -140,6 +141,9 @@ export function ListView(props: ListViewProps) {
 						subtitle={props.board.description}
 						board={props.board}
 						currentView='list'
+						tasks={props.tasks}
+						boards={props.boards}
+						userPreferences={props.userPreferences}
 						onViewChange={props.onViewChange}
 						onCreateDetailedTask={handleCreateDetailedTaskFromHeader}
 						user={props.user}

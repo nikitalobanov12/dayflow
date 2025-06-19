@@ -1015,6 +1015,9 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 					subtitle={board.description}
 					board={board}
 					currentView='calendar'
+					tasks={tasks}
+					boards={boards}
+					userPreferences={userPreferences}
 					onViewChange={onViewChange}
 					onCreateDetailedTask={handleCreateDetailedTaskFromHeader}
 					user={user}

@@ -180,6 +180,44 @@ export interface UserPreferences {
 	googleCalendarSelectedCalendar?: string;
 	googleCalendarAutoSync: boolean;
 	googleCalendarSyncOnlyScheduled: boolean;
+	// AI Scheduling settings
+	autoScheduleEnabled: boolean;
+	workingHoursMondayStart: string;
+	workingHoursMondayEnd: string;
+	workingHoursMondayEnabled: boolean;
+	workingHoursTuesdayStart: string;
+	workingHoursTuesdayEnd: string;
+	workingHoursTuesdayEnabled: boolean;
+	workingHoursWednesdayStart: string;
+	workingHoursWednesdayEnd: string;
+	workingHoursWednesdayEnabled: boolean;
+	workingHoursThursdayStart: string;
+	workingHoursThursdayEnd: string;
+	workingHoursThursdayEnabled: boolean;
+	workingHoursFridayStart: string;
+	workingHoursFridayEnd: string;
+	workingHoursFridayEnabled: boolean;
+	workingHoursSaturdayStart: string;
+	workingHoursSaturdayEnd: string;
+	workingHoursSaturdayEnabled: boolean;
+	workingHoursSundayStart: string;
+	workingHoursSundayEnd: string;
+	workingHoursSundayEnabled: boolean;
+	bufferTimeBetweenTasks: number; // minutes
+	maxTaskChunkSize: number; // minutes
+	minTaskChunkSize: number; // minutes
+	allowOvertimeScheduling: boolean;
+	schedulingLookaheadDays: number; // days
+	aiSuggestionPreference: 'conservative' | 'balanced' | 'aggressive';
+	respectCalendarEvents: boolean;
+	autoRescheduleOnConflict: boolean;
+	energyPeakHours: string[]; // JSON array of time slots
+	deepWorkTimeSlots: string[]; // JSON array of time slots
+	deadlineBufferDays: number;
+	priorityBoostForOverdue: boolean;
+	maxDailyWorkHours: number;
+	focusTimeMinimumMinutes: number;
+	contextSwitchPenaltyMinutes: number;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -214,6 +252,44 @@ export interface UserPreferencesRow {
 	google_calendar_selected_calendar: string | null;
 	google_calendar_auto_sync: boolean;
 	google_calendar_sync_only_scheduled: boolean;
+	// AI Scheduling settings - database column names
+	auto_schedule_enabled: boolean;
+	working_hours_monday_start: string;
+	working_hours_monday_end: string;
+	working_hours_monday_enabled: boolean;
+	working_hours_tuesday_start: string;
+	working_hours_tuesday_end: string;
+	working_hours_tuesday_enabled: boolean;
+	working_hours_wednesday_start: string;
+	working_hours_wednesday_end: string;
+	working_hours_wednesday_enabled: boolean;
+	working_hours_thursday_start: string;
+	working_hours_thursday_end: string;
+	working_hours_thursday_enabled: boolean;
+	working_hours_friday_start: string;
+	working_hours_friday_end: string;
+	working_hours_friday_enabled: boolean;
+	working_hours_saturday_start: string;
+	working_hours_saturday_end: string;
+	working_hours_saturday_enabled: boolean;
+	working_hours_sunday_start: string;
+	working_hours_sunday_end: string;
+	working_hours_sunday_enabled: boolean;
+	buffer_time_between_tasks: number;
+	max_task_chunk_size: number;
+	min_task_chunk_size: number;
+	allow_overtime_scheduling: boolean;
+	scheduling_lookahead_days: number;
+	ai_suggestion_preference: string;
+	respect_calendar_events: boolean;
+	auto_reschedule_on_conflict: boolean;
+	energy_peak_hours: any; // JSONB array
+	deep_work_time_slots: any; // JSONB array
+	deadline_buffer_days: number;
+	priority_boost_for_overdue: boolean;
+	max_daily_work_hours: number;
+	focus_time_minimum_minutes: number;
+	context_switch_penalty_minutes: number;
 	created_at: string;
 	updated_at: string;
 }

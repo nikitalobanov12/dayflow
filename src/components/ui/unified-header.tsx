@@ -2,10 +2,11 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Layers, PlusCircle, Grid3X3, List, LayoutGrid } from 'lucide-react';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Board } from '@/types';
+import { Board, Task, UserPreferences } from '@/types';
 import { renderIcon } from '@/constants/board-constants';
 import { isTauri } from '@/lib/platform';
 import { Separator } from '@/components/ui/separator';
+import { AISchedulerButton } from '@/components/ai/AISchedulerButton';
 
 interface UnifiedHeaderProps {
 	// Basic header info
@@ -30,6 +31,11 @@ interface UnifiedHeaderProps {
 	onSignOut?: () => Promise<{ error: any }>;
 	onOpenSettings?: () => void;
 
+	// AI Scheduling
+	tasks?: Task[];
+	boards?: Board[];
+	userPreferences?: UserPreferences;
+
 	// Extra content
 	children?: React.ReactNode;
 }
@@ -46,7 +52,7 @@ const VIEW_NAMES = {
 	list: 'List',
 };
 
-export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, boardCount, onViewChange, onCreateDetailedTask, onViewModeChange, user, onSignOut, onOpenSettings, children }: UnifiedHeaderProps) {
+export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, boardCount, onViewChange, onCreateDetailedTask, onViewModeChange, user, onSignOut, onOpenSettings, tasks, boards, userPreferences, children }: UnifiedHeaderProps) {
 	return (
 		<header className={`${!isTauri() ? '' : ''} flex h-16 shrink-0 items-center gap-2 px-4 border-b border-border bg-card/50 backdrop-blur-sm relative z-10`}>
 			<SidebarTrigger className='mr-2.5' />
@@ -137,6 +143,19 @@ export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, b
 					<div className='text-xs text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-lg border border-border/50'>
 						{boardCount} {boardCount === 1 ? 'board' : 'boards'}
 					</div>
+				)}
+
+				{/* AI Scheduler button - only show for board views */}
+				{tasks && boards && userPreferences && (currentView === 'kanban' || currentView === 'list') && (
+					<AISchedulerButton
+						tasks={tasks}
+						boards={boards}
+						userPreferences={userPreferences}
+						variant='outline'
+						size='sm'
+						showDropdown={false}
+						onOpenSettings={onOpenSettings}
+					/>
 				)}
 
 				{/* New task button */}

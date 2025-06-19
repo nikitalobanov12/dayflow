@@ -34,6 +34,7 @@ export function CalendarView(props: CalendarViewProps) {
 					currentBoard={props.board}
 					currentView="calendar"
 					tasks={props.tasks}
+					userPreferences={props.userPreferences}
 					onSelectBoard={selectedBoard => {
 						// Use the proper board selection handler if available, otherwise fallback to onBack
 						if (props.onSelectBoard) {
