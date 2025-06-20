@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Layers, PlusCircle, Grid3X3, List, LayoutGrid } from 'lucide-react';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Board, Task, UserPreferences } from '@/types';
+import { Board, Task, UserPreferences, Profile } from '@/types';
 import { renderIcon } from '@/constants/board-constants';
 import { isTauri } from '@/lib/platform';
 import { Separator } from '@/components/ui/separator';
@@ -36,6 +36,7 @@ interface UnifiedHeaderProps {
 	tasks?: Task[];
 	boards?: Board[];
 	userPreferences?: UserPreferences;
+	userProfile?: Profile | null;
 
 	// Extra content
 	children?: React.ReactNode;
@@ -53,7 +54,7 @@ const VIEW_NAMES = {
 	list: 'List',
 };
 
-export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, boardCount, onViewChange, onCreateDetailedTask, onViewModeChange, user, onSignOut, onOpenSettings, tasks, boards, userPreferences, children }: UnifiedHeaderProps) {
+export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, boardCount, onViewChange, onCreateDetailedTask, onViewModeChange, user, onSignOut, onOpenSettings, tasks, boards, userPreferences, userProfile, children }: UnifiedHeaderProps) {
 	return (
 		<header className={`${!isTauri() ? '' : ''} flex h-16 shrink-0 items-center gap-2 px-4 border-b border-border bg-card/50 backdrop-blur-sm relative z-10`}>
 			<SidebarTrigger className='mr-2.5' />
@@ -147,11 +148,12 @@ export function UnifiedHeader({ title, subtitle, board, currentView, viewMode, b
 				)}
 
 				{/* AI Scheduler button - only show for board views */}
-				{tasks && boards && userPreferences && (currentView === 'kanban' || currentView === 'list') && (
+				{tasks && boards && userPreferences && userProfile && (currentView === 'kanban' || currentView === 'list') && (
 					<AISchedulerButton
 						tasks={tasks}
 						boards={boards}
 						userPreferences={userPreferences}
+						userProfile={userProfile}
 						variant='outline'
 						size='sm'
 						showDropdown={false}

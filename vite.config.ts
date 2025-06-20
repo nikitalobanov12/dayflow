@@ -1,7 +1,7 @@
+import MillionLint from '@million/lint';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import eslint from 'vite-plugin-eslint';
 import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 
@@ -10,17 +10,27 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
 	plugins: [
-		react(), 
+		react({
+			babel: {
+				presets: [],
+				plugins: [
+					['babel-plugin-react-compiler', {}]
+				]
+			}
+		}), 
 		tailwindcss(),
-		// Only run ESLint in development mode, not during build
-		process.env.NODE_ENV !== 'production' && eslint({
-			cache: false,
-			include: ['src/**/*.{ts,tsx}'],
-			exclude: ['node_modules/**', 'dist/**', 'dist-web/**', '*.html', '**/*.html'],
-			lintOnStart: false,
-			emitWarning: true,
-			emitError: false
+		// Enable MillionLint in development only with optimized settings
+		process.env.NODE_ENV !== 'production' && MillionLint.vite({ 
+			enabled: true,
+			filter: {
+				// Focus on your components for better performance insights
+				include: "**/src/components/**/*.{tsx,jsx}",
+				exclude: "**/node_modules/**/*"
+			},
+			// Enable DOM optimizations for better performance
+			optimizeDOM: true
 		}),
+		// ESLint disabled for dev server - rely on IDE integration instead
 		// Bundle analyzer - generates stats.html on build
 		process.env.ANALYZE && visualizer({
 			filename: 'dist/stats.html',

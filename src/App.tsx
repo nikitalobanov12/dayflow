@@ -24,7 +24,7 @@ function BoardViewRouter() {
 	const { boardId, view = 'kanban' } = useParams<{ boardId: string; view: 'kanban' | 'calendar' | 'list' }>();
 	const navigate = useNavigate();
 	const { tasks, boards, addTask, deleteTask, duplicateTask, moveTask, updateTask, reorderTasksInColumn, isLoading, user, signOut } = useSupabaseDatabase();
-	const { userPreferences } = useUserSettings(user?.id);
+	const { userPreferences, userProfile } = useUserSettings(user?.id);
 
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [isEditingTask, setIsEditingTask] = useState(false);
@@ -118,10 +118,18 @@ function BoardViewRouter() {
 	};
 
 	// If board not found, redirect to boards
-	if (!selectedBoard && !isLoading) {
-		navigate('/');
-		return null;
-	}
+	useEffect(() => {
+		if (!selectedBoard && !isLoading) {
+			navigate('/');
+		}
+	}, [selectedBoard, isLoading, navigate]);
+
+	// Handle invalid view types
+	useEffect(() => {
+		if (selectedBoard && view && !['kanban', 'calendar', 'list'].includes(view)) {
+			navigate(`/board/${boardId}/kanban`, { replace: true });
+		}
+	}, [selectedBoard, view, boardId, navigate]);
 
 	// Loading state
 	if (isLoading || !selectedBoard) {
@@ -147,6 +155,7 @@ function BoardViewRouter() {
 		onViewChange: handleSelectView,
 		onOpenSettings: handleOpenSettings,
 		userPreferences: userPreferences || undefined,
+		userProfile: userProfile || null,
 		onTaskClick: handleTaskClick,
 	};
 
@@ -226,8 +235,7 @@ function BoardViewRouter() {
 				</>
 			);
 		default:
-			navigate(`/board/${boardId}/kanban`);
-			return null;
+			return <div className="flex items-center justify-center h-screen">Invalid view</div>;
 	}
 }
 

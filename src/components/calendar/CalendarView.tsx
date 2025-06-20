@@ -1,5 +1,5 @@
 import { CompactCalendarView } from './CompactCalendarView';
-import { Task, Board, BoardViewType, UserPreferences } from '@/types';
+import { Task, Board, BoardViewType, UserPreferences, Profile } from '@/types';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { GlobalSidebar } from '@/components/ui/global-sidebar';
 
@@ -25,6 +25,7 @@ interface CalendarViewProps {
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: UserPreferences;
+	userProfile?: Profile | null;
 	onManualSyncTask?: (task: Task) => Promise<void>;
 	onManualUnsyncTask?: (task: Task) => Promise<void>;
 	onTaskClick?: (task: Task) => void;
@@ -39,6 +40,7 @@ export function CalendarView(props: CalendarViewProps) {
 					currentView="calendar"
 					tasks={props.tasks}
 					userPreferences={props.userPreferences}
+					userProfile={props.userProfile || null}
 					onSelectBoard={selectedBoard => {
 						// Use the proper board selection handler if available, otherwise fallback to onBack
 						if (props.onSelectBoard) {

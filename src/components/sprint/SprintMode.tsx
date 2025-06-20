@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Task, Board } from '@/types';
+import type { Task, Board, Profile } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,11 +20,12 @@ interface SprintModeProps {
 	onViewModeChange?: (mode: SprintViewMode) => void;
 	boards: Board[];
 	onTaskClick: (task: Task) => void;
+	userProfile?: Profile | null;
 }
 
 type SprintViewMode = 'fullscreen' | 'sidebar' | 'focus';
 
-export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes, onTaskComplete, onExit, onViewModeChange, boards, onTaskClick }: SprintModeProps) {
+export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes, onTaskComplete, onExit, onViewModeChange, boards, onTaskClick, userProfile }: SprintModeProps) {
 	const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
 	const [completedTasks, setCompletedTasks] = useState<number[]>([]);
 	const [isBreak, setIsBreak] = useState(false);
@@ -477,13 +478,14 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 	);
 	const renderSidebarMode = () => (
 		<div className='fixed left-0 top-0 w-full bg-background/95 backdrop-blur border-r border-border z-50 overflow-y-auto'>
-			<GlobalSidebar
-				boards={boards || []}
-				tasks={tasks}
-				onSelectBoard={(_board: Board) => onExit()}
-				onTaskClick={onTaskClick}
-				onNavigateToBoards={() => onExit()}
-			/>
+					<GlobalSidebar
+			boards={boards || []}
+			tasks={tasks}
+			userProfile={userProfile || null}
+			onSelectBoard={(_board: Board) => onExit()}
+			onTaskClick={onTaskClick}
+			onNavigateToBoards={() => onExit()}
+		/>
 			<div className='space-y-3'>
 				<div
 					className='flex justify-between items-center p-2 border-b border-border/30'

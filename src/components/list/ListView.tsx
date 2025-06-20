@@ -1,5 +1,5 @@
 import { CompactListView } from './CompactListView'; // Ensure file exists
-import { Task, Board, UserPreferences, BoardViewType } from '@/types';
+import { Task, Board, UserPreferences, BoardViewType, Profile } from '@/types';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { GlobalSidebar } from '@/components/ui/global-sidebar';
 import { UnifiedHeader } from '@/components/ui/unified-header';
@@ -30,6 +30,7 @@ interface ListViewProps {
 	onViewChange?: (board: Board, viewType: BoardViewType) => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: UserPreferences;
+	userProfile?: Profile | null;
 	onTaskClick?: (task: Task) => void;
 }
 
@@ -107,6 +108,7 @@ export function ListView(props: ListViewProps) {
 					currentView="list"
 					tasks={props.tasks}
 					userPreferences={props.userPreferences}
+					userProfile={props.userProfile || null}
 					onSelectBoard={(selectedBoard: Board) => {
 						if (props.onSelectBoard) {
 							props.onSelectBoard(selectedBoard);

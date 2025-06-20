@@ -42,3 +42,6 @@ src-tauri/target/
 .cursorrules
 .cursor/rules/cursor-rules.mdc
 supabase/migrations/*
+
+# Million Lint
+.million

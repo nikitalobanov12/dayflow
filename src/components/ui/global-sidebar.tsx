@@ -1,5 +1,5 @@
 import { Plus, Edit, ChevronRight, Calendar, List, Kanban, Layers, CalendarDays, ListChecks, Layout } from 'lucide-react';
-import { Board, BoardViewType, Task, UserPreferences } from '@/types';
+import { Board, BoardViewType, Task, UserPreferences, Profile } from '@/types';
 import { AISchedulerButton } from '@/components/ai/AISchedulerButton';
 import { renderIcon } from '@/constants/board-constants';
 import { UpcomingTaskPreview } from '@/components/ui/upcoming-task-preview';
@@ -30,6 +30,7 @@ interface GlobalSidebarProps {
 	currentView?: BoardViewType;
 	tasks?: Task[];
 	userPreferences?: UserPreferences;
+	userProfile: Profile | null;
 	onSelectBoard: (board: Board) => void;
 	onSelectBoardView?: (board: Board, view: BoardViewType) => void;
 	onCreateBoard?: () => void;
@@ -73,6 +74,7 @@ export function GlobalSidebar({
 	currentView,
 	tasks,
 	userPreferences,
+	userProfile,
 	onSelectBoard, 
 	onSelectBoardView,
 	onCreateBoard, 
@@ -295,6 +297,7 @@ export function GlobalSidebar({
 											tasks={tasks}
 											boards={boards}
 											userPreferences={userPreferences}
+											userProfile={userProfile}
 											variant='outline'
 											size='sm'
 											showDropdown={false}

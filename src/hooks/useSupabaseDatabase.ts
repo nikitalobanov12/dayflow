@@ -93,7 +93,9 @@ const convertTaskUpdatesToDb = (updates: Partial<Task>): Record<string, unknown>
 
 // Helper function to convert database task to application task
 const convertTaskFromDb = (dbTask: TaskRow): Task => {
-	const recurring = dbTask.recurring_pattern
+	// Validate recurring pattern before creating config
+	const validPatterns: RecurringPattern[] = ['daily', 'weekly', 'monthly', 'yearly'];
+	const recurring = dbTask.recurring_pattern && validPatterns.includes(dbTask.recurring_pattern as RecurringPattern)
 		? {
 				pattern: dbTask.recurring_pattern as RecurringPattern,
 				interval: dbTask.recurring_interval ?? 1,

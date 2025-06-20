@@ -1,4 +1,4 @@
-import { Board, Task, UserPreferences} from '@/types';
+import { Board, Task, UserPreferences, Profile } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,6 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { GlobalSidebar } from '@/components/ui/global-sidebar';
 import { UnifiedHeader } from '@/components/ui/unified-header';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu';
-
 
 
 interface User {
@@ -38,6 +37,7 @@ interface BoardSelectionProps {
 	onSignOut?: () => Promise<SignOutResponse>;
 	onOpenSettings?: () => void;
 	userPreferences?: UserPreferences | null;
+	userProfile?: Profile | null;
 	onUpdateUserPreferences?: (updates: Partial<UserPreferences>) => Promise<void>;
 	onTaskClick?: (task: Task) => void;
 }
@@ -115,7 +115,7 @@ const getTextColorForBackground = (backgroundColor?: string): string => {
 	return isLightColor(backgroundColor) ? 'text-gray-800' : 'text-white';
 };
 
-export function BoardSelection({ boards, tasks, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, onDuplicateBoard, user, onSignOut, onOpenSettings, userPreferences, onUpdateUserPreferences }: BoardSelectionProps) {
+export function BoardSelection({ boards, tasks, onSelectBoard, onCreateBoard, onUpdateBoard, onDeleteBoard, onDuplicateBoard, user, onSignOut, onOpenSettings, userPreferences, userProfile, onUpdateUserPreferences }: BoardSelectionProps) {
 	const [isCreating, setIsCreating] = useState(false);
 	const [isEditing, setIsEditing] = useState<Board | null>(null);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -519,6 +519,7 @@ export function BoardSelection({ boards, tasks, onSelectBoard, onCreateBoard, on
 					boards={boards}
 					tasks={tasks}
 					userPreferences={userPreferences || undefined}
+					userProfile={userProfile || null}
 					onSelectBoard={onSelectBoard}
 					onSelectBoardView={(board: Board) => {
 						// Navigate to the board with specific view (this would need to be implemented in parent component)

@@ -37,7 +37,7 @@ interface CompactCalendarViewProps {
 }
 
 interface CalendarEvent {
-	id: number;
+	id: string;
 	task: Task;
 	start: Date;
 	end: Date;
@@ -198,15 +198,21 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 						// Generate recurring instances if the task is recurring
 						let instances: Task[] = [task];
 						
-						if (task.recurring) {
+						if (task.recurring && task.recurring.pattern && ['daily', 'weekly', 'monthly', 'yearly'].includes(task.recurring.pattern)) {
 							// Add safety limit for recurring instances
 							const maxInstances = 100;
-							const allInstances = await generateRecurringInstances(
-								task, 
-								startOfDay(visibleDates[0]), 
-								endOfDay(visibleDates[visibleDates.length - 1])
-							);
-							instances = allInstances.slice(0, maxInstances);
+							try {
+								const allInstances = await generateRecurringInstances(
+									task, 
+									startOfDay(visibleDates[0]), 
+									endOfDay(visibleDates[visibleDates.length - 1])
+								);
+								instances = allInstances.slice(0, maxInstances);
+							} catch (error) {
+								console.error('Failed to generate recurring instances for task:', task.title, error);
+								// Fallback to single instance if recurring generation fails
+								instances = [task];
+							}
 						}
 
 						instances.forEach(instance => {
@@ -247,8 +253,11 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 								}
 							}
 
+							// Create unique ID for calendar events to avoid duplicate keys with recurring tasks
+							const uniqueEventId = `${instance.id}-${start.getTime()}`;
+							
 							allEvents.push({
-								id: instance.id,
+								id: uniqueEventId,
 								task: instance,
 								start,
 								end,
@@ -940,11 +949,6 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 
 		const now = new Date();
 
-		// Update current date to today if not already on today
-		if (!isToday(currentDate)) {
-			setCurrentDate(now);
-		}
-
 		// Calculate scroll position based on current time
 		const currentHour = now.getHours();
 		const currentMinute = now.getMinutes();
@@ -966,7 +970,15 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 			top: targetScroll,
 			behavior: 'smooth',
 		});
-	}, [currentDate, currentZoom.height, currentZoom.timeInterval]);
+	}, [currentZoom.height, currentZoom.timeInterval]);
+
+	// Function to navigate to today and scroll to current time
+	const goToToday = useCallback(() => {
+		const now = new Date();
+		setCurrentDate(now);
+		// Scroll after a brief delay to ensure the date change has been processed
+		setTimeout(() => scrollToCurrentTime(), 50);
+	}, [scrollToCurrentTime]);
 
 	// Auto-scroll to current time only on initial mount
 	useEffect(() => {
@@ -1055,9 +1067,9 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 						<Button
 							variant='outline'
 							size='sm'
-							onClick={scrollToCurrentTime}
+							onClick={goToToday}
 							className='mr-2 gap-1.5'
-							title='Scroll to current time'
+							title='Go to today and scroll to current time'
 						>
 							<Clock className='h-3.5 w-3.5' />
 							Now

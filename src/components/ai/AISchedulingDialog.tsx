@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, Clock, Calendar, AlertCircle, Loader2, CheckCircle2, GitMerge } from 'lucide-react';
-import { Task, UserPreferences, Board } from '@/types';
+import { Task, UserPreferences, Board, Profile } from '@/types';
 import { useAIScheduler } from '@/hooks/useAIScheduler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -22,12 +22,13 @@ interface AISchedulingDialogProps {
 	tasks: Task[];
 	boards: Board[];
 	userPreferences: UserPreferences | null;
+	userProfile: Profile | null;
 }
 
 type SchedulingMode = 'unscheduled' | 'all' | 'selected' | 'board';
 type TimeEstimateMode = 'keep' | 'update' | 'custom';
 
-export function AISchedulingDialog({ isOpen, onClose, tasks, boards, userPreferences }: AISchedulingDialogProps) {
+export function AISchedulingDialog({ isOpen, onClose, tasks, boards, userPreferences, userProfile }: AISchedulingDialogProps) {
 	const { isScheduling, isEstimating, scheduleTasksWithAI, updateTimeEstimatesWithAI } = useAIScheduler();
 	
 	// Dialog state
@@ -120,12 +121,12 @@ export function AISchedulingDialog({ isOpen, onClose, tasks, boards, userPrefere
 	};
 
 	const handleSchedule = async () => {
-		if (!userPreferences || tasksToSchedule.length === 0) return;
+		if (!userPreferences || !userProfile || tasksToSchedule.length === 0) return;
 
 		try {
 			// First update time estimates if requested
 			if (timeEstimateMode === 'update') {
-				await updateTimeEstimatesWithAI(tasksToSchedule, userPreferences);
+				await updateTimeEstimatesWithAI(tasksToSchedule, userPreferences, userProfile);
 			}
 
 			// Create custom preferences for this scheduling session
@@ -142,7 +143,7 @@ export function AISchedulingDialog({ isOpen, onClose, tasks, boards, userPrefere
 			const finalInstructions = customInstructions + overlapInstruction;
 
 			// Schedule the tasks with custom instructions
-			await scheduleTasksWithAI(tasksToSchedule, customPreferences, finalInstructions);
+			await scheduleTasksWithAI(tasksToSchedule, customPreferences, userProfile, finalInstructions);
 			
 			// Close dialog on success
 			onClose();
@@ -194,7 +195,7 @@ export function AISchedulingDialog({ isOpen, onClose, tasks, boards, userPrefere
 
 	const isProcessing = isScheduling || isEstimating;
 
-	if (!userPreferences) {
+	if (!userPreferences || !userProfile) {
 		return (
 			<Dialog open={isOpen} onOpenChange={handleClose}>
 				<DialogContent className="max-w-3xl">
@@ -204,7 +205,7 @@ export function AISchedulingDialog({ isOpen, onClose, tasks, boards, userPrefere
 							AI Scheduling Unavailable
 						</DialogTitle>
 						<DialogDescription>
-							User preferences are not loaded. Please try again later.
+							User settings are not loaded. Please try again later.
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>

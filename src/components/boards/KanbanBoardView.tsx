@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
-import { Task, Board, BoardViewType, UserPreferences } from '@/types';
+import { Task, Board, BoardViewType, UserPreferences, Profile } from '@/types';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { GlobalSidebar } from '@/components/ui/global-sidebar';
@@ -31,10 +31,11 @@ interface KanbanBoardViewProps {
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: UserPreferences;
+	userProfile?: Profile | null;
 	onTaskClick?: (task: Task) => void;
 }
 
-export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings, userPreferences }: KanbanBoardViewProps) {
+export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTask, onAddTask, onUpdateTask, onDeleteTask, onDuplicateTask, onUpdateTimeEstimate, onStartSprint, isAllTasksBoard = false, boards = [], user, onSignOut, onViewChange, onOpenSettings, userPreferences, userProfile }: KanbanBoardViewProps) {
 	const [isEditingTask, setIsEditingTask] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
 	const [isCreatingDetailedTask, setIsCreatingDetailedTask] = useState(false);
@@ -142,6 +143,7 @@ export function KanbanBoardView({ board, tasks, onBack, onSelectBoard, onMoveTas
 					currentView="kanban"
 					tasks={tasks}
 					userPreferences={userPreferences}
+					userProfile={userProfile || null}
 					onSelectBoard={selectedBoard => {
 						// Use the proper board selection handler if available, otherwise fallback to onBack
 						if (onSelectBoard) {

@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Task, UserPreferences } from '@/types';
+import { Task, UserPreferences, Profile } from '@/types';
 import { scheduleTasksWithAI, getAITimeEstimates, AIScheduleResponse } from '@/lib/aiScheduler';
 import { useSupabaseDatabase } from './useSupabaseDatabase';
 
 export interface UseAISchedulerReturn {
 	isScheduling: boolean;
 	isEstimating: boolean;
-	scheduleTasksWithAI: (tasks: Task[], userPreferences: UserPreferences, customInstructions?: string) => Promise<AIScheduleResponse | null>;
-	updateTimeEstimatesWithAI: (tasks: Task[], userPreferences: UserPreferences) => Promise<boolean>;
+	scheduleTasksWithAI: (tasks: Task[], userPreferences: UserPreferences, userProfile: Profile, customInstructions?: string) => Promise<AIScheduleResponse | null>;
+	updateTimeEstimatesWithAI: (tasks: Task[], userPreferences: UserPreferences, userProfile: Profile) => Promise<boolean>;
 	lastScheduleResult: AIScheduleResponse | null;
 }
 
@@ -22,6 +22,7 @@ export function useAIScheduler(): UseAISchedulerReturn {
 	const scheduleTasksWithAIHandler = async (
 		tasks: Task[], 
 		userPreferences: UserPreferences,
+		userProfile: Profile,
 		customInstructions?: string
 	): Promise<AIScheduleResponse | null> => {
 		if (isScheduling) {
@@ -49,6 +50,7 @@ export function useAIScheduler(): UseAISchedulerReturn {
 			const result = await scheduleTasksWithAI({
 				tasks,
 				userPreferences,
+				userProfile,
 				customInstructions,
 			});
 
@@ -119,7 +121,8 @@ export function useAIScheduler(): UseAISchedulerReturn {
 
 	const updateTimeEstimatesWithAI = async (
 		tasks: Task[], 
-		userPreferences: UserPreferences
+		userPreferences: UserPreferences,
+		userProfile: Profile
 	): Promise<boolean> => {
 		if (isEstimating) {
 			toast.warning('AI time estimation is already in progress');
@@ -138,7 +141,7 @@ export function useAIScheduler(): UseAISchedulerReturn {
 				id: 'ai-estimation',
 			});
 
-			const estimates = await getAITimeEstimates(tasks, userPreferences);
+			const estimates = await getAITimeEstimates(tasks, userPreferences, userProfile);
 			
 			// Update tasks with new time estimates
 			const updatePromises = Object.entries(estimates).map(([taskIdStr, estimate]) => {

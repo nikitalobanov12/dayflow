@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Clock, Loader2 } from 'lucide-react';
 import { useAIScheduler } from '@/hooks/useAIScheduler';
-import { Task, UserPreferences, Board } from '@/types';
+import { Task, UserPreferences, Board, Profile } from '@/types';
 import { cn } from '@/lib/utils';
 import {
 	DropdownMenu,
@@ -17,6 +17,7 @@ interface AISchedulerButtonProps {
 	tasks: Task[];
 	boards: Board[];
 	userPreferences: UserPreferences | null;
+	userProfile: Profile | null;
 	variant?: 'default' | 'ghost' | 'outline' | 'secondary' | 'destructive' | 'link';
 	size?: 'default' | 'sm' | 'lg' | 'icon';
 	className?: string;
@@ -29,6 +30,7 @@ export function AISchedulerButton({
 	tasks,
 	boards,
 	userPreferences,
+	userProfile,
 	variant = 'default',
 	size = 'default',
 	className,
@@ -51,12 +53,12 @@ export function AISchedulerButton({
 	};
 
 	const handleUpdateTimeEstimates = async () => {
-		if (!userPreferences || tasks.length === 0) return;
+		if (!userPreferences || !userProfile || tasks.length === 0) return;
 		const activeTasks = tasks.filter(task => task.status !== 'done');
-		await updateTimeEstimatesWithAI(activeTasks, userPreferences);
+		await updateTimeEstimatesWithAI(activeTasks, userPreferences, userProfile);
 	};
 
-	if (!userPreferences) {
+	if (!userPreferences || !userProfile) {
 		return (
 			<Button
 				variant="ghost"
@@ -110,6 +112,7 @@ export function AISchedulerButton({
 					tasks={tasks}
 					boards={boards}
 					userPreferences={userPreferences}
+					userProfile={userProfile}
 				/>
 			</>
 		);
@@ -182,6 +185,7 @@ export function AISchedulerButton({
 				tasks={tasks}
 				boards={boards}
 				userPreferences={userPreferences}
+				userProfile={userProfile}
 			/>
 		</>
 	);
