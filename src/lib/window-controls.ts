@@ -170,23 +170,23 @@ class WebWindowControls implements WindowControls {
 		}
 	}
 
-	async setAlwaysOnTop(_alwaysOnTop: boolean): Promise<void> {
+	async setAlwaysOnTop(_: boolean): Promise<void> {
 		// Not possible in web - no-op
 	}
 
-	async setSize(_width: number, _height: number): Promise<void> {
+	async setSize(_: number, __: number): Promise<void> {
 		// Not possible in web - no-op
 	}
 
-	async setPosition(_x: number, _y: number): Promise<void> {
+	async setPosition(_: number, __: number): Promise<void> {
 		// Not possible in web - no-op
 	}
 
-	async setResizable(_resizable: boolean): Promise<void> {
+	async setResizable(_: boolean): Promise<void> {
 		// Not possible in web - no-op
 	}
 
-	async setDecorations(_decorations: boolean): Promise<void> {
+	async setDecorations(_: boolean): Promise<void> {
 		// Not possible in web - no-op
 	}
 
@@ -203,18 +203,20 @@ class WebWindowControls implements WindowControls {
 	}
 
 	async setFocus(): Promise<void> {
+		// Focus the window (may not work due to browser restrictions)
 		window.focus();
 	}
 
 	async isAlwaysOnTop(): Promise<boolean> {
+		// Not possible in web - always return false
 		return false;
 	}
 
-	async setVisibleOnAllWorkspaces(_visible: boolean): Promise<void> {
+	async setVisibleOnAllWorkspaces(_: boolean): Promise<void> {
 		// Not possible in web - no-op
 	}
 
-	async setMinimizable(_minimizable: boolean): Promise<void> {
+	async setMinimizable(_: boolean): Promise<void> {
 		// Not possible in web - no-op
 	}
 }

@@ -1,5 +1,5 @@
 import { CompactCalendarView } from './CompactCalendarView';
-import { Task, Board, BoardViewType } from '@/types';
+import { Task, Board, BoardViewType, UserPreferences } from '@/types';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { GlobalSidebar } from '@/components/ui/global-sidebar';
 
@@ -16,11 +16,15 @@ interface CalendarViewProps {
 	onUpdateTimeEstimate: (taskId: number, timeEstimate: number) => Promise<void>;
 	isAllTasksBoard?: boolean;
 	boards?: Board[];
-	user?: any;
-	onSignOut?: () => Promise<{ error: any }>;
+	user?: {
+		id: string;
+		email?: string;
+		created_at?: string;
+	};
+	onSignOut?: () => Promise<{ error: unknown }>;
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onOpenSettings?: () => void;
-	userPreferences?: any;
+	userPreferences?: UserPreferences;
 	onManualSyncTask?: (task: Task) => Promise<void>;
 	onManualUnsyncTask?: (task: Task) => Promise<void>;
 	onTaskClick?: (task: Task) => void;

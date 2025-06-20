@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import supabase from '@/utils/supabase';
-import { Task, TaskRow, Board, BoardRow, Subtask, RecurringConfig, RecurringPattern } from '@/types';
+import { Task, TaskRow, Board, BoardRow, Subtask, RecurringPattern } from '@/types';
 
 // Subtask database row interface
 interface SubtaskRow {
@@ -17,119 +17,99 @@ interface SubtaskRow {
 }
 
 // Field mapping configuration for better maintainability
-const TASK_FIELD_MAPPING = {
-	// Fields that are always defined (never null in database)
-	required: {
-		title: 'title',
-		timeEstimate: 'time_estimate',
-		status: 'status',
-		position: 'position',
-		priority: 'priority',
-		progressPercentage: 'progress_percentage',
-		timeSpent: 'time_spent',
-		googleCalendarSynced: 'google_calendar_synced',
-	},
-	// Fields that can be null/undefined (nullable in database)
-	optional: {
-		description: 'description',
-		scheduledDate: 'scheduled_date',
-		tags: 'tags',
-		completedAt: 'completed_at',
-		boardId: 'board_id',
-		dueDate: 'due_date',
-		startDate: 'start_date',
-		category: 'category',
-		assigneeId: 'assignee_id',
-		parentTaskId: 'parent_task_id',
-		googleCalendarEventId: 'google_calendar_event_id',
-	},
-	// Special handling fields
-	special: ['recurring']
-} as const;
+// Note: Currently unused but preserved for future consistent field mapping implementation
+// const TASK_FIELD_MAPPING = {
+//	// Fields that are always defined (never null in database)
+//	required: {
+//		title: 'title',
+//		timeEstimate: 'time_estimate',
+//		status: 'status',
+//		position: 'position',
+//		priority: 'priority',
+//		progressPercentage: 'progress_percentage',
+//		timeSpent: 'time_spent',
+//		googleCalendarSynced: 'google_calendar_synced',
+//	},
+//	// Fields that can be null/undefined (nullable in database)
+//	optional: {
+//		description: 'description',
+//		scheduledDate: 'scheduled_date',
+//		tags: 'tags',
+//		completedAt: 'completed_at',
+//		boardId: 'board_id',
+//		dueDate: 'due_date',
+//		startDate: 'start_date',
+//		category: 'category',
+//		assigneeId: 'assignee_id',
+//		parentTaskId: 'parent_task_id',
+//		googleCalendarEventId: 'google_calendar_event_id',
+//	},
+//	// Special handling fields
+//	special: ['recurring']
+// } as const;
 
 /**
  * Helper function to convert task updates to database format
  * This centralizes the field mapping logic and makes it easy to add new fields
  */
-const convertTaskUpdatesToDb = (updates: Partial<Task>): any => {
-	const dbUpdates: any = {};
-	
-	// Handle required fields (never null)
-	Object.entries(TASK_FIELD_MAPPING.required).forEach(([appField, dbField]) => {
-		if (updates[appField as keyof Task] !== undefined) {
-			dbUpdates[dbField] = updates[appField as keyof Task];
-		}
-	});
-	
-	// Handle optional fields (can be null)
-	Object.entries(TASK_FIELD_MAPPING.optional).forEach(([appField, dbField]) => {
-		if (appField in updates) {
-			const value = updates[appField as keyof Task];
-			// Special handling for tags array
-			if (appField === 'tags') {
-				dbUpdates[dbField] = value || [];
-			} else {
-				dbUpdates[dbField] = value || null;
-			}
-		}
-	});
-	
-	// Handle special fields with custom logic
-	if ('recurring' in updates) {
-		if (updates.recurring) {
-			// Ensure the pattern is one of the valid enum values
-			const validPatterns = ['daily', 'weekly', 'monthly', 'yearly'];
-			if (!validPatterns.includes(updates.recurring.pattern)) {
-				throw new Error(`Invalid recurring pattern: ${updates.recurring.pattern}`);
-			}
-			
-			dbUpdates.recurring_pattern = updates.recurring.pattern;
-			dbUpdates.recurring_interval = updates.recurring.interval;
-			dbUpdates.recurring_days_of_week = updates.recurring.daysOfWeek || [];
-			dbUpdates.recurring_days_of_month = updates.recurring.daysOfMonth || [];
-			dbUpdates.recurring_months_of_year = updates.recurring.monthsOfYear || [];
-			dbUpdates.recurring_end_date = updates.recurring.endDate || null;
-		} else {
-			// Clear recurring fields when disabling recurring
-			dbUpdates.recurring_pattern = null;
-			dbUpdates.recurring_interval = null;
-			dbUpdates.recurring_days_of_week = null;
-			dbUpdates.recurring_days_of_month = null;
-			dbUpdates.recurring_months_of_year = null;
-			dbUpdates.recurring_end_date = null;
-		}
+const convertTaskUpdatesToDb = (updates: Partial<Task>): Record<string, unknown> => {
+	const dbUpdates: Record<string, unknown> = {};
+
+	// Map frontend field names to database field names
+	if (updates.title !== undefined) dbUpdates.title = updates.title;
+	if (updates.description !== undefined) dbUpdates.description = updates.description;
+	if (updates.timeEstimate !== undefined) dbUpdates.time_estimate = updates.timeEstimate;
+	if (updates.status !== undefined) dbUpdates.status = updates.status;
+	if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+	if (updates.position !== undefined) dbUpdates.position = updates.position;
+	if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId;
+	if (updates.progressPercentage !== undefined) dbUpdates.progress_percentage = updates.progressPercentage;
+	if (updates.timeSpent !== undefined) dbUpdates.time_spent = updates.timeSpent;
+	if (updates.scheduledDate !== undefined) dbUpdates.scheduled_date = updates.scheduledDate;
+	if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+	// if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
+	if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+	if (updates.category !== undefined) dbUpdates.category = updates.category;
+	if (updates.labels !== undefined) dbUpdates.labels = JSON.stringify(updates.labels);
+	if (updates.tags !== undefined) dbUpdates.tags = JSON.stringify(updates.tags);
+	if (updates.attachments !== undefined) dbUpdates.attachments = JSON.stringify(updates.attachments);
+	// if (updates.isImportant !== undefined) dbUpdates.is_important = updates.isImportant;
+	// if (updates.isUrgent !== undefined) dbUpdates.is_urgent = updates.isUrgent;
+	if (updates.googleCalendarEventId !== undefined) dbUpdates.google_calendar_event_id = updates.googleCalendarEventId;
+	if (updates.googleCalendarSynced !== undefined) dbUpdates.google_calendar_synced = updates.googleCalendarSynced;
+	// if (updates.isRecurringParent !== undefined) dbUpdates.is_recurring_parent = updates.isRecurringParent;
+	// if (updates.recurringParentId !== undefined) dbUpdates.recurring_parent_id = updates.recurringParentId;
+	if (updates.recurring !== undefined) {
+		dbUpdates.recurring_pattern = updates.recurring?.pattern;
+		dbUpdates.recurring_interval = updates.recurring?.interval;
+		dbUpdates.recurring_days_of_week = updates.recurring?.daysOfWeek ? JSON.stringify(updates.recurring.daysOfWeek) : null;
+		dbUpdates.recurring_days_of_month = updates.recurring?.daysOfMonth ? JSON.stringify(updates.recurring.daysOfMonth) : null;
+		dbUpdates.recurring_months_of_year = updates.recurring?.monthsOfYear ? JSON.stringify(updates.recurring.monthsOfYear) : null;
+		dbUpdates.recurring_end_date = updates.recurring?.endDate;
 	}
-	
+
 	return dbUpdates;
 };
 
 // Helper function to convert database task to application task
-const convertTaskFromDb = (dbTask: any): Task => {
-	// Handle recurring pattern conversion with safety checks
-	let recurring: RecurringConfig | undefined = undefined;
-	if (dbTask.recurring_pattern && dbTask.recurring_pattern !== 'none' && dbTask.recurring_pattern !== null) {
-		// Only create recurring config if we have a valid pattern
-		const validPatterns = ['daily', 'weekly', 'monthly', 'yearly'];
-		if (validPatterns.includes(dbTask.recurring_pattern)) {
-			recurring = {
+const convertTaskFromDb = (dbTask: TaskRow): Task => {
+	const recurring = dbTask.recurring_pattern
+		? {
 				pattern: dbTask.recurring_pattern as RecurringPattern,
-				interval: dbTask.recurring_interval || 1,
+				interval: dbTask.recurring_interval ?? 1,
 				daysOfWeek: dbTask.recurring_days_of_week || [],
 				daysOfMonth: dbTask.recurring_days_of_month || [],
 				monthsOfYear: dbTask.recurring_months_of_year || [],
 				endDate: dbTask.recurring_end_date || undefined,
-			};
-		} else {
-			console.warn('Invalid recurring pattern found in database:', dbTask.recurring_pattern);
-		}
-	}
+		  }
+		: undefined;
 
 	return {
 		id: dbTask.id,
 		title: dbTask.title || '',
 		description: dbTask.description || '',
 		timeEstimate: dbTask.time_estimate || 0,
-		status: dbTask.status || 'backlog',
+		status: (dbTask.status as 'backlog' | 'this-week' | 'today' | 'done') || 'backlog',
 		position: dbTask.position || 0,
 		scheduledDate: dbTask.scheduled_date || undefined,
 		startDate: dbTask.start_date || undefined,
@@ -139,7 +119,7 @@ const convertTaskFromDb = (dbTask: any): Task => {
 		completedAt: dbTask.completed_at || undefined,
 		userId: dbTask.user_id || '',
 		boardId: dbTask.board_id || undefined,
-		priority: dbTask.priority || 2,
+		priority: (dbTask.priority as 1 | 2 | 3 | 4) || 2,
 		category: dbTask.category || '',
 		progressPercentage: dbTask.progress_percentage || 0,
 		timeSpent: dbTask.time_spent || 0,
@@ -249,18 +229,8 @@ export const useSupabaseDatabase = () => {
 		});
 
 		return () => subscription.unsubscribe();
-	}, []);
-	// Load tasks and boards when user is available
-	useEffect(() => {
-		if (user && isInitialized) {
-			loadTasks();
-			loadBoards();
-		} else if (!user && isInitialized) {
-			setTasks([]);
-			setBoards([]);
-			setIsLoading(false);
-		}
-	}, [user?.id, isInitialized]);
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+
 	const loadTasks = useCallback(
 		async (boardId?: number) => {
 			if (!user) {
@@ -292,7 +262,7 @@ export const useSupabaseDatabase = () => {
 				setIsLoading(false);
 			}
 		},
-		[user?.id]
+		[user]
 	);
 
 	const loadBoards = useCallback(async () => {
@@ -306,7 +276,7 @@ export const useSupabaseDatabase = () => {
 				return;
 			}
 
-			let boardList = (data as BoardRow[]).map(convertBoardFromDb);
+			const boardList = (data as BoardRow[]).map(convertBoardFromDb);
 
 			// Ensure "All Tasks" board exists
 			const allTasksBoard = boardList.find(board => board.isDefault);
@@ -326,7 +296,19 @@ export const useSupabaseDatabase = () => {
 		} catch (error) {
 			console.error('Failed to load boards:', error);
 		}
-	}, [user?.id]);
+	}, [user]);
+
+	// Load tasks and boards when user is available
+	useEffect(() => {
+		if (user && isInitialized) {
+			loadTasks();
+			loadBoards();
+		} else if (!user && isInitialized) {
+			setTasks([]);
+			setBoards([]);
+			setIsLoading(false);
+		}
+	}, [user?.id, isInitialized]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const addTask = async (task: Omit<Task, 'id' | 'createdAt' | 'userId'>): Promise<number | null> => {
 		if (!user) return null;

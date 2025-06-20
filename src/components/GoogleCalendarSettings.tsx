@@ -12,13 +12,20 @@ import { Label } from '@/components/ui/label';
 import { Save } from 'lucide-react';
 import { getGoogleCalendarService } from '../lib/googleCalendar';
 
+interface GoogleCalendar {
+  id: string;
+  summary?: string;
+  description?: string;
+  primary?: boolean;
+}
+
 interface GoogleCalendarSettingsProps {
   userPreferences?: UserPreferences | null;
   onUpdateUserPreferences?: (updates: Partial<UserPreferences>) => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  calendars: any[];
+  calendars: GoogleCalendar[];
   handleAuthCallback: (code: string) => Promise<void>;
   disconnect: () => Promise<void>;
   setSelectedCalendarId: (id: string) => void;
@@ -26,7 +33,7 @@ interface GoogleCalendarSettingsProps {
 }
 
 // Filter out system calendars that users typically don't want to sync tasks to
-const isUserCalendar = (calendar: any) => {
+const isUserCalendar = (calendar: GoogleCalendar): boolean => {
   const summary = calendar.summary?.toLowerCase() || '';
   const id = calendar.id?.toLowerCase() || '';
   

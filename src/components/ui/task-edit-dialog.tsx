@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,7 +24,7 @@ interface TaskEditDialogProps {
 	isAllTasksBoard?: boolean;
 	boards?: Board[];
 	isCreating?: boolean; // Whether this is creating a new task
-	userPreferences?: any; // User preferences for date formatting
+	userPreferences?: unknown; // User preferences for date formatting
 }
 
 export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDelete, isAllTasksBoard = false, boards = [], isCreating = false }: TaskEditDialogProps) {
@@ -158,10 +158,10 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 			document.addEventListener('keydown', handleKeyDown);
 			return () => document.removeEventListener('keydown', handleKeyDown);
 		}
-	}, [isOpen, hasChanges, formData.title, isLoading]); // Added isLoading to dependencies
+	}, [isOpen, hasChanges, formData.title, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Handle Enter key for specific input fields
-	const handleInputKeyDown = (e: React.KeyboardEvent) => {
+	const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
 		// Prevent saving if already loading to avoid double creation
 		if (isLoading) return;
 		
@@ -233,7 +233,7 @@ export function TaskEditDialog({ task, isOpen, onClose, onSave, onCreate, onDele
 		}
 	};
 
-	const updateFormData = (field: keyof Task, value: any) => {
+	const updateFormData = (field: keyof Task, value: unknown) => {
 		setFormData(prev => ({ ...prev, [field]: value }));
 	};
 

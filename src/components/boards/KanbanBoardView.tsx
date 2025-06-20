@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { TaskEditDialog } from '@/components/ui/task-edit-dialog';
-import { Task, Board, BoardViewType } from '@/types';
+import { Task, Board, BoardViewType, UserPreferences } from '@/types';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { GlobalSidebar } from '@/components/ui/global-sidebar';
@@ -22,11 +22,15 @@ interface KanbanBoardViewProps {
 	onStartSprint?: () => void;
 	isAllTasksBoard?: boolean;
 	boards?: Board[]; // Available boards for board selection
-	user?: any;
-	onSignOut?: () => Promise<{ error: any }>;
+	user?: {
+		id: string;
+		email?: string;
+		created_at?: string;
+	};
+	onSignOut?: () => Promise<{ error: unknown }>;
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onOpenSettings?: () => void;
-	userPreferences?: any; // Add user preferences prop
+	userPreferences?: UserPreferences;
 	onTaskClick?: (task: Task) => void;
 }
 

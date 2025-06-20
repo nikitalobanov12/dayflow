@@ -32,7 +32,7 @@ export const useTimer = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [timer.isRunning]);
+  }, [timer.isRunning, timer.elapsedTime]);
 
   const startTimer = (taskId?: number) => {
     setTimer(prev => ({

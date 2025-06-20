@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Task, Board } from '@/types';
+import React, { useState } from 'react';
+import { Task, Board, UserPreferences } from '@/types';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -21,7 +21,8 @@ import {
 	AlertTriangle, 
 	X,
 	CloudOff,
-	Cloud
+	Cloud,
+
 } from 'lucide-react';
 
 interface TaskContextMenuProps {
@@ -35,7 +36,7 @@ interface TaskContextMenuProps {
 	onUpdateTimeEstimate?: (taskId: number, timeEstimate: number) => void | Promise<void>;
 	onToggleComplete?: (taskId: number) => void;
 	boardInfo?: Board | null;
-	userPreferences?: any;
+	userPreferences?: UserPreferences;
 	onManualSyncTask?: (task: Task) => Promise<void>;
 	onManualUnsyncTask?: (task: Task) => Promise<void>;
 }

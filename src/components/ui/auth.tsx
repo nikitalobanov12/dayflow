@@ -1,21 +1,34 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { CheckCircle, ArrowLeft, Mail, AlertCircle } from 'lucide-react';
 import { CustomTitlebar } from '@/components/ui/custom-titlebar';
-import { CheckCircle, Mail, ArrowLeft, AlertCircle } from 'lucide-react';
+
+interface AuthResponse {
+	data: unknown;
+	error: unknown;
+}
 
 interface AuthProps {
-	onSignUp: (email: string, password: string) => Promise<{ data: any; error: any }>;
-	onSignIn: (email: string, password: string) => Promise<{ data: any; error: any }>;
-	onGoogleSignIn: () => Promise<{ data: any; error: any }>;
-	onResetPassword: (email: string) => Promise<{ data: any; error: any }>;
+	onSignUp: (email: string, password: string) => Promise<AuthResponse>;
+	onSignIn: (email: string, password: string) => Promise<AuthResponse>;
+	onGoogleSignIn: () => Promise<AuthResponse>;
+	onResetPassword: (email: string) => Promise<AuthResponse>;
 }
 
 interface PasswordRequirement {
 	label: string;
 	test: (password: string) => boolean;
 }
+
+// Helper function to safely extract error message
+const getErrorText = (error: unknown): string => {
+	if (error && typeof error === 'object' && 'message' in error) {
+		return String((error as { message: unknown }).message);
+	}
+	return 'An unexpected error occurred';
+};
 
 export function Auth({ onSignUp, onSignIn, onGoogleSignIn, onResetPassword }: AuthProps) {
 	const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +63,7 @@ export function Auth({ onSignUp, onSignIn, onGoogleSignIn, onResetPassword }: Au
 		},
 		{
 			label: 'Contains symbol (!@#$%^&*)',
-			test: pwd => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd),
+			test: pwd => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(pwd),
 		},
 	];
 
@@ -69,9 +82,9 @@ export function Auth({ onSignUp, onSignIn, onGoogleSignIn, onResetPassword }: Au
 		try {
 			const { error } = await onGoogleSignIn();
 			if (error) {
-				setError(getErrorMessage(error.message));
+				setError(getErrorMessage(getErrorText(error)));
 			}
-		} catch (err) {
+		} catch {
 			setError('Failed to sign in with Google. Please try again.');
 		} finally {
 			setIsGoogleLoading(false);
@@ -94,14 +107,14 @@ export function Auth({ onSignUp, onSignIn, onGoogleSignIn, onResetPassword }: Au
 		try {
 			const { error } = isSignUp ? await onSignUp(email, password) : await onSignIn(email, password);
 			if (error) {
-				setError(getErrorMessage(error.message));
+				setError(getErrorMessage(getErrorText(error)));
 			} else if (isSignUp) {
 				// For sign up, show email confirmation screen
 				setSentEmail(email);
 				setShowEmailSent(true);
 			}
 			// For sign in, the auth state change will be handled by the parent component
-		} catch (err) {
+		} catch {
 			setError('An unexpected error occurred');
 		} finally {
 			setIsLoading(false);
@@ -133,12 +146,12 @@ export function Auth({ onSignUp, onSignIn, onGoogleSignIn, onResetPassword }: Au
 				const { error } = await onResetPassword(resetEmail);
 
 				if (error) {
-					setError(getErrorMessage(error.message));
+					setError(getErrorMessage(getErrorText(error)));
 				} else {
 					setResetEmailSent(true);
 				}
 			}
-		} catch (error) {
+		} catch {
 			setError('An unexpected error occurred');
 		} finally {
 			setIsLoading(false);

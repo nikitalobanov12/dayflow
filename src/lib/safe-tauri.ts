@@ -106,7 +106,7 @@ export const safeFileSystem = {
 
 // Event system fallbacks
 export const safeEvents = {
-	emit: async (event: string, payload?: any) => {
+	emit: async (event: string, payload?: unknown) => {
 		if (isTauri()) {
 			try {
 				const { emit } = await import('@tauri-apps/api/event');
@@ -119,7 +119,7 @@ export const safeEvents = {
 		window.dispatchEvent(new CustomEvent(event, { detail: payload }));
 	},
 
-	listen: async (event: string, callback: (payload: any) => void) => {
+	listen: async (event: string, callback: (payload: unknown) => void) => {
 		if (isTauri()) {
 			try {
 				const { listen } = await import('@tauri-apps/api/event');
@@ -130,9 +130,12 @@ export const safeEvents = {
 			}
 		} else {
 			// Web fallback: use custom events
-			const handler = (e: CustomEvent) => callback(e.detail);
-			window.addEventListener(event, handler as EventListener);
-			return () => window.removeEventListener(event, handler as EventListener);
+			const handler = (e: Event) => {
+				const customEvent = e as CustomEvent;
+				callback(customEvent.detail);
+			};
+			window.addEventListener(event, handler);
+			return () => window.removeEventListener(event, handler);
 		}
 	},
 };

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { format, startOfWeek, endOfWeek, addDays, isSameDay, isToday, addMinutes, startOfDay, endOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -317,26 +317,28 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 			const sortOrder = userPreferences?.taskSortOrder || 'asc';
 
 			let comparison = 0;
-			switch (sortBy) {
-				case 'priority':
-					comparison = (b.priority || 2) - (a.priority || 2);
-					break;
-				case 'dueDate':
-					const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-					const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-					comparison = aDate - bDate;
-					break;
-				case 'created':
-					const aCreated = new Date(a.createdAt).getTime();
-					const bCreated = new Date(b.createdAt).getTime();
-					comparison = bCreated - aCreated;
-					break;
-				case 'alphabetical':
-					comparison = a.title.localeCompare(b.title);
-					break;
-				default:
-					comparison = 0;
+					switch (sortBy) {
+			case 'priority':
+				comparison = (b.priority || 2) - (a.priority || 2);
+				break;
+			case 'dueDate': {
+				const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+				const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+				comparison = aDate - bDate;
+				break;
 			}
+			case 'created': {
+				const aCreated = new Date(a.createdAt).getTime();
+				const bCreated = new Date(b.createdAt).getTime();
+				comparison = bCreated - aCreated;
+				break;
+			}
+			case 'alphabetical':
+				comparison = a.title.localeCompare(b.title);
+				break;
+			default:
+				comparison = 0;
+		}
 
 			return sortOrder === 'desc' ? -comparison : comparison;
 		});
@@ -974,7 +976,7 @@ export function CompactCalendarView({ board, tasks, onAddTask, onUpdateTask, onD
 		const timeoutId = setTimeout(() => scrollToCurrentTime(), 100);
 
 		return () => clearTimeout(timeoutId);
-	}, []); // Empty dependency array means this only runs on mount
+	}, [scrollToCurrentTime]); // Include scrollToCurrentTime in dependencies
 
 	// Handler for creating detailed task from header
 	const handleCreateDetailedTaskFromHeader = () => {

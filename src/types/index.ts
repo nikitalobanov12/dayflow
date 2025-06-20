@@ -127,6 +127,24 @@ export interface TaskRow {
 	completed_at: string | null;
 	user_id: string;
 	board_id: number | null;
+	// Additional fields
+	priority: number;
+	due_date: string | null;
+	start_date: string | null;
+	category: string | null;
+	progress_percentage: number;
+	time_spent: number;
+	assignee_id: string | null;
+	parent_task_id: number | null;
+	google_calendar_event_id: string | null;
+	google_calendar_synced: boolean;
+	// Recurring fields
+	recurring_pattern: string | null;
+	recurring_interval: number | null;
+	recurring_days_of_week: number[] | null;
+	recurring_days_of_month: number[] | null;
+	recurring_months_of_year: number[] | null;
+	recurring_end_date: string | null;
 }
 
 export interface SprintRow {

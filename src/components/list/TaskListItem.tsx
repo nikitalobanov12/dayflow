@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Task, Board } from '@/types';
+import React, { useState } from 'react';
+import { Task, Board, UserPreferences } from '@/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { TaskContextMenu } from '@/components/task/TaskContextMenu';
@@ -17,7 +17,7 @@ interface TaskListItemProps {
 	onDuplicateTask?: (task: Task) => Promise<void>;
 	onDeleteTask?: (taskId: number) => Promise<void>;
 	boardInfo?: Board | null;
-	userPreferences?: any;
+	userPreferences?: UserPreferences;
 	isDone?: boolean;
 }
 

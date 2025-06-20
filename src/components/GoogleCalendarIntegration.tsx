@@ -107,7 +107,7 @@ export function GoogleCalendarIntegration({
       if (failed > 0) {
         toast.error(`Failed to sync ${failed} tasks`, { id: toastId });
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to sync tasks', { id: toastId });
     }
   };
@@ -141,7 +141,7 @@ export function GoogleCalendarIntegration({
       if (failed > 0) {
         toast.error(`Failed to remove ${failed} tasks`, { id: toastId });
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove tasks from calendar', { id: toastId });
     }
   };

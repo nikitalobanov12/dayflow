@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Task } from '@/types';
+import { Task, UserPreferences } from '@/types';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
 
 interface TaskOperationHandlers {
@@ -15,7 +15,7 @@ interface TaskOperationHandlers {
 export function useTaskOperations(
 	task: Task,
 	handlers: TaskOperationHandlers,
-	userPreferences?: any
+	userPreferences?: UserPreferences
 ) {
 	const {
 		onEdit,

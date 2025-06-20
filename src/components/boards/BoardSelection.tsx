@@ -16,6 +16,16 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 
 
 
+interface User {
+	id: string;
+	email?: string;
+	created_at?: string;
+}
+
+interface SignOutResponse {
+	error: unknown;
+}
+
 interface BoardSelectionProps {
 	boards: Board[];
 	tasks?: Task[];
@@ -24,8 +34,8 @@ interface BoardSelectionProps {
 	onUpdateBoard: (id: number, updates: Partial<Board>) => Promise<void>;
 	onDeleteBoard: (id: number) => Promise<void>;
 	onDuplicateBoard?: (board: Board) => Promise<void>;
-	user?: any;
-	onSignOut?: () => Promise<{ error: any }>;
+	user?: User;
+	onSignOut?: () => Promise<SignOutResponse>;
 	onOpenSettings?: () => void;
 	userPreferences?: UserPreferences | null;
 	onUpdateUserPreferences?: (updates: Partial<UserPreferences>) => Promise<void>;

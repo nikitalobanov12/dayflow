@@ -1,10 +1,10 @@
-import { Task, Board } from '@/types';
+import React, { useState } from 'react';
+import { Task, Board, UserPreferences } from '@/types';
 import { Button } from '@/components/ui/button';
 import { TaskContextMenu } from '@/components/task/TaskContextMenu';
 import { TaskDisplay } from '@/components/task/TaskDisplay';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Edit, Check } from 'lucide-react';
-import { useState } from 'react';
 import { SubtasksContainer } from '@/components/subtasks/SubtasksContainer';
 
 interface TaskCardProps {
@@ -16,7 +16,7 @@ interface TaskCardProps {
 	onDelete?: (taskId: number) => void;
 	isDone?: boolean;
 	boardInfo?: Board | null;
-	userPreferences?: any;
+	userPreferences?: UserPreferences;
 	onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void>;
 }
 

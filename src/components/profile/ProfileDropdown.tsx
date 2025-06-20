@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { User, LogOut, Settings } from 'lucide-react';
 
 interface ProfileDropdownProps {
-	user: any;
-	onSignOut?: () => Promise<{ error: any }>;
+	user: unknown;
+	onSignOut?: () => Promise<{ error: unknown }>;
 	onOpenSettings?: () => void;
 }
 
@@ -51,8 +51,8 @@ export function ProfileDropdown({ user, onSignOut, onOpenSettings }: ProfileDrop
 		>
 			<div className='px-2 py-1.5 text-sm font-semibold'>
 				<div className='flex flex-col space-y-1'>
-					<p className='text-sm font-medium leading-none'>{user?.email || 'User'}</p>
-					<p className='text-xs leading-none text-gray-500 dark:text-gray-400'>Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}</p>
+					<p className='text-sm font-medium leading-none'>{(user && typeof user === 'object' && 'email' in user ? (user as any).email : null) || 'User'}</p>
+					<p className='text-xs leading-none text-gray-500 dark:text-gray-400'>Member since {(user && typeof user === 'object' && 'created_at' in user && (user as any).created_at) ? new Date((user as any).created_at).toLocaleDateString() : 'Unknown'}</p>
 				</div>
 			</div>
 			<hr className='my-1' />{' '}

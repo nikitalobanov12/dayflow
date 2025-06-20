@@ -1,8 +1,9 @@
-import { Task, Board } from '@/types';
+import React, { useState } from 'react';
+import { Task, Board, UserPreferences } from '@/types';
 import { TaskCard } from './TaskCard';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isTauri } from '@/lib/platform';
@@ -29,7 +30,7 @@ interface KanbanColumnProps {
 	boards?: Board[]; // Available boards for board selection
 	getBoardInfo?: (boardId: number) => Board | null; // Function to get board info
 	currentBoard?: Board; // Current board information to display when task has no specific board
-	userPreferences?: any; // User preferences for date formatting
+	userPreferences?: UserPreferences; // User preferences for date formatting
 }
 
 export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onAddTask, onUpdateTimeEstimate, onDuplicateTask, onDeleteTask, onUpdateTask, showAddButton = true, showProgress = false, completedCount = 0, totalTimeEstimate = 0, onStartSprint, isAllTasksBoard = false, boards = [], getBoardInfo, currentBoard, userPreferences }: KanbanColumnProps) {
@@ -118,7 +119,7 @@ export function KanbanColumn({ title, status, tasks, onMoveTask, onEditTask, onA
 				title: newTaskTitle,
 				description: '',
 				timeEstimate: timeInMinutes,
-				status: status,
+				status,
 				position: tasks.length, // Add to end of current column
 				boardId: isAllTasksBoard ? newTaskBoardId || undefined : undefined, // Add board selection for All Tasks board
 				// Add required new properties with default values

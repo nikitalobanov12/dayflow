@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { UserPreferences, Profile, UserPreferencesRow, ProfileRow } from '@/types';
 import supabase from '@/utils/supabase';
 
@@ -152,7 +152,7 @@ export function useUserSettings(userId?: string) {
 	const [error, setError] = useState<string | null>(null);
 
 	// Load user preferences and profile
-	const loadUserSettings = async () => {
+	const loadUserSettings = useCallback(async () => {
 		if (!userId) return;
 
 		setIsLoading(true);
@@ -183,7 +183,7 @@ export function useUserSettings(userId?: string) {
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, [userId]);
 	// Create default user preferences
 	const createDefaultUserPreferences = async (userId: string) => {
 		const defaultPreferences: Partial<UserPreferencesRow> = {
@@ -305,7 +305,7 @@ export function useUserSettings(userId?: string) {
 			setUserProfile(null);
 			setIsLoading(false);
 		}
-	}, [userId]);
+	}, [userId, loadUserSettings]);
 
 	return {
 		userPreferences,

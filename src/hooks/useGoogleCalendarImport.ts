@@ -21,7 +21,7 @@ export interface UseGoogleCalendarImportReturn {
   importEvents: (calendarId: string, boardId?: number, timeMin?: Date, timeMax?: Date, includeGoogleTasks?: boolean, taskListId?: string, showCompletedTasks?: boolean) => Promise<CalendarImportPreview[]>;
   confirmImport: (tasks: CalendarImportPreview[], boardId?: number) => Promise<void>;
   clearPreview: () => void;
-  getTaskLists: () => Promise<any[]>;
+  getTaskLists: () => Promise<unknown[]>;
 }
 
 export function useGoogleCalendarImport(

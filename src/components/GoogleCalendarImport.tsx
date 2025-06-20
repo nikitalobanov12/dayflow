@@ -12,8 +12,21 @@ import { Calendar, Download, CheckCircle, AlertCircle, Clock, Tag, Target, Folde
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
+interface GoogleCalendar {
+  id: string;
+  summary?: string;
+  description?: string;
+  primary?: boolean;
+}
+
+interface GoogleTaskList {
+  id: string;
+  title: string;
+  updated?: string;
+}
+
 interface GoogleCalendarImportProps {
-  calendars: any[];
+  calendars: GoogleCalendar[];
   boards: Board[];
   tasks: Task[];
   onAddTask: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
@@ -35,7 +48,7 @@ export function GoogleCalendarImport({
   const [includeGoogleTasks, setIncludeGoogleTasks] = useState(true);
   const [selectedTaskList, setSelectedTaskList] = useState('@default');
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
-  const [taskLists, setTaskLists] = useState<any[]>([]);
+  const [taskLists, setTaskLists] = useState<GoogleTaskList[]>([]);
 
   const {
     isLoading,
@@ -54,7 +67,7 @@ export function GoogleCalendarImport({
       
       try {
         const lists = await getTaskLists();
-        setTaskLists(lists);
+        setTaskLists(lists as GoogleTaskList[]);
         console.log(`✅ Loaded ${lists.length} Google Task Lists`);
       } catch (error) {
         console.warn('Failed to load task lists:', error);

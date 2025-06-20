@@ -90,7 +90,7 @@ export function AISchedulingDialog({ isOpen, onClose, tasks, boards, userPrefere
 			const unscheduledIds = new Set(unscheduledTasks.map(task => task.id));
 			setSelectedTaskIds(unscheduledIds);
 		}
-	}, [schedulingMode, unscheduledTasks]);
+	}, [schedulingMode, unscheduledTasks, selectedTaskIds.size]);
 
 	// Initialize selected board for 'board' mode
 	useEffect(() => {

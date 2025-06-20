@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Task, Board } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 	// Timer state for focus mode display
 	const [timerSeconds, setTimerSeconds] = useState(0);
 	const [isTimerRunning, setIsTimerRunning] = useState(false);
-	const timerRef = useRef<NodeJS.Timeout | null>(null);
+	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	// Initialize timer when task or break changes
 	useEffect(() => {
@@ -44,7 +44,7 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 			setTimerSeconds(mode.duration || 0);
 		}
 		setIsTimerRunning(true);
-	}, [currentTaskIndex, isBreak, sessionType, timerType, pomodoroMinutes, countdownMinutes]);
+	}, [currentTaskIndex, isBreak, sessionType, timerType, pomodoroMinutes, countdownMinutes]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Timer effect
 	useEffect(() => {
@@ -77,7 +77,7 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 				clearInterval(timerRef.current);
 			}
 		};
-	}, [isTimerRunning]);
+	}, [isTimerRunning]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const currentTask = tasks[currentTaskIndex];
 	const totalTasks = tasks.length;
@@ -87,8 +87,40 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 		return sum + (task?.timeEstimate || 0);
 	}, 0);
 	const progress = totalTasks > 0 ? (completedTasks.length / totalTasks) * 100 : 0;
+
+	const getTimerMode = useCallback((): TimerMode => {
+		if (isBreak) {
+			return {
+				type: 'countdown',
+				duration: sessionType === 'long-break' ? 15 * 60 : 5 * 60, // 15min long break, 5min short break
+				label: sessionType === 'long-break' ? 'Long Break' : 'Short Break',
+			};
+		}
+		switch (timerType) {
+			case 'pomodoro':
+				return {
+					type: 'pomodoro',
+					duration: (pomodoroMinutes || 25) * 60,
+					label: `Pomodoro: ${currentTask?.title || 'Work Session'}`,
+				};
+			case 'stopwatch':
+				return {
+					type: 'stopwatch',
+					label: `Tracking: ${currentTask?.title || 'Work Session'}`,
+				};
+			case 'countdown':
+			default:
+				return {
+					type: 'countdown',
+					duration: countdownMinutes ? countdownMinutes * 60 : currentTask ? Math.max(currentTask.timeEstimate, 1) * 60 : 25 * 60,
+					label: `Focus: ${currentTask?.title || 'Work Session'}`,
+				};
+		}
+	}, [isBreak, sessionType, timerType, pomodoroMinutes, countdownMinutes, currentTask]);
+
+	// Initialize timer when task or break changes
 	useEffect(() => {
-		let intervalId: NodeJS.Timeout | undefined;
+		let intervalId: ReturnType<typeof setInterval> | undefined;
 
 		const setupAlwaysOnTopMaintenance = async () => {
 			try {
@@ -110,7 +142,7 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 								// Also try to bring window to front
 								await windowControls.setFocus();
 							}
-						} catch (error) {
+						} catch {
 							// Ignore errors - window might be closing
 						}
 					}, 2000); // Check every 2 seconds for more responsive behavior
@@ -215,35 +247,7 @@ export function SprintMode({ tasks, timerType, pomodoroMinutes, countdownMinutes
 			}, 1000); // Give a moment for window transition
 		}
 	}, [completedTasks.length, totalTasks]);
-	const getTimerMode = (): TimerMode => {
-		if (isBreak) {
-			return {
-				type: 'countdown',
-				duration: sessionType === 'long-break' ? 15 * 60 : 5 * 60, // 15min long break, 5min short break
-				label: sessionType === 'long-break' ? 'Long Break' : 'Short Break',
-			};
-		}
-		switch (timerType) {
-			case 'pomodoro':
-				return {
-					type: 'pomodoro',
-					duration: (pomodoroMinutes || 25) * 60,
-					label: `Pomodoro: ${currentTask?.title || 'Work Session'}`,
-				};
-			case 'stopwatch':
-				return {
-					type: 'stopwatch',
-					label: `Tracking: ${currentTask?.title || 'Work Session'}`,
-				};
-			case 'countdown':
-			default:
-				return {
-					type: 'countdown',
-					duration: countdownMinutes ? countdownMinutes * 60 : currentTask ? Math.max(currentTask.timeEstimate, 1) * 60 : 25 * 60,
-					label: `Focus: ${currentTask?.title || 'Work Session'}`,
-				};
-		}
-	}; // Format time for display (MM:SS)
+	// Format time for display (MM:SS)
 	const formatTime = (seconds: number): string => {
 		const mins = Math.floor(Math.abs(seconds) / 60);
 		const secs = Math.abs(seconds) % 60;

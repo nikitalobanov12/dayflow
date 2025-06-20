@@ -19,8 +19,14 @@ interface ListViewProps {
 	onUpdateTimeEstimate: (taskId: number, timeEstimate: number) => Promise<void>;
 	isAllTasksBoard?: boolean;
 	boards?: Board[];
-	user?: any; // Consider using a more specific type for user
-	onSignOut?: () => Promise<{ error: any }>;
+	user?: {
+		id: string;
+		email?: string;
+		created_at?: string;
+		user_metadata?: Record<string, unknown>;
+		app_metadata?: Record<string, unknown>;
+	} | null;
+	onSignOut?: () => Promise<{ error: Error | null }>;
 	onViewChange?: (board: Board, viewType: BoardViewType) => Promise<void>;
 	onOpenSettings?: () => void;
 	userPreferences?: UserPreferences;

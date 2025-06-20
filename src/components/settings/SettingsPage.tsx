@@ -34,14 +34,21 @@ import {
 import { Separator } from '@/components/ui/separator';
 
 interface SettingsPageProps {
-	user: any;
+	user: {
+		id: string;
+		email?: string;
+		created_at?: string;
+		user_metadata?: Record<string, unknown>;
+		app_metadata?: Record<string, unknown>;
+		identities?: Array<{ provider: string; [key: string]: unknown }>;
+	} | null;
 	userPreferences?: UserPreferences;
 	userProfile?: Profile;
 	onBack: () => void;
 	onUpdatePreferences: (preferences: Partial<UserPreferences>) => Promise<void>;
 	onUpdateProfile: (profile: Partial<Profile>) => Promise<void>;
-	onSignOut?: () => Promise<{ error: any }>;
-	onUpdatePassword?: (newPassword: string) => Promise<{ data: any; error: any }>;
+	onSignOut?: () => Promise<{ error: Error | null }>;
+	onUpdatePassword?: (newPassword: string) => Promise<{ data: unknown | null; error: Error | null }>;
 	onUpdateTask?: (id: number, updates: Partial<Task>) => Promise<void>;
 	onAddTask?: (task: Omit<Task, 'id' | 'createdAt'>) => Promise<void>;
 	tasks?: Task[];
@@ -168,17 +175,24 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 		}
 	}, [userProfile]);
 
-	const updatePreference = (key: keyof UserPreferences, value: any) => {
+	const updatePreference = <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
 		setLocalPreferences(prev => ({ ...prev, [key]: value }));
 		setHasUnsavedChanges(true);
 
 		// Apply theme changes immediately
 		if (key === 'theme') {
-			setTheme(value);
+			// Theme context only supports 'light' or 'dark', handle 'system' by detecting preference
+			const themeValue = value as string;
+			if (themeValue === 'system') {
+				const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				setTheme(prefersDark ? 'dark' : 'light');
+			} else {
+				setTheme(themeValue as 'light' | 'dark');
+			}
 		}
 	};
 
-	const updateProfile = (key: keyof Profile, value: any) => {
+	const updateProfile = <K extends keyof Profile>(key: K, value: Profile[K]) => {
 		setLocalProfile(prev => ({ ...prev, [key]: value }));
 		setHasUnsavedChanges(true);
 	};
@@ -376,7 +390,20 @@ export function SettingsPage({ user, userPreferences, userProfile, onBack, onUpd
 }
 
 // Profile Section Component
-function ProfileSection({ profile, user, onUpdateProfile, onSignOut, onUpdatePassword, isLoading }: { profile: Partial<Profile>; user: any; onUpdateProfile: (key: keyof Profile, value: any) => void; onSignOut: () => void; onUpdatePassword?: (newPassword: string) => Promise<{ data: any; error: any }>; isLoading: boolean }) {
+function ProfileSection({ profile, user, onUpdateProfile, onSignOut, onUpdatePassword, isLoading }: { 
+	profile: Partial<Profile>; 
+	user: {
+		id: string;
+		email?: string;
+		created_at?: string;
+		user_metadata?: Record<string, unknown>;
+		app_metadata?: Record<string, unknown>;
+	} | null; 
+	onUpdateProfile: <K extends keyof Profile>(key: K, value: Profile[K]) => void; 
+	onSignOut: () => void; 
+	onUpdatePassword?: (newPassword: string) => Promise<{ data: unknown | null; error: Error | null }>; 
+	isLoading: boolean 
+}) {
 	// Common timezones that users are likely to need
 	const commonTimezones = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai', 'Australia/Sydney', 'UTC'];
 	
@@ -396,7 +423,7 @@ function ProfileSection({ profile, user, onUpdateProfile, onSignOut, onUpdatePas
 	const [passwordError, setPasswordError] = useState('');
 
 	// Determine authentication method
-	const isGoogleAuth = user?.app_metadata?.provider === 'google' || user?.identities?.some((identity: any) => identity.provider === 'google');
+	const isGoogleAuth = user?.app_metadata?.provider === 'google' || (user && 'identities' in user && Array.isArray((user as any).identities)) ? (user as any).identities.some((identity: any) => identity.provider === 'google') : false;
 
 	const handlePasswordChange = async () => {
 		if (!onUpdatePassword) {

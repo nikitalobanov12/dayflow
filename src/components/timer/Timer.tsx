@@ -23,7 +23,7 @@ export function Timer({ mode, onComplete, onReset, autoStart = false, className 
 	const [timeLeft, setTimeLeft] = useState(mode.duration || 0);
 	const [isRunning, setIsRunning] = useState(autoStart);
 	const [isPaused, setIsPaused] = useState(false);
-	const intervalRef = useRef<NodeJS.Timeout | null>(null);
+	const intervalRef = useRef<number | null>(null);
 	useEffect(() => {
 		if (mode.type === 'pomodoro' && !mode.duration) {
 			setTimeLeft(25 * 60); // Default 25 minutes for pomodoro
@@ -37,7 +37,7 @@ export function Timer({ mode, onComplete, onReset, autoStart = false, className 
 
 	useEffect(() => {
 		if (isRunning && !isPaused) {
-			intervalRef.current = setInterval(() => {
+			intervalRef.current = window.setInterval(() => {
 				setTimeLeft(prev => {
 					if (mode.type === 'stopwatch') {
 						return prev + 1;

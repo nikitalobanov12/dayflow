@@ -12,8 +12,8 @@ interface ViewHeaderProps {
 	onBack: () => void;
 	onViewChange?: (board: Board, viewType: 'kanban' | 'calendar' | 'list') => Promise<void>;
 	onCreateDetailedTask?: () => void;
-	user?: any;
-	onSignOut?: () => Promise<{ error: any }>;
+	user?: unknown;
+	onSignOut?: () => Promise<{ error: unknown }>;
 	onOpenSettings?: () => void;
 }
 

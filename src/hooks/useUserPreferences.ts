@@ -18,16 +18,18 @@ export function useUserPreferences(userPreferences?: UserPreferences | null) {
 
 			let dateStr = '';
 			switch (format) {
-				case 'DD/MM/YYYY':
+				case 'DD/MM/YYYY': {
 					dateStr = dateObj.toLocaleDateString('en-GB', {
 						day: '2-digit',
 						month: '2-digit',
 						year: 'numeric',
 					});
 					break;
-				case 'YYYY-MM-DD':
+				}
+				case 'YYYY-MM-DD': {
 					dateStr = dateObj.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format
 					break;
+				}
 				case 'MM/DD/YYYY':
 				default:
 					dateStr = dateObj.toLocaleDateString('en-US', {
@@ -71,20 +73,23 @@ export function useUserPreferences(userPreferences?: UserPreferences | null) {
 				let comparison = 0;
 
 				switch (sortBy) {
-					case 'priority':
+					case 'priority': {
 						// Higher priority numbers (4=Critical) should come first
 						comparison = (b.priority || 2) - (a.priority || 2);
 						break;
-					case 'dueDate':
+					}
+					case 'dueDate': {
 						const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
 						const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
 						comparison = aDate - bDate;
 						break;
-					case 'created':
+					}
+					case 'created': {
 						const aCreated = new Date(a.createdAt).getTime();
 						const bCreated = new Date(b.createdAt).getTime();
 						comparison = bCreated - aCreated; // Newest first by default
 						break;
+					}
 					case 'alphabetical':
 						comparison = a.title.localeCompare(b.title);
 						break;

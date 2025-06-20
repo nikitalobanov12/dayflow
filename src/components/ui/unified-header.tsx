@@ -1,3 +1,4 @@
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar, Layers, PlusCircle, Grid3X3, List, LayoutGrid } from 'lucide-react';
 import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
@@ -27,8 +28,8 @@ interface UnifiedHeaderProps {
 	onViewModeChange?: (mode: 'grid' | 'compact' | 'list') => void;
 
 	// Right side actions
-	user?: any;
-	onSignOut?: () => Promise<{ error: any }>;
+	user?: unknown;
+	onSignOut?: () => Promise<{ error: unknown }>;
 	onOpenSettings?: () => void;
 
 	// AI Scheduling

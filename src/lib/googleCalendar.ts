@@ -1,10 +1,25 @@
-import { Task, GoogleCalendarTokens } from '../types';
+/**
+ * Google Calendar Integration Service
+ * Handles authentication, event management, and task sync with Google Calendar
+ */
+
+import { Task } from '@/types';
 import supabase from '../utils/supabase';
 
+export interface GoogleCalendarTokens {
+	id: string;
+	accessToken: string;
+	refreshToken: string;
+	expiresAt: number;
+	scope: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
 export interface GoogleCalendarConfig {
-  clientId: string;
-  redirectUri: string;
-  // clientSecret removed - now handled server-side
+	clientId: string;
+	redirectUri: string;
+	// clientSecret removed - now handled server-side
 }
 
 export class GoogleCalendarService {
@@ -295,7 +310,7 @@ export class GoogleCalendarService {
   /**
    * Make authenticated API request with automatic token refresh
    */
-  private async makeApiRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
+  private async makeApiRequest(endpoint: string, options: Record<string, any> = {}): Promise<any> {
     if (!this.tokens) {
       throw new Error('Not authenticated with Google Calendar');
     }
@@ -577,7 +592,7 @@ export class GoogleCalendarService {
   /**
    * Make authenticated API request to Google Tasks API
    */
-  private async makeTasksApiRequest(endpoint: string, options: RequestInit = {}): Promise<any> {
+  private async makeTasksApiRequest(endpoint: string, options: Record<string, any> = {}): Promise<any> {
     if (!this.tokens) {
       throw new Error('Not authenticated with Google Tasks');
     }

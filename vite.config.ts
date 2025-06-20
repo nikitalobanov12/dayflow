@@ -1,13 +1,34 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import eslint from 'vite-plugin-eslint';
+import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
-	plugins: [react(), tailwindcss()],
+	plugins: [
+		react(), 
+		tailwindcss(),
+		// Only run ESLint in development mode, not during build
+		process.env.NODE_ENV !== 'production' && eslint({
+			cache: false,
+			include: ['src/**/*.{ts,tsx}'],
+			exclude: ['node_modules/**', 'dist/**', 'dist-web/**', '*.html', '**/*.html'],
+			lintOnStart: false,
+			emitWarning: true,
+			emitError: false
+		}),
+		// Bundle analyzer - generates stats.html on build
+		process.env.ANALYZE && visualizer({
+			filename: 'dist/stats.html',
+			open: true,
+			gzipSize: true,
+			brotliSize: true,
+		})
+	].filter(Boolean),
 	resolve: {
 		alias: {
 			'@': path.resolve(__dirname, './src'),
@@ -47,5 +68,17 @@ export default defineConfig(async () => ({
 		outDir: process.env.TAURI_ENV ? 'dist' : 'dist-web',
 		// Ensure compatibility with modern browsers for web deployment
 		target: process.env.TAURI_ENV ? 'esnext' : 'es2015',
+		// Optimize bundle splitting for better caching
+		rollupOptions: {
+			output: {
+				manualChunks: {
+					vendor: ['react', 'react-dom'],
+					ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+					supabase: ['@supabase/supabase-js'],
+					calendar: ['react-big-calendar', 'date-fns'],
+					dnd: ['@dnd-kit/core', '@dnd-kit/sortable']
+				}
+			}
+		}
 	},
 }));

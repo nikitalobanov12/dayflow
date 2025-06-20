@@ -19,7 +19,7 @@ export interface UseGoogleCalendarReturn {
 }
 
 export function useGoogleCalendar(
-  config: GoogleCalendarConfig,
+  _config: GoogleCalendarConfig,
   onTaskUpdate?: (taskId: number, updates: Partial<Task>) => Promise<void>,
   boards?: Board[]
 ): UseGoogleCalendarReturn {
@@ -73,7 +73,7 @@ export function useGoogleCalendar(
   // Initialize Google Calendar service and check for stored tokens
   useEffect(() => {
     const initializeService = async () => {
-      const service = initializeGoogleCalendar(config);
+      const service = initializeGoogleCalendar(_config);
       
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -94,8 +94,8 @@ export function useGoogleCalendar(
         isServiceAuthenticated,
         userId: user.id,
         config: {
-          hasClientId: !!config.clientId,
-          redirectUri: config.redirectUri
+          hasClientId: !!_config.clientId,
+          redirectUri: _config.redirectUri
         }
       });
       
@@ -127,7 +127,7 @@ export function useGoogleCalendar(
     };
 
     initializeService();
-  }, [config]);
+  }, [_config]);
 
   const getAuthUrl = useCallback(() => {
     const service = getGoogleCalendarService();
