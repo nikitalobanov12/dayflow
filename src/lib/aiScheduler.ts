@@ -110,7 +110,9 @@ const validateAndFixScheduledTimes = (
 					nextAvailableTime.setDate(nextAvailableTime.getDate() + 1);
 				}
 				
-				task.scheduledDate = nextAvailableTime.toISOString();
+				// Convert the next available time from user timezone to UTC
+				const utcNextAvailableTime = fromZonedTime(nextAvailableTime, userTimezone);
+				task.scheduledDate = utcNextAvailableTime.toISOString();
 				task.reasoning = `Moved from past time to next available working slot: ${format(nextAvailableTime, 'yyyy-MM-dd HH:mm')} ${userTimezone}`;
 				console.log(`  - ✅ Moved to: ${formatInTimeZone(nextAvailableTime, userTimezone, 'yyyy-MM-dd HH:mm:ss zzz')}`);
 			}
