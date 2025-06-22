@@ -10,6 +10,7 @@ import {
 	DropdownMenuTrigger,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
+	DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { AISchedulingDialog } from './AISchedulingDialog';
 
@@ -41,7 +42,8 @@ export function AISchedulerButton({
 	const {
 		isScheduling,
 		isEstimating,
-		updateTimeEstimatesWithAI
+		updateTimeEstimatesWithAI,
+		rescheduleAllTasksWithAI,
 	} = useAIScheduler();
 
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -50,6 +52,11 @@ export function AISchedulerButton({
 
 	const handleOpenDialog = () => {
 		setIsDialogOpen(true);
+	};
+
+	const handleReschedule = async () => {
+		if (!userPreferences || !userProfile || tasks.length === 0) return;
+		await rescheduleAllTasksWithAI(tasks, userPreferences, userProfile);
 	};
 
 	const handleUpdateTimeEstimates = async () => {
@@ -104,7 +111,7 @@ export function AISchedulerButton({
 					) : (
 						<Sparkles className="h-4 w-4" />
 					)}
-					{!compact && (isProcessing ? 'Scheduling...' : 'AI Schedule')}
+					{!compact && (isProcessing ? 'AI is working...' : 'AI Assistant')}
 				</Button>
 				<AISchedulingDialog
 					isOpen={isDialogOpen}
@@ -134,35 +141,31 @@ export function AISchedulerButton({
 						) : (
 							<Sparkles className="h-4 w-4" />
 						)}
-						{!compact && (
-							isScheduling 
-								? 'Scheduling...' 
-								: isEstimating 
-									? 'Estimating...'
-									: 'AI Scheduler'
-						)}
+						{!compact &&
+							(isScheduling
+								? 'Scheduling...'
+								: isEstimating
+								? 'Estimating...'
+								: 'Reschedule with AI')}
 					</Button>
 				</DropdownMenuTrigger>
-				
-				<DropdownMenuContent 
-					align="end" 
-					className="w-60"
-				>
+
+				<DropdownMenuContent align="end" className="w-64">
+					<DropdownMenuLabel>AI Assistant</DropdownMenuLabel>
+					<DropdownMenuSeparator />
 					<DropdownMenuItem
-						onClick={handleOpenDialog}
-						disabled={isProcessing}
+						onClick={handleReschedule}
+						disabled={tasks.length === 0 || isProcessing}
 						className="gap-2"
 					>
-						<Sparkles className="h-4 w-4" />
-						<div className="flex flex-col items-start">
-							<span>Open AI Scheduler</span>
-							<span className="text-xs text-muted-foreground">
-								Configure and schedule tasks with AI
-							</span>
+						<Sparkles className="h-4 w-4 text-blue-500" />
+						<div>
+							<span>Reschedule My Day</span>
+							<p className="text-xs text-muted-foreground">
+								Let AI optimize your entire task schedule.
+							</p>
 						</div>
 					</DropdownMenuItem>
-
-					<DropdownMenuSeparator />
 
 					<DropdownMenuItem
 						onClick={handleUpdateTimeEstimates}
@@ -170,10 +173,24 @@ export function AISchedulerButton({
 						className="gap-2"
 					>
 						<Clock className="h-4 w-4" />
-						<div className="flex flex-col items-start">
+						<div>
 							<span>Update Time Estimates</span>
+							<p className="text-xs text-muted-foreground">
+								Use AI to refine task durations.
+							</p>
+						</div>
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem
+						onClick={handleOpenDialog}
+						disabled={isProcessing}
+						className="gap-2"
+					>
+						<Sparkles className="h-4 w-4" />
+						<div className="flex flex-col items-start">
+							<span>Advanced Scheduling...</span>
 							<span className="text-xs text-muted-foreground">
-								AI will analyze and update task durations
+								Open the full AI scheduling dialog
 							</span>
 						</div>
 					</DropdownMenuItem>

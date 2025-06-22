@@ -65,10 +65,11 @@ const convertTaskUpdatesToDb = (updates: Partial<Task>): Record<string, unknown>
 	if (updates.boardId !== undefined) dbUpdates.board_id = updates.boardId;
 	if (updates.progressPercentage !== undefined) dbUpdates.progress_percentage = updates.progressPercentage;
 	if (updates.timeSpent !== undefined) dbUpdates.time_spent = updates.timeSpent;
-	if (updates.scheduledDate !== undefined) dbUpdates.scheduled_date = updates.scheduledDate;
-	if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+	if ('scheduledDate' in updates) dbUpdates.scheduled_date = updates.scheduledDate || null;
+	if ('startDate' in updates) dbUpdates.start_date = updates.startDate || null;
 	// if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
-	if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate;
+	if ('dueDate' in updates) dbUpdates.due_date = updates.dueDate || null;
+	if ('completedAt' in updates) dbUpdates.completed_at = updates.completedAt || null;
 	if (updates.category !== undefined) dbUpdates.category = updates.category;
 	if (updates.labels !== undefined) dbUpdates.labels = JSON.stringify(updates.labels);
 	if (updates.tags !== undefined) dbUpdates.tags = JSON.stringify(updates.tags);
@@ -372,10 +373,10 @@ export const useSupabaseDatabase = () => {
 			// Optimistic update: Update local state immediately
 			setTasks(prevTasks => prevTasks.map(task => (task.id === id ? { ...task, ...updates } : task)));
 
-			// Convert updates to database format using centralized helper
-			const dbUpdates = convertTaskUpdatesToDb(updates);
+					// Convert updates to database format using centralized helper
+		const dbUpdates = convertTaskUpdatesToDb(updates);
 
-			console.log('Updating task with:', dbUpdates);
+		console.log('Updating task with:', dbUpdates);
 			console.log('Task ID:', id, 'User ID:', user.id);
 
 			const { data, error } = await supabase.from('tasks').update(dbUpdates).eq('id', id).eq('user_id', user.id).select();

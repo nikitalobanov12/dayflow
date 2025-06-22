@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { Task, UserPreferences, Profile } from '@/types';
 import { addDays, isAfter, format, getDay } from 'date-fns';
-import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, toZonedTime, fromZonedTime } from 'date-fns-tz';
 
 // Initialize Google Gemini client
 const getGeminiClient = () => {
@@ -336,9 +336,31 @@ Only return the JSON object, no additional text or formatting.`;
 		const scheduledTasks = processedTasks.map(task => {
 			const aiTask = validatedScheduledTasks.find((at: any) => at.id === task.id);
 			if (aiTask) {
+				// Convert the AI's local timezone date to UTC for database storage
+				// AI returns dates like "2025-01-15T09:00:00.000" representing 9am in user's timezone
+				// We need to convert this to UTC for proper database storage
+				let utcScheduledDate = aiTask.scheduledDate;
+				
+				if (aiTask.scheduledDate) {
+					try {
+						// Parse the AI's local timezone date and convert to UTC
+						const localDate = new Date(aiTask.scheduledDate);
+						const utcDate = fromZonedTime(localDate, userTimezone);
+						utcScheduledDate = utcDate.toISOString();
+						
+						console.log(`🕐 Converting AI scheduled time from local to UTC:`);
+						console.log(`  - AI returned (local): ${aiTask.scheduledDate}`);
+						console.log(`  - User timezone: ${userTimezone}`);
+						console.log(`  - Converted to UTC: ${utcScheduledDate}`);
+					} catch (error) {
+						console.warn(`Failed to convert timezone for task ${task.id}:`, error);
+						// Fall back to original date if conversion fails
+					}
+				}
+				
 				return {
 					...task,
-					scheduledDate: aiTask.scheduledDate,
+					scheduledDate: utcScheduledDate,
 					timeEstimate: aiTask.timeEstimate || task.timeEstimate,
 				};
 			}

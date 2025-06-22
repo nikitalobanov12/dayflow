@@ -1,4 +1,5 @@
-import { Task } from '@/types';
+import { Task, Profile } from '@/types';
+import { formatInTimeZone } from 'date-fns-tz';
 
 /**
  * Gets the next upcoming task based on scheduled date, due date, or start date
@@ -60,7 +61,7 @@ export function getNextUpcomingTask(tasks: Task[]): Task | null {
 /**
  * Gets a description of when the task is scheduled
  */
-export function getTaskScheduleDescription(task: Task): string {
+export function getTaskScheduleDescription(task: Task, userProfile?: Profile): string {
   // Priority: scheduled date > due date > start date
   let relevantDate: Date | null = null;
   let dateType = '';
@@ -78,6 +79,9 @@ export function getTaskScheduleDescription(task: Task): string {
   
   if (!relevantDate) return '';
   
+  // Use user's timezone if available, otherwise fall back to browser's timezone
+  const userTimezone = userProfile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const taskDate = new Date(relevantDate);
@@ -86,19 +90,23 @@ export function getTaskScheduleDescription(task: Task): string {
   const diffTime = taskDate.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
+  // Format time using user's timezone
+  const timeString = formatInTimeZone(relevantDate, userTimezone, 'h:mm a');
+  const dayName = formatInTimeZone(relevantDate, userTimezone, 'EEEE');
+  const dateString = formatInTimeZone(relevantDate, userTimezone, 'M/d/yyyy');
+  
   if (diffDays === 0) {
-    return `${dateType} today at ${relevantDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `${dateType} today at ${timeString}`;
   } else if (diffDays === 1) {
-    return `${dateType} tomorrow at ${relevantDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `${dateType} tomorrow at ${timeString}`;
   } else if (diffDays === -1) {
     return `${dateType} yesterday (overdue)`;
   } else if (diffDays < 0) {
     return `${dateType} ${Math.abs(diffDays)} days ago (overdue)`;
   } else if (diffDays <= 7) {
-    const dayName = relevantDate.toLocaleDateString([], { weekday: 'long' });
-    return `${dateType} ${dayName} at ${relevantDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `${dateType} ${dayName} at ${timeString}`;
   } else {
-    return `${dateType} ${relevantDate.toLocaleDateString()} at ${relevantDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `${dateType} ${dateString} at ${timeString}`;
   }
 }
 

@@ -245,6 +245,7 @@ export function GlobalSidebar({
 						<div className='text-xs font-medium text-muted-foreground mb-2'>Next Up</div>
 						<UpcomingTaskPreview 
 							task={upcomingTask} 
+							userProfile={userProfile}
 							onClick={onTaskClick}
 							className='w-full'
 						/>

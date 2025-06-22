@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
-import { UserPreferences, Task } from '@/types';
+import { UserPreferences, Task, Profile } from '@/types';
+import { formatInTimeZone } from 'date-fns-tz';
 
 /**
  * Hook to apply user preferences for task filtering, sorting, and formatting
  */
-export function useUserPreferences(userPreferences?: UserPreferences | null) {
-	// Format date according to user preference
+export function useUserPreferences(userPreferences?: UserPreferences | null, userProfile?: Profile | null) {
+	// Format date according to user preference with timezone support
 	const formatDate = useMemo(() => {
 		return (date: string | Date, includeTime = false): string => {
 			if (!date) return '';
@@ -13,45 +14,37 @@ export function useUserPreferences(userPreferences?: UserPreferences | null) {
 			const dateObj = typeof date === 'string' ? new Date(date) : date;
 			if (isNaN(dateObj.getTime())) return '';
 
+			// Use user's timezone if available, otherwise fall back to browser's timezone
+			const userTimezone = userProfile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 			const format = userPreferences?.dateFormat || 'MM/DD/YYYY';
 			const timeFormat = userPreferences?.timeFormat || '12h';
 
-			let dateStr = '';
+			let datePattern = '';
 			switch (format) {
-				case 'DD/MM/YYYY': {
-					dateStr = dateObj.toLocaleDateString('en-GB', {
-						day: '2-digit',
-						month: '2-digit',
-						year: 'numeric',
-					});
+				case 'DD/MM/YYYY':
+					datePattern = 'dd/MM/yyyy';
 					break;
-				}
-				case 'YYYY-MM-DD': {
-					dateStr = dateObj.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format
+				case 'YYYY-MM-DD':
+					datePattern = 'yyyy-MM-dd';
 					break;
-				}
 				case 'MM/DD/YYYY':
 				default:
-					dateStr = dateObj.toLocaleDateString('en-US', {
-						month: '2-digit',
-						day: '2-digit',
-						year: 'numeric',
-					});
+					datePattern = 'MM/dd/yyyy';
 					break;
 			}
 
+			// Format date using user's timezone
+			const dateStr = formatInTimeZone(dateObj, userTimezone, datePattern);
+
 			if (includeTime) {
-				const timeStr = dateObj.toLocaleTimeString('en-US', {
-					hour12: timeFormat === '12h',
-					hour: '2-digit',
-					minute: '2-digit',
-				});
+				const timePattern = timeFormat === '12h' ? 'h:mm a' : 'HH:mm';
+				const timeStr = formatInTimeZone(dateObj, userTimezone, timePattern);
 				return `${dateStr} ${timeStr}`;
 			}
 
 			return dateStr;
 		};
-	}, [userPreferences?.dateFormat, userPreferences?.timeFormat]);
+	}, [userPreferences?.dateFormat, userPreferences?.timeFormat, userProfile?.timezone]);
 
 	// Filter tasks based on user preferences
 	const filterTasks = useMemo(() => {

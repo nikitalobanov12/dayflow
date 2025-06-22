@@ -8,6 +8,7 @@ export interface UseAISchedulerReturn {
 	isScheduling: boolean;
 	isEstimating: boolean;
 	scheduleTasksWithAI: (tasks: Task[], userPreferences: UserPreferences, userProfile: Profile, customInstructions?: string) => Promise<AIScheduleResponse | null>;
+	rescheduleAllTasksWithAI: (tasks: Task[], userPreferences: UserPreferences, userProfile: Profile) => Promise<boolean>;
 	updateTimeEstimatesWithAI: (tasks: Task[], userPreferences: UserPreferences, userProfile: Profile) => Promise<boolean>;
 	lastScheduleResult: AIScheduleResponse | null;
 }
@@ -18,6 +19,16 @@ export function useAIScheduler(): UseAISchedulerReturn {
 	const [lastScheduleResult, setLastScheduleResult] = useState<AIScheduleResponse | null>(null);
 	
 	const { updateTask } = useSupabaseDatabase();
+
+	const rescheduleAllTasksWithAI = async (
+		tasks: Task[],
+		userPreferences: UserPreferences,
+		userProfile: Profile
+	): Promise<boolean> => {
+		const activeTasks = tasks.filter(task => task.status !== 'done');
+		const result = await scheduleTasksWithAIHandler(activeTasks, userPreferences, userProfile, 'Reschedule all tasks based on current priorities and calendar events.');
+		return !!result;
+	};
 
 	const scheduleTasksWithAIHandler = async (
 		tasks: Task[], 
@@ -190,6 +201,7 @@ export function useAIScheduler(): UseAISchedulerReturn {
 		isScheduling,
 		isEstimating,
 		scheduleTasksWithAI: scheduleTasksWithAIHandler,
+		rescheduleAllTasksWithAI,
 		updateTimeEstimatesWithAI,
 		lastScheduleResult,
 	};
