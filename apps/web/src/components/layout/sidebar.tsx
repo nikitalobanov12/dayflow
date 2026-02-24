@@ -44,6 +44,7 @@ import {
   resolveSidebarExpanded,
   serializeSidebarExpanded,
   SIDEBAR_EXPANDED_STORAGE_KEY,
+  SIDEBAR_WIDTH_TRANSITION_MS,
 } from "~/components/layout/sidebar-state";
 
 interface SidebarProps {
@@ -98,7 +99,7 @@ function SidebarNavItem({
       <Icon className="h-5 w-5 shrink-0" />
       <span
         className={cn(
-          "truncate whitespace-nowrap text-sm font-medium transition-all duration-200",
+          "truncate whitespace-nowrap text-sm font-medium transition-all duration-200 overflow-hidden",
           getSidebarLabelAnimationClass(isExpanded)
         )}
       >
@@ -123,20 +124,23 @@ function SidebarNavItem({
 
 function DesktopNav({
   isExpanded,
+  showExpandedContent,
   onToggle,
   onItemClick,
   showToggle = true,
 }: {
   isExpanded: boolean;
+  showExpandedContent: boolean;
   onToggle?: () => void;
   onItemClick?: () => void;
   showToggle?: boolean;
 }) {
   const pathname = usePathname();
+  const hasExpandedLayout = isExpanded || showExpandedContent;
 
   return (
     <TooltipProvider delayDuration={0}>
-      <nav className="flex flex-col gap-1 py-3">
+      <nav className={cn("flex flex-col gap-1 py-3", !hasExpandedLayout && "items-center")}>
         {showToggle && onToggle && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -146,11 +150,11 @@ function DesktopNav({
                 onClick={onToggle}
                 className={cn(
                   "h-10 w-10 rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                  isExpanded ? "mx-2 self-end" : "mx-auto"
+                  hasExpandedLayout ? "mx-2 self-end" : "mx-auto"
                 )}
                 aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
               >
-                {isExpanded ? (
+                {hasExpandedLayout ? (
                   <ChevronsLeft className="h-4 w-4" />
                 ) : (
                   <ChevronsRight className="h-4 w-4" />
@@ -165,7 +169,7 @@ function DesktopNav({
 
       {/* Main navigation */}
       <div className="mb-2">
-        {isExpanded && (
+        {showExpandedContent && (
           <p className="px-5 py-1.5 text-eyebrow text-muted-foreground">Plan</p>
         )}
         {mainNavigation.map((item) => {
@@ -177,21 +181,21 @@ function DesktopNav({
               icon={item.icon}
               label={item.name}
               isActive={isActive}
-              isExpanded={isExpanded}
+              isExpanded={hasExpandedLayout}
               onClick={onItemClick}
             />
           );
         })}
       </div>
 
-      {isExpanded && <GoalsTree onItemClick={onItemClick} />}
+      {showExpandedContent && <GoalsTree onItemClick={onItemClick} />}
 
       {/* Divider */}
-      <div className={cn("my-2 border-t border-border/50", isExpanded ? "mx-3" : "mx-5")} />
+      <div className={cn("my-2 border-t border-border/50", isExpanded ? "mx-3" : "mx-4")} />
 
       {/* Secondary navigation */}
       <div>
-        {isExpanded && (
+        {showExpandedContent && (
           <p className="px-5 py-1.5 text-eyebrow text-muted-foreground">
             Organize
           </p>
@@ -206,7 +210,7 @@ function DesktopNav({
               icon={item.icon}
               label={item.name}
               isActive={isActive}
-              isExpanded={isExpanded}
+              isExpanded={hasExpandedLayout}
               onClick={onItemClick}
             />
           );
@@ -358,12 +362,16 @@ function UserMenu({ user, collapsed }: { user: SidebarProps["user"]; collapsed?:
 // Main sidebar component - icon rail with button-controlled expansion
 export function Sidebar({ user }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showExpandedContent, setShowExpandedContent] = useState(false);
+  const hasExpandedLayout = isExpanded || showExpandedContent;
 
   useEffect(() => {
     const storedValue = window.localStorage.getItem(
       SIDEBAR_EXPANDED_STORAGE_KEY,
     );
-    setIsExpanded(resolveSidebarExpanded(storedValue));
+    const initialExpanded = resolveSidebarExpanded(storedValue);
+    setIsExpanded(initialExpanded);
+    setShowExpandedContent(initialExpanded);
   }, []);
 
   useEffect(() => {
@@ -373,6 +381,16 @@ export function Sidebar({ user }: SidebarProps) {
     );
   }, [isExpanded]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setShowExpandedContent(isExpanded);
+    }, Math.round(SIDEBAR_WIDTH_TRANSITION_MS * (isExpanded ? 0.45 : 0.55)));
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [isExpanded]);
+
   const toggleSidebar = () => {
     setIsExpanded((value) => !value);
   };
@@ -380,14 +398,14 @@ export function Sidebar({ user }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "hidden md:flex shrink-0 flex-col border-r border-border/50 bg-sidebar transition-[width] duration-300 ease-out",
+        "hidden md:flex shrink-0 flex-col overflow-hidden border-r border-border/50 bg-sidebar transition-[width] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width] motion-reduce:transition-none",
         getDesktopSidebarWidthClass(isExpanded)
       )}
     >
       <div
         className={cn(
-          "flex h-16 items-center border-b border-border/50 transition-[padding] duration-300",
-          isExpanded ? "justify-between px-4" : "justify-center px-0"
+          "flex h-16 items-center border-b border-border/50 transition-[padding] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+          hasExpandedLayout ? "justify-between px-4" : "justify-center px-0"
         )}
       >
         <Link href="/today" className="group">
@@ -400,8 +418,8 @@ export function Sidebar({ user }: SidebarProps) {
         </Link>
         <span
           className={cn(
-            "truncate whitespace-nowrap pr-1 font-display text-xl tracking-tight transition-all duration-200",
-            getSidebarLabelAnimationClass(isExpanded)
+            "truncate whitespace-nowrap pr-1 font-display text-xl tracking-tight transition-all duration-200 overflow-hidden",
+            getSidebarLabelAnimationClass(hasExpandedLayout)
           )}
         >
           Aether
@@ -409,16 +427,20 @@ export function Sidebar({ user }: SidebarProps) {
       </div>
 
       <ScrollArea className="flex-1 py-1">
-        <DesktopNav isExpanded={isExpanded} onToggle={toggleSidebar} />
+        <DesktopNav
+          isExpanded={isExpanded}
+          showExpandedContent={showExpandedContent}
+          onToggle={toggleSidebar}
+        />
       </ScrollArea>
 
       <div
         className={cn(
           "border-t border-border/50 p-3 transition-all duration-200",
-          isExpanded ? "" : "flex justify-center"
+          hasExpandedLayout ? "" : "flex justify-center"
         )}
       >
-        <UserMenu user={user} collapsed={!isExpanded} />
+        <UserMenu user={user} collapsed={!hasExpandedLayout} />
       </div>
     </aside>
   );
@@ -456,6 +478,7 @@ export function MobileNav({ user }: SidebarProps) {
         <ScrollArea className="flex-1 py-4">
           <DesktopNav
             isExpanded
+            showExpandedContent
             showToggle={false}
             onItemClick={() => setOpen(false)}
           />

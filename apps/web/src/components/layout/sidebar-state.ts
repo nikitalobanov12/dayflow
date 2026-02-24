@@ -1,4 +1,5 @@
 export const SIDEBAR_EXPANDED_STORAGE_KEY = "aether-sidebar-expanded";
+export const SIDEBAR_WIDTH_TRANSITION_MS = 220;
 
 export function resolveSidebarExpanded(
   storedValue: string | null | undefined,
@@ -16,6 +17,6 @@ export function getDesktopSidebarWidthClass(isExpanded: boolean): "w-16" | "w-72
 
 export function getSidebarLabelAnimationClass(isExpanded: boolean): string {
   return isExpanded
-    ? "opacity-100 translate-x-0"
-    : "opacity-0 -translate-x-1 pointer-events-none";
+    ? "opacity-100 translate-x-0 max-w-[12rem]"
+    : "opacity-0 -translate-x-1 pointer-events-none max-w-0";
 }

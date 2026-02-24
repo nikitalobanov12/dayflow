@@ -34,11 +34,13 @@ describe("getSidebarLabelAnimationClass", () => {
   it("returns visible label classes when expanded", () => {
     expect(getSidebarLabelAnimationClass(true)).toContain("opacity-100");
     expect(getSidebarLabelAnimationClass(true)).toContain("translate-x-0");
+    expect(getSidebarLabelAnimationClass(true)).toContain("max-w-[12rem]");
   });
 
   it("returns hidden label classes when collapsed", () => {
     expect(getSidebarLabelAnimationClass(false)).toContain("opacity-0");
     expect(getSidebarLabelAnimationClass(false)).toContain("-translate-x-1");
     expect(getSidebarLabelAnimationClass(false)).toContain("pointer-events-none");
+    expect(getSidebarLabelAnimationClass(false)).toContain("max-w-0");
   });
 });
